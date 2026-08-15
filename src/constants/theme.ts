@@ -1,65 +1,48 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+export const colors = {
+  headerBackground: "#284E4C", // Deep Teal
+  headerCardOverlay: "rgba(255, 255, 255, 0.15)",
+  screenBackground: "#F4F4F0", // Off-white / Cream
+  cardBackground: "#FFFFFF",
 
-import '@/global.css';
+  textDark: "#1C1C1E",
+  textMuted: "#71717A",
+  textLight: "#FFFFFF",
+  textLightMuted: "rgba(255, 255, 255, 0.7)",
 
-import { Platform } from 'react-native';
+  primaryOrange: "#C86D51", // Terracotta accent
+  primaryTeal: "#284E4C",
+  sageTeal: "#729B96",
+  softOrange: "#E29C82",
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
-} as const;
+  progressTrack: "#EFEFEA",
+  border: "#E8E8E3",
+};
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export const colors_sign_register = {
+  headerBackground: "#245353",
+  headerCircleOverlay: "rgba(255, 255, 255, 0.08)",
+  screenBackground: "#F5F3EF",
+  cardBackground: "#FFFFFF",
+  inputBorder: "#E6E2DC",
+  primaryTeal: "#245353",
+  accentOrange: "#C85A32",
+  textDark: "#1A1A1A",
+  textMuted: "#7C756B",
+  textLight: "#FFFFFF",
+  textLightMuted: "#A3B8B8",
+  buttonDisabled: "#E6E2DC",
+  textDisabled: "#7C756B",
+};
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
+export const colors_setting = {
+  headerBackground: "#284E4C", // Deep Teal
+  headerCardOverlay: "rgba(255, 255, 255, 0.15)",
+  screenBackground: "#F4F4F0", // Off-white / Cream
+  cardBackground: "#FFFFFF",
 
-export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
-} as const;
-
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+  textDark: "#1C1C1E",
+  textMuted: "#71717A",
+  textLight: "#FFFFFF",
+  textLightMuted: "rgba(255, 255, 255, 0.7)",
+  logOutText: "rgba(255, 0, 0, 0.7)",
+};

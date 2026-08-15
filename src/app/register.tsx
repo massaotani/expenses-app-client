@@ -1,0 +1,431 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { colors_sign_register } from "../constants/theme";
+import api from "../services/api";
+import { useAuth } from "./_layout";
+
+export default function RegisterScreen() {
+  const router = useRouter();
+  const { signIn } = useAuth();
+
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [monthlyIncome, setMonthlyIncome] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleRegister = async () => {
+    if (!fullName.trim() || !email.trim() || !password || !monthlyIncome) {
+      Alert.alert("Missing Information", "Please fill in all fields.");
+      return;
+    }
+
+    if (password.length < 8) {
+      Alert.alert(
+        "Weak Password",
+        "Password must be at least 8 characters long.",
+      );
+      return;
+    }
+
+    if (!agreeTerms) {
+      Alert.alert(
+        "Terms Required",
+        "Please agree to the Terms of Service to proceed.",
+      );
+      return;
+    }
+
+    const parsedIncome = parseFloat(monthlyIncome);
+    if (isNaN(parsedIncome) || parsedIncome < 0) {
+      Alert.alert(
+        "Invalid Income",
+        "Please enter a valid monthly income number.",
+      );
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await api.post("/api/v1/auth/register", {
+        name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        password: password,
+        monthlyIncome: parsedIncome,
+        accountRole: "NORMAL",
+      });
+
+      const { token } = response.data;
+
+      if (token) {
+        // Triggers react state update in RootLayout via AuthContext
+        await signIn(token);
+      }
+    } catch (error: any) {
+      console.error("Registration failed:", error);
+      const backendMessage =
+        error.response?.data?.message ||
+        error.response?.data ||
+        "Unable to connect to server. Please try again.";
+
+      setErrorMessage(
+        typeof backendMessage === "string"
+          ? backendMessage
+          : "Registration failed.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleIncomeChange = (text: string) => {
+    let cleaned = text.replace(/[^0-9.]/g, "");
+    const parts = cleaned.split(".");
+    if (parts.length > 2) {
+      cleaned = `${parts[0]}.${parts.slice(1).join("")}`;
+    }
+    if (parts.length === 2 && parts[1].length > 2) {
+      cleaned = `${parts[0]}.${parts[1].slice(0, 2)}`;
+    }
+    setMonthlyIncome(cleaned);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={colors_sign_register.headerBackground}
+      />
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerCircle} />
+
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={loading}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={16}
+              color={colors_sign_register.textLight}
+            />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>Create your{"\n"}account.</Text>
+          <Text style={styles.headerSubtitle}>
+            Start tracking your expenses today
+          </Text>
+        </View>
+
+        <View style={styles.form}>
+          {errorMessage !== "" && (
+            <View style={styles.errorContainer}>
+              <Ionicons
+                name="alert-circle"
+                size={18}
+                color="#D9383A"
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          )}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>FULL NAME</Text>
+            <TextInput
+              style={styles.input}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Alex Rivera"
+              placeholderTextColor={colors_sign_register.textMuted}
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>EMAIL</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="alex@example.com"
+              placeholderTextColor={colors_sign_register.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>PASSWORD</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Min. 8 characters"
+              placeholderTextColor={colors_sign_register.textMuted}
+              secureTextEntry
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>MONTHLY INCOME</Text>
+            <TextInput
+              style={styles.input}
+              value={monthlyIncome}
+              onChangeText={handleIncomeChange}
+              placeholder="0.00"
+              placeholderTextColor={colors_sign_register.textMuted}
+              keyboardType="decimal-pad"
+              editable={!loading}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setAgreeTerms(!agreeTerms)}
+            activeOpacity={0.8}
+            disabled={loading}
+          >
+            <View
+              style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}
+            >
+              {agreeTerms && (
+                <Ionicons
+                  name="checkmark"
+                  size={12}
+                  color={colors_sign_register.textLight}
+                />
+              )}
+            </View>
+            <Text style={styles.checkboxText}>
+              I agree to the{" "}
+              <Text style={styles.linkText}>Terms of Service</Text> and{" "}
+              <Text style={styles.linkText}>Privacy Policy</Text>
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.createButton,
+              agreeTerms && !loading
+                ? styles.createButtonActive
+                : styles.createButtonDisabled,
+            ]}
+            disabled={!agreeTerms || loading}
+            onPress={handleRegister}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors_sign_register.textLight} />
+            ) : (
+              <Text
+                style={[
+                  styles.createButtonText,
+                  agreeTerms
+                    ? styles.createButtonTextActive
+                    : styles.createButtonTextDisabled,
+                ]}
+              >
+                Create Account
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.back()} disabled={loading}>
+              <Text style={styles.signinText}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors_sign_register.screenBackground,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+  },
+  header: {
+    backgroundColor: colors_sign_register.headerBackground,
+    paddingHorizontal: 28,
+    paddingTop: 16,
+    paddingBottom: 36,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+    position: "relative",
+    overflow: "hidden",
+  },
+  headerCircle: {
+    position: "absolute",
+    top: -40,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: colors_sign_register.headerCircleOverlay,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+    marginBottom: 24,
+  },
+  backButtonText: {
+    color: colors_sign_register.textLight,
+    fontSize: 13,
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: "700",
+    color: colors_sign_register.textLight,
+    lineHeight: 40,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: colors_sign_register.textLightMuted,
+    marginTop: 8,
+  },
+  form: {
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 32,
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDE8E8",
+    borderColor: "#F8B4B4",
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: "#D9383A",
+    fontSize: 13,
+    fontWeight: "500",
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: 18,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors_sign_register.textMuted,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: colors_sign_register.cardBackground,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: colors_sign_register.textDark,
+    borderWidth: 1,
+    borderColor: colors_sign_register.inputBorder,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    marginBottom: 28,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors_sign_register.inputBorder,
+    backgroundColor: colors_sign_register.cardBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: colors_sign_register.primaryTeal,
+    borderColor: colors_sign_register.primaryTeal,
+  },
+  checkboxText: {
+    fontSize: 13,
+    color: colors_sign_register.textDark,
+    flex: 1,
+  },
+  linkText: {
+    fontWeight: "700",
+    color: colors_sign_register.accentOrange,
+  },
+  createButton: {
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  createButtonDisabled: {
+    backgroundColor: colors_sign_register.buttonDisabled,
+  },
+  createButtonActive: {
+    backgroundColor: colors_sign_register.primaryTeal,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  createButtonTextDisabled: {
+    color: colors_sign_register.textDisabled,
+  },
+  createButtonTextActive: {
+    color: colors_sign_register.textLight,
+  },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 14,
+    color: colors_sign_register.textMuted,
+  },
+  signinText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors_sign_register.accentOrange,
+  },
+});
