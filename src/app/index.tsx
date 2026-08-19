@@ -43,11 +43,15 @@ export default function LoginScreen() {
         password: password,
       });
 
-      const { token } = response.data;
+      // 1. Destructure both tokens (supports 'accessToken' or legacy 'token' field name)
+      const { accessToken, token, refreshToken } = response.data;
+      const jwtAccessToken = accessToken || token;
 
-      if (token) {
-        // Triggers react state update in RootLayout via AuthContext
-        await signIn(token);
+      if (jwtAccessToken && refreshToken) {
+        // 2. Pass both tokens to AuthContext to save in SecureStore
+        await signIn(jwtAccessToken, refreshToken);
+      } else {
+        setErrorMessage("Invalid server response. Missing security tokens.");
       }
     } catch (error: any) {
       console.error("Login failed:", error);

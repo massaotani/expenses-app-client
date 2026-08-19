@@ -8,7 +8,7 @@ import { colors_sign_register } from "../constants/theme";
 type AuthContextType = {
   token: string | null;
   isLoading: boolean;
-  signIn: (newToken: string) => Promise<void>;
+  signIn: (accessToken: string, refreshToken: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -74,9 +74,10 @@ export default function RootLayout() {
     checkToken();
   }, []);
 
-  const signIn = async (newToken: string) => {
-    await setItem("userToken", newToken);
-    setToken(newToken);
+  const signIn = async (accessToken: string, refreshToken: string) => {
+    await setItem("userToken", accessToken);
+    await setItem("refreshToken", refreshToken);
+    setToken(accessToken);
   };
 
   const signOut = async () => {
