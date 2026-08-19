@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -13,97 +18,141 @@ import { useAuth } from "../app/_layout";
 import { colors } from "../constants/theme";
 import api from "../services/api";
 
-// 1. MATCHING YOUR EXACT SPRING BOOT DTO
 export interface SpringBootExpense {
-  id: number;
-  description: string; // You used description instead of title
-  value: number; // You used value instead of amount
+  id?: string;
+  description: string;
+  value: number;
   category: string;
-  dueDate: string; // YYYY-MM-DD format
+  dueDate: string;
   isPaid: boolean;
-  paymentType?: string;
+  paidAt?: string | null;
+  paymentType: "CASH" | "CARD";
+  recurrencePeriod: "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  cardId?: string | null;
 }
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  monthlyIncome: number;
+  investmentPot: number;
+  monthlyExpenses: number;
+}
+
+export interface SpringBootIncome {
+  id: string;
+  description: string;
+  value: number;
+  createdAt: string;
+}
+
+const CATEGORIES = [
+  "Food",
+  "Housing",
+  "Transportation",
+  "Entertainment",
+  "Utilities",
+];
+
+// const INCOME_CATEGORIES = [
+//   "Salary",
+//   "Freelance",
+//   "Investments",
+//   "Gift",
+//   "Other",
+// ];
 
 export default function OverviewScreen() {
   const { token } = useAuth();
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Computed state for the Figma UI
+  // User State
+  const [userName, setUserName] = useState<string>("");
+  const [monthlyIncome, setMonthlyIncome] = useState<number>(0);
+  const [investmentPot, setInvestmentPot] = useState<number>(0);
+
+  // Expense Data States
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [budgetItems, setBudgetItems] = useState<any[]>([]);
 
-  // Mocking Income/Balance since your Spring Boot app currently only tracks Expenses
-  const mockIncome = 7050.0;
-  const totalBalance = mockIncome - totalExpenses;
+  // Expense Modal States
+  const [modalExpensesVisible, setModalExpensesVisible] =
+    useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [description, setDescription] = useState("");
+  const [value, setValue] = useState("");
+  const [category, setCategory] = useState("Food");
+  const [isPaid, setIsPaid] = useState(true);
+  const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH");
+  const [recurrencePeriod, setRecurrencePeriod] = useState<
+    "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"
+  >("NONE");
+
+  // Income Modal States
+  const [modalIncomeVisible, setModalIncomeVisible] = useState<boolean>(false);
+  const [submittingIncome, setSubmittingIncome] = useState<boolean>(false);
+  const [incomeSource, setIncomeSource] = useState("");
+  const [incomeValue, setIncomeValue] = useState("");
+  const [incomes, setIncomes] = useState<SpringBootIncome[]>([]);
+  // const [incomeCategory, setIncomeCategory] = useState("Salary");
+  // const [incomePaymentType, setIncomePaymentType] = useState<"CASH" | "CARD">(
+  //   "CARD",
+  // );
+
+  // Dynamic Total Balance: Monthly Income - Dynamic Expenses
+  const totalBalance = monthlyIncome - totalExpenses;
 
   useEffect(() => {
     if (token) {
-      fetchExpenses();
+      fetchAllData();
     }
   }, [token]);
 
-  const fetchExpenses = async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
+  const fetchAllData = async () => {
     try {
-      // 2. FETCH FROM YOUR EXISTING ENDPOINT
-      const response = await api.get<SpringBootExpense[]>("/api/v1/expenses");
-      processFigmaData(response.data);
+      const [expensesRes, userRes, incomesRes] = await Promise.allSettled([
+        api.get<SpringBootExpense[]>("/api/v1/expenses"),
+        api.get<UserProfile>("/api/v1/users/me"),
+        api.get<SpringBootIncome[]>("/api/v1/incomes"),
+      ]);
+
+      const fetchedExpenses =
+        expensesRes.status === "fulfilled" ? expensesRes.value.data : [];
+      const fetchedIncomes =
+        incomesRes.status === "fulfilled" ? incomesRes.value.data : [];
+
+      if (userRes.status === "fulfilled") {
+        const user = userRes.value.data;
+        setUserName(user.name || "");
+        setMonthlyIncome(user.monthlyIncome || 0);
+        setInvestmentPot(user.investmentPot || 0);
+      }
+
+      if (incomesRes.status === "fulfilled") {
+        setIncomes(fetchedIncomes);
+      }
+
+      // Process both expenses and deposits together
+      processFigmaData(fetchedExpenses, fetchedIncomes);
     } catch (error) {
-      console.error("API Error, falling back to mock data:", error);
-      // Fallback data mapping to your Spring Boot structure so you can test UI without the server
-      const mockData: SpringBootExpense[] = [
-        {
-          id: 1,
-          description: "Whole Foods Market",
-          value: 87.4,
-          category: "Food",
-          dueDate: "2026-07-31",
-          isPaid: true,
-        },
-        {
-          id: 2,
-          description: "Netflix",
-          value: 17.99,
-          category: "Entertainment",
-          dueDate: "2026-07-29",
-          isPaid: true,
-        },
-        {
-          id: 3,
-          description: "Apartment Rent",
-          value: 1450.0,
-          category: "Housing",
-          dueDate: "2026-07-28",
-          isPaid: true,
-        },
-        {
-          id: 4,
-          description: "Uber",
-          value: 14.2,
-          category: "Transport",
-          dueDate: "2026-07-27",
-          isPaid: true,
-        },
-      ];
-      processFigmaData(mockData);
+      console.error("API Error fetching dashboard data:", error);
+      Alert.alert("Network Error", "Could not fetch data from server.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
-
-  // 3. TRANSFORM SPRING BOOT DATA INTO FIGMA UI DATA
-  const processFigmaData = (data: SpringBootExpense[]) => {
-    // A. Calculate Total Expenses
-    const total = data.reduce((sum, item) => sum + item.value, 0);
+  const processFigmaData = (
+    expenses: SpringBootExpense[],
+    incomesList: SpringBootIncome[],
+  ) => {
+    // 1. Process Expense Total & Budgets
+    const total = expenses.reduce((sum, item) => sum + item.value, 0);
     setTotalExpenses(total);
 
-    // B. Group by Category for the "Budget Overview" card
-    const budgetMap = data.reduce(
+    const budgetMap = expenses.reduce(
       (acc, item) => {
         acc[item.category] = (acc[item.category] || 0) + item.value;
         return acc;
@@ -115,35 +164,149 @@ export default function OverviewScreen() {
       id: index.toString(),
       category: cat,
       spent: budgetMap[cat],
-      limit: budgetMap[cat] + budgetMap[cat] * 0.2, // Mocking a budget limit 20% higher than spent
+      limit: budgetMap[cat] + budgetMap[cat] * 0.2,
       color: getCategoryColor(cat),
     }));
     setBudgetItems(groupedBudgets);
 
-    // C. Format for "Recent" list (Adapting your names to UI needs)
-    const transactions = data.slice(0, 5).map((item) => ({
-      id: item.id,
-      title: item.description, // Mapping your 'description' to UI 'title'
+    // 2. Map Expenses to Transaction Format
+    const formattedExpenses = expenses.map((item) => ({
+      id: `exp-${item.id || Math.random()}`,
+      type: "EXPENSE" as const,
+      title: item.description,
       category: item.category,
-      // Convert Spring Boot '2026-07-31' to UI 'Jul 31'
-      date: new Date(`${item.dueDate}T00:00:00`).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
+      rawDate: item.dueDate ? new Date(item.dueDate) : new Date(),
+      date: item.dueDate
+        ? new Date(item.dueDate).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "Today",
       amount: item.value,
       emoji: getCategoryEmoji(item.category),
     }));
-    setRecentTransactions(transactions);
+
+    // 3. Map Incomes to Transaction Format
+    const formattedIncomes = incomesList.map((item) => ({
+      id: `inc-${item.id || Math.random()}`,
+      type: "INCOME" as const,
+      title: item.description,
+      category: "Deposit",
+      rawDate: item.createdAt ? new Date(item.createdAt) : new Date(),
+      date: item.createdAt
+        ? new Date(item.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
+        : "Today",
+      amount: item.value,
+      emoji: "💰",
+    }));
+
+    // 4. Merge & Sort by Most Recent
+    const combined = [...formattedExpenses, ...formattedIncomes].sort(
+      (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
+    );
+
+    setRecentTransactions(combined.slice(0, 5));
   };
 
-  // UI Helpers
-  const getCategoryEmoji = (category: string) => {
-    switch (category?.toLowerCase()) {
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchAllData();
+  };
+
+  const handleAddIncome = async () => {
+    const deposit = parseFloat(incomeValue);
+
+    if (
+      !incomeSource.trim() ||
+      !incomeValue.trim() ||
+      isNaN(deposit) ||
+      deposit <= 0
+    ) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter a valid description and deposit amount.",
+      );
+      return;
+    }
+
+    setSubmittingIncome(true);
+
+    try {
+      // Matches IncomeDepositRequest: { description, amount }
+      await api.post("/api/v1/incomes", {
+        description: incomeSource.trim(),
+        amount: deposit,
+      });
+
+      setIncomeSource("");
+      setIncomeValue("");
+      setModalIncomeVisible(false);
+      fetchAllData();
+    } catch (error) {
+      console.error("Error creating income record:", error);
+      Alert.alert("Error", "Failed to save income deposit.");
+    } finally {
+      setSubmittingIncome(false);
+    }
+  };
+
+  const handleAddExpense = async () => {
+    if (!description.trim() || !value.trim() || isNaN(Number(value))) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter a valid description and amount.",
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    const now = new Date().toISOString().slice(0, 19);
+
+    const newExpense: Omit<SpringBootExpense, "id"> = {
+      description: description.trim(),
+      value: parseFloat(value),
+      category: category.toUpperCase() as SpringBootExpense["category"],
+      dueDate: now,
+      isPaid: isPaid,
+      paidAt: isPaid ? now : null,
+      paymentType: paymentType,
+      recurrencePeriod: recurrencePeriod,
+    };
+
+    try {
+      await api.post("/api/v1/expenses", newExpense);
+
+      setDescription("");
+      setValue("");
+      setCategory("Food");
+      setIsPaid(true);
+      setPaymentType("CASH");
+      setRecurrencePeriod("NONE");
+      setModalIncomeVisible(false);
+      setModalExpensesVisible(false);
+
+      fetchAllData();
+    } catch (error) {
+      console.error("Error creating expense:", error);
+      Alert.alert(
+        "Error",
+        "Failed to save expense. Verify backend validation.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getCategoryEmoji = (cat: string) => {
+    switch (cat?.toLowerCase()) {
       case "food":
         return "🛒";
       case "housing":
         return "🏠";
-      case "transport":
+      case "transportation":
         return "🚗";
       case "entertainment":
         return "🎬";
@@ -152,14 +315,16 @@ export default function OverviewScreen() {
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category?.toLowerCase()) {
+  const getCategoryColor = (cat: string) => {
+    switch (cat?.toLowerCase()) {
       case "housing":
         return colors.primaryTeal;
       case "food":
         return colors.primaryOrange;
-      case "transport":
+      case "transportation":
         return colors.sageTeal;
+      case "entertainment":
+        return colors.goldenOchre;
       default:
         return colors.softOrange;
     }
@@ -179,11 +344,23 @@ export default function OverviewScreen() {
         barStyle="light-content"
         backgroundColor={colors.headerBackground}
       />
-      <ScrollView showsVerticalScrollIndicator={false}>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primaryTeal}
+          />
+        }
+      >
         {/* --- HEADER SECTION --- */}
         <View style={styles.header}>
-          <Text style={styles.monthText}>JULY 2026</Text>
-          <Text style={styles.greetingText}>Good morning, Alex.</Text>
+          <Text style={styles.monthText}>OVERVIEW</Text>
+          <Text style={styles.greetingText}>
+            Good morning{userName ? `, ${userName}` : ""}.
+          </Text>
           <Text style={styles.subtitleText}>
             Your finances are looking healthy.
           </Text>
@@ -197,23 +374,51 @@ export default function OverviewScreen() {
                 maximumFractionDigits: 2,
               })}
             </Text>
-            <Text style={styles.balanceTrend}>↑ 4.2% from last month</Text>
+            {investmentPot > 0 && (
+              <Text style={styles.balanceTrend}>
+                Investment Pot: $
+                {investmentPot.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                })}
+              </Text>
+            )}
           </View>
 
           <View style={styles.dualCardRow}>
-            <View style={[styles.miniCard, styles.flex1, { marginRight: 8 }]}>
-              <Text style={styles.miniCardLabel}>INCOME</Text>
-              <Text style={styles.miniCardValue}>
-                ${mockIncome.toLocaleString()}
-              </Text>
-            </View>
+            <TouchableOpacity
+              style={[styles.miniCard, styles.flex1, { marginRight: 8 }]}
+              onPress={() => setModalIncomeVisible(true)}
+            >
+              <View style={styles.rowContainer}>
+                <Text style={styles.miniCardLabel}>INCOME</Text>
+                <Text style={styles.miniCardAdd}>+</Text>
+              </View>
 
-            <View style={[styles.miniCard, styles.flex1, { marginLeft: 8 }]}>
-              <Text style={styles.miniCardLabel}>EXPENSES</Text>
               <Text style={styles.miniCardValue}>
-                ${totalExpenses.toLocaleString()}
+                $
+                {monthlyIncome.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </Text>
-            </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.miniCard, styles.flex1, { marginLeft: 8 }]}
+              onPress={() => setModalExpensesVisible(true)}
+            >
+              <View style={styles.rowContainer}>
+                <Text style={styles.miniCardLabel}>EXPENSES</Text>
+                <Text style={styles.miniCardAdd}>+</Text>
+              </View>
+              <Text style={styles.miniCardValue}>
+                $
+                {totalExpenses.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -276,20 +481,250 @@ export default function OverviewScreen() {
                   </Text>
                 </View>
 
-                {/* All items fetched from /api/expenses are negative cash flow */}
-                <Text style={[styles.transactionAmount, styles.expenseText]}>
-                  -{tx.amount.toFixed(2)}
+                <Text
+                  style={[
+                    styles.transactionAmount,
+                    tx.type === "INCOME"
+                      ? styles.incomeText
+                      : styles.expenseText,
+                  ]}
+                >
+                  {tx.type === "INCOME"
+                    ? `+$${tx.amount.toFixed(2)}`
+                    : `-$${tx.amount.toFixed(2)}`}
                 </Text>
               </View>
             ))}
           </View>
         </View>
       </ScrollView>
+
+      {/* --- ADD INCOME MODAL --- */}
+      <Modal visible={modalIncomeVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Income Deposit</Text>
+
+            <Text style={styles.inputLabel}>Source / Description</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Monthly Salary, Freelance"
+              value={incomeSource}
+              onChangeText={setIncomeSource}
+            />
+
+            <Text style={styles.inputLabel}>Amount ($)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              keyboardType="decimal-pad"
+              value={incomeValue}
+              onChangeText={setIncomeValue}
+            />
+            {/* 
+            <Text style={styles.inputLabel}>Category</Text>
+            <View style={styles.categoryContainer}>
+              {INCOME_CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.categoryChip,
+                    incomeCategory === cat && styles.categoryChipSelected,
+                  ]}
+                  onPress={() => setIncomeCategory(cat)}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      incomeCategory === cat && styles.categoryChipTextSelected,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View> */}
+            {/* 
+            <Text style={styles.inputLabel}>Deposit Method</Text>
+            <View style={styles.categoryContainer}>
+              {(["CASH", "CARD"] as const).map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.categoryChip,
+                    incomePaymentType === type && styles.categoryChipSelected,
+                  ]}
+                  onPress={() => setIncomePaymentType(type)}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      incomePaymentType === type &&
+                        styles.categoryChipTextSelected,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View> */}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setModalIncomeVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleAddIncome}
+                disabled={submittingIncome}
+              >
+                {submittingIncome ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Add to Income</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- ADD EXPENSE MODAL --- */}
+      <Modal visible={modalExpensesVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add New Expense</Text>
+
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Grocery Shopping"
+              value={description}
+              onChangeText={setDescription}
+            />
+
+            <Text style={styles.inputLabel}>Amount ($)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              keyboardType="decimal-pad"
+              value={value}
+              onChangeText={setValue}
+            />
+
+            <Text style={styles.inputLabel}>Category</Text>
+            <View style={styles.categoryContainer}>
+              {CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.categoryChip,
+                    category === cat && styles.categoryChipSelected,
+                  ]}
+                  onPress={() => setCategory(cat)}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      category === cat && styles.categoryChipTextSelected,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.inputLabel}>Payment Method</Text>
+            <View style={styles.categoryContainer}>
+              {(["CASH", "CARD"] as const).map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.categoryChip,
+                    paymentType === type && styles.categoryChipSelected,
+                  ]}
+                  onPress={() => setPaymentType(type)}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      paymentType === type && styles.categoryChipTextSelected,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.inputLabel}>Repeat</Text>
+            <View style={styles.categoryContainer}>
+              {(["NONE", "WEEKLY", "MONTHLY", "YEARLY"] as const).map(
+                (period) => (
+                  <TouchableOpacity
+                    key={period}
+                    style={[
+                      styles.categoryChip,
+                      recurrencePeriod === period &&
+                        styles.categoryChipSelected,
+                    ]}
+                    onPress={() => setRecurrencePeriod(period)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        recurrencePeriod === period &&
+                          styles.categoryChipTextSelected,
+                      ]}
+                    >
+                      {period}
+                    </Text>
+                  </TouchableOpacity>
+                ),
+              )}
+            </View>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.inputLabel}>Mark as Paid</Text>
+              <Switch
+                value={isPaid}
+                onValueChange={setIsPaid}
+                trackColor={{ true: colors.primaryTeal }}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setModalExpensesVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleAddExpense}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Expense</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// Ensure you keep the exact same StyleSheet from the previous message here!
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.headerBackground },
   centerContainer: {
@@ -348,11 +783,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
   },
+  rowContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   miniCardLabel: {
     fontSize: 10,
     fontWeight: "700",
     color: colors.textLightMuted,
     letterSpacing: 1,
+  },
+  miniCardAdd: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: colors.textLightMuted,
+    letterSpacing: 1,
+    marginLeft: "auto",
   },
   miniCardValue: {
     fontSize: 20,
@@ -364,10 +810,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.screenBackground,
     paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 80,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
+  incomeText: { color: colors.primaryTeal || "#008080" },
   sectionCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
@@ -423,6 +870,70 @@ const styles = StyleSheet.create({
   transactionTitle: { fontSize: 15, fontWeight: "600", color: colors.textDark },
   transactionSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   transactionAmount: { fontSize: 15, fontWeight: "bold" },
-  incomeText: { color: colors.primaryTeal },
   expenseText: { color: colors.textDark },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: colors.cardBackground || "#FFFFFF",
+    padding: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.textDark,
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textDark,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  input: {
+    backgroundColor: colors.screenBackground || "#F5F5F5",
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+    color: colors.textDark,
+  },
+  categoryContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  categoryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: colors.screenBackground || "#F5F5F5",
+  },
+  categoryChipSelected: { backgroundColor: colors.primaryTeal || "#008080" },
+  categoryChipText: { fontSize: 12, color: colors.textDark, fontWeight: "600" },
+  categoryChipTextSelected: { color: "#FFFFFF" },
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  modalActions: { flexDirection: "row", gap: 12, marginTop: 24 },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  cancelButton: { backgroundColor: colors.screenBackground || "#F5F5F5" },
+  cancelButtonText: { color: colors.textDark, fontWeight: "600" },
+  saveButton: { backgroundColor: colors.primaryTeal || "#008080" },
+  saveButtonText: { color: "#FFFFFF", fontWeight: "bold" },
 });

@@ -21,8 +21,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
 
-  const [email, setEmail] = useState("alex@example.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -108,6 +108,7 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               value={email}
+              placeholder="e.g. massao@gmail.com"
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -122,6 +123,7 @@ export default function LoginScreen() {
                 style={styles.passwordInput}
                 value={password}
                 onChangeText={setPassword}
+                placeholder="Password"
                 secureTextEntry={!showPassword}
                 editable={!loading}
               />

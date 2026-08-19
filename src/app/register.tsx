@@ -27,6 +27,8 @@ export default function RegisterScreen() {
   const [monthlyIncome, setMonthlyIncome] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
 
+  const [showPassword, setShowPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -159,7 +161,7 @@ export default function RegisterScreen() {
               style={styles.input}
               value={fullName}
               onChangeText={setFullName}
-              placeholder="Alex Rivera"
+              placeholder="e.g. Massao Tani"
               placeholderTextColor={colors_sign_register.textMuted}
               editable={!loading}
             />
@@ -171,7 +173,7 @@ export default function RegisterScreen() {
               style={styles.input}
               value={email}
               onChangeText={setEmail}
-              placeholder="alex@example.com"
+              placeholder="e.g. massao@gmail.com"
               placeholderTextColor={colors_sign_register.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -187,9 +189,17 @@ export default function RegisterScreen() {
               onChangeText={setPassword}
               placeholder="Min. 8 characters"
               placeholderTextColor={colors_sign_register.textMuted}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               editable={!loading}
             />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              disabled={loading}
+            >
+              <Text style={styles.showText}>
+                {showPassword ? "hide" : "show"}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.inputGroup}>
@@ -361,6 +371,11 @@ const styles = StyleSheet.create({
     color: colors_sign_register.textDark,
     borderWidth: 1,
     borderColor: colors_sign_register.inputBorder,
+  },
+  showText: {
+    fontSize: 13,
+    color: colors_sign_register.textMuted,
+    fontWeight: "500",
   },
   checkboxContainer: {
     flexDirection: "row",

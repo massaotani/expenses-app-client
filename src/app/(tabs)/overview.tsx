@@ -1,6 +1,5 @@
-import React from 'react';
-import OverviewScreen from '../../components/OverviewScreen';
+import OverviewScreen from "../../components/OverviewScreen";
 
-export default function Home() {
+export default function Overview() {
   return <OverviewScreen />;
 }

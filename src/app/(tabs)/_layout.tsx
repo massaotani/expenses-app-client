@@ -21,7 +21,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <CustomTabIcon
               icon="home"
-              label="Home"
+              label=""
               color={color}
               focused={focused}
             />
@@ -36,7 +36,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <CustomTabIcon
               icon="list"
-              label="Transactions"
+              label=""
               color={color}
               focused={focused}
             />
@@ -51,7 +51,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <CustomTabIcon
               icon="bar-chart"
-              label="Analytics"
+              label=""
               color={color}
               focused={focused}
             />
@@ -66,7 +66,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <CustomTabIcon
               icon="settings"
-              label="Settings"
+              label=""
               color={color}
               focused={focused}
             />
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 80,
+    height: 75,
     position: "absolute",
     borderTopWidth: 0,
     elevation: 10,
@@ -130,16 +130,14 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: "center",
     justifyContent: "center",
-    top: 6,
+    top: 15,
   },
   tabLabel: {
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 6,
   },
   activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
   },
 });

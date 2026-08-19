@@ -13,6 +13,7 @@ export const colors = {
   primaryTeal: "#284E4C",
   sageTeal: "#729B96",
   softOrange: "#E29C82",
+  goldenOchre: "#D9A05B",
 
   progressTrack: "#EFEFEA",
   border: "#E8E8E3",
