@@ -1,10 +1,11 @@
+// app/_layout.tsx
+import api, { setOnUnauthenticated } from "@/services/api";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { colors_sign_register } from "../constants/theme";
 
-// Auth Context Type Definition
 type AuthContextType = {
   token: string | null;
   isLoading: boolean;
@@ -19,7 +20,6 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
-// Custom hook to use Auth Context
 export const useAuth = () => useContext(AuthContext);
 
 function InitialLayout() {
@@ -33,10 +33,8 @@ function InitialLayout() {
     const inTabsGroup = segments[0] === "(tabs)";
 
     if (token && !inTabsGroup) {
-      // User is authenticated -> redirect to main tabs
       router.replace("/(tabs)/overview");
     } else if (!token && inTabsGroup) {
-      // User is unauthenticated -> redirect to login screen
       router.replace("/");
     }
   }, [token, isLoading, segments]);
@@ -59,11 +57,37 @@ export default function RootLayout() {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
 
+  const signOut = async () => {
+    delete api.defaults.headers.common["Authorization"];
+    await deleteItem("userToken");
+    await deleteItem("refreshToken");
+    setToken(null);
+  };
+
+  const signIn = async (accessToken: string, refreshToken: string) => {
+    // 1. Immediately update in-memory header to prevent 401 race condition
+    api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+    // 2. Persist to SecureStore
+    await setItem("userToken", accessToken);
+    await setItem("refreshToken", refreshToken);
+    // 3. Trigger global React re-render
+    setToken(accessToken);
+  };
+
   useEffect(() => {
+    // Catch 401 session expirations from api.ts
+    setOnUnauthenticated(() => {
+      signOut();
+    });
+
     const checkToken = async () => {
       try {
         const storedToken = await getItem("userToken");
-        setToken(storedToken);
+        if (storedToken) {
+          api.defaults.headers.common["Authorization"] =
+            `Bearer ${storedToken}`;
+          setToken(storedToken);
+        }
       } catch (error) {
         console.error("Error reading auth token:", error);
       } finally {
@@ -73,17 +97,6 @@ export default function RootLayout() {
 
     checkToken();
   }, []);
-
-  const signIn = async (accessToken: string, refreshToken: string) => {
-    await setItem("userToken", accessToken);
-    await setItem("refreshToken", refreshToken);
-    setToken(accessToken);
-  };
-
-  const signOut = async () => {
-    await deleteItem("userToken");
-    setToken(null);
-  };
 
   return (
     <AuthContext.Provider value={{ token, isLoading, signIn, signOut }}>

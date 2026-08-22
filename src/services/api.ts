@@ -1,23 +1,31 @@
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
+import { Platform } from "react-native";
 
-const API_BASE_URL: string = process.env.EXPO_PUBLIC_API_URL || "";
+// 1. Read EXPO_PUBLIC_API_URL from .env with fallback for local testing
+const DEV_FALLBACK =
+  Platform.OS === "android" ? "http://10.0.2.2:8080" : "http://localhost:8080";
 
-// Standard Axios instance for authenticated app requests
+const API_BASE_URL: string = process.env.EXPO_PUBLIC_API_URL || DEV_FALLBACK;
+
+let onUnauthenticatedCallback: (() => void) | null = null;
+
+export const setOnUnauthenticated = (callback: () => void) => {
+  onUnauthenticatedCallback = callback;
+};
+
+// 2. Render instances spin down after inactivity; 45,000ms prevents
+// premature client timeouts during initial cold start wake-ups.
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 100000,
+  headers: { "Content-Type": "application/json" },
+  timeout: 45000,
 });
 
-// Separate instance for refresh calls to avoid infinite interceptor loops
 const refreshApi: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
+  timeout: 45000,
 });
 
 let isRefreshing = false;
@@ -37,19 +45,21 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
-// 1. Request Interceptor: Attach Current Access Token
+// 3. Request Interceptor: Attach token if missing from headers
 api.interceptors.request.use(
   async (config) => {
-    const token = await getItem("userToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (!config.headers.Authorization) {
+      const token = await getItem("userToken");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
   (error) => Promise.reject(error),
 );
 
-// 2. Response Interceptor: Handle 401 & Refresh Logic
+// 4. Response Interceptor: Manage 401 & token refreshes
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -57,9 +67,14 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // If request failed with 401 and hasn't been retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // If a refresh is ALREADY in progress, queue this request
+    // Ignore 401 handling for /auth routes (login, register, refresh)
+    const isAuthEndpoint = originalRequest.url?.includes("/api/v1/auth/");
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -81,33 +96,36 @@ api.interceptors.response.use(
           throw new Error("No refresh token found");
         }
 
-        // Call your backend refresh endpoint
         const response = await refreshApi.post("/api/v1/auth/refresh", {
           refreshToken: storedRefreshToken,
         });
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        const accessToken = response.data.accessToken || response.data.token;
+        const newRefreshToken = response.data.refreshToken;
 
-        // Save new tokens to SecureStore
+        if (!accessToken) {
+          throw new Error("Invalid token received from refresh endpoint");
+        }
+
         await setItem("userToken", accessToken);
         if (newRefreshToken) {
           await setItem("refreshToken", newRefreshToken);
         }
 
-        // Update default header and original request header
         api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
-        // Retry queued requests
         processQueue(null, accessToken);
-
-        // Retry current failed request
         return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, reject all queued requests and log the user out
         processQueue(refreshError, null);
         await deleteItem("userToken");
         await deleteItem("refreshToken");
+        delete api.defaults.headers.common["Authorization"];
+
+        if (onUnauthenticatedCallback) {
+          onUnauthenticatedCallback();
+        }
 
         return Promise.reject(refreshError);
       } finally {

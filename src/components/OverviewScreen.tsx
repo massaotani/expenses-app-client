@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { LineChart } from "react-native-gifted-charts";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../app/_layout";
 import { colors } from "../constants/theme";
@@ -46,6 +49,12 @@ export interface SpringBootIncome {
   createdAt: string;
 }
 
+export interface UserCard {
+  id: string;
+  name: string;
+  cardType: "CREDIT" | "DEBIT";
+}
+
 const CATEGORIES = [
   "Food",
   "Housing",
@@ -53,14 +62,6 @@ const CATEGORIES = [
   "Entertainment",
   "Utilities",
 ];
-
-// const INCOME_CATEGORIES = [
-//   "Salary",
-//   "Freelance",
-//   "Investments",
-//   "Gift",
-//   "Other",
-// ];
 
 export default function OverviewScreen() {
   const { token } = useAuth();
@@ -76,6 +77,17 @@ export default function OverviewScreen() {
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [budgetItems, setBudgetItems] = useState<any[]>([]);
+
+  // Card States
+  const [userCards, setUserCards] = useState<UserCard[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+
+  // Card Management Modal States
+  const [modalCardVisible, setModalCardVisible] = useState<boolean>(false);
+  const [cardModalMode, setCardModalMode] = useState<"LIST" | "FORM">("LIST");
+  const [newCardName, setNewCardName] = useState<string>("");
+  const [newCardType, setNewCardType] = useState<"CREDIT" | "DEBIT">("CREDIT");
+  const [submittingCard, setSubmittingCard] = useState<boolean>(false);
 
   // Expense Modal States
   const [modalExpensesVisible, setModalExpensesVisible] =
@@ -96,13 +108,17 @@ export default function OverviewScreen() {
   const [incomeSource, setIncomeSource] = useState("");
   const [incomeValue, setIncomeValue] = useState("");
   const [incomes, setIncomes] = useState<SpringBootIncome[]>([]);
-  // const [incomeCategory, setIncomeCategory] = useState("Salary");
-  // const [incomePaymentType, setIncomePaymentType] = useState<"CASH" | "CARD">(
-  //   "CARD",
-  // );
+
+  // Trend Data
+  const [trendData, setTrendData] = useState<
+    { value: number; label: string }[]
+  >([]);
 
   // Dynamic Total Balance: Monthly Income - Dynamic Expenses
   const totalBalance = monthlyIncome - totalExpenses;
+
+  const router = useRouter();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     if (token) {
@@ -110,13 +126,65 @@ export default function OverviewScreen() {
     }
   }, [token]);
 
+  const processMonthlyTrend = (expenses: SpringBootExpense[]) => {
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const now = new Date();
+    const last6Months = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const month = d.getMonth();
+      const year = d.getFullYear();
+
+      const monthlyTotal = expenses
+        .filter((exp) => {
+          const expDate = exp.dueDate ? new Date(exp.dueDate) : new Date();
+          return expDate.getMonth() === month && expDate.getFullYear() === year;
+        })
+        .reduce((sum, exp) => sum + exp.value, 0);
+
+      last6Months.push({
+        label: monthNames[month],
+        value: monthlyTotal,
+      });
+    }
+
+    return last6Months;
+  };
+
   const fetchAllData = async () => {
     try {
-      const [expensesRes, userRes, incomesRes] = await Promise.allSettled([
-        api.get<SpringBootExpense[]>("/api/v1/expenses"),
-        api.get<UserProfile>("/api/v1/users/me"),
-        api.get<SpringBootIncome[]>("/api/v1/incomes"),
-      ]);
+      const [expensesRes, userRes, incomesRes, cardsRes] =
+        await Promise.allSettled([
+          api.get<SpringBootExpense[]>("/api/v1/expenses"),
+          api.get<UserProfile>("/api/v1/users/me"),
+          api.get<SpringBootIncome[]>("/api/v1/incomes"),
+          api.get<UserCard[]>("/api/v1/cards"),
+        ]);
+
+      const isUnauthorized = [expensesRes, userRes, incomesRes, cardsRes].some(
+        (res) =>
+          res.status === "rejected" && res.reason?.response?.status === 401,
+      );
+
+      if (isUnauthorized) {
+        Alert.alert("Session Expired", "Please log in again.");
+        await signOut();
+        return;
+      }
 
       const fetchedExpenses =
         expensesRes.status === "fulfilled" ? expensesRes.value.data : [];
@@ -134,7 +202,14 @@ export default function OverviewScreen() {
         setIncomes(fetchedIncomes);
       }
 
-      // Process both expenses and deposits together
+      if (cardsRes.status === "fulfilled") {
+        const cards = cardsRes.value.data || [];
+        setUserCards(cards);
+        if (cards.length > 0 && !selectedCardId) {
+          setSelectedCardId(cards[0].id);
+        }
+      }
+
       processFigmaData(fetchedExpenses, fetchedIncomes);
     } catch (error) {
       console.error("API Error fetching dashboard data:", error);
@@ -144,13 +219,15 @@ export default function OverviewScreen() {
       setRefreshing(false);
     }
   };
+
   const processFigmaData = (
     expenses: SpringBootExpense[],
     incomesList: SpringBootIncome[],
   ) => {
-    // 1. Process Expense Total & Budgets
     const total = expenses.reduce((sum, item) => sum + item.value, 0);
     setTotalExpenses(total);
+
+    setTrendData(processMonthlyTrend(expenses));
 
     const budgetMap = expenses.reduce(
       (acc, item) => {
@@ -169,7 +246,6 @@ export default function OverviewScreen() {
     }));
     setBudgetItems(groupedBudgets);
 
-    // 2. Map Expenses to Transaction Format
     const formattedExpenses = expenses.map((item) => ({
       id: `exp-${item.id || Math.random()}`,
       type: "EXPENSE" as const,
@@ -186,12 +262,11 @@ export default function OverviewScreen() {
       emoji: getCategoryEmoji(item.category),
     }));
 
-    // 3. Map Incomes to Transaction Format
     const formattedIncomes = incomesList.map((item) => ({
       id: `inc-${item.id || Math.random()}`,
       type: "INCOME" as const,
       title: item.description,
-      category: "Deposit",
+      category: "DEPOSIT",
       rawDate: item.createdAt ? new Date(item.createdAt) : new Date(),
       date: item.createdAt
         ? new Date(item.createdAt).toLocaleDateString("en-US", {
@@ -203,7 +278,6 @@ export default function OverviewScreen() {
       emoji: "💰",
     }));
 
-    // 4. Merge & Sort by Most Recent
     const combined = [...formattedExpenses, ...formattedIncomes].sort(
       (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
     );
@@ -214,6 +288,32 @@ export default function OverviewScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchAllData();
+  };
+
+  const handleCreateCard = async () => {
+    if (!newCardName.trim()) {
+      Alert.alert("Validation Error", "Please enter a card name.");
+      return;
+    }
+
+    setSubmittingCard(true);
+
+    try {
+      await api.post("/api/v1/cards", {
+        name: newCardName.trim(),
+        cardType: newCardType,
+      });
+
+      setNewCardName("");
+      setNewCardType("CREDIT");
+      setCardModalMode("LIST");
+      await fetchAllData();
+    } catch (error) {
+      console.error("Error adding card:", error);
+      Alert.alert("Error", "Failed to add card. Please try again.");
+    } finally {
+      setSubmittingCard(false);
+    }
   };
 
   const handleAddIncome = async () => {
@@ -235,7 +335,6 @@ export default function OverviewScreen() {
     setSubmittingIncome(true);
 
     try {
-      // Matches IncomeDepositRequest: { description, amount }
       await api.post("/api/v1/incomes", {
         description: incomeSource.trim(),
         amount: deposit,
@@ -262,6 +361,14 @@ export default function OverviewScreen() {
       return;
     }
 
+    if (paymentType === "CARD" && (!selectedCardId || userCards.length === 0)) {
+      Alert.alert(
+        "Validation Error",
+        "Please select a card to pay with this expense.",
+      );
+      return;
+    }
+
     setSubmitting(true);
     const now = new Date().toISOString().slice(0, 19);
 
@@ -273,6 +380,7 @@ export default function OverviewScreen() {
       isPaid: isPaid,
       paidAt: isPaid ? now : null,
       paymentType: paymentType,
+      cardId: paymentType === "CARD" ? selectedCardId : null,
       recurrencePeriod: recurrencePeriod,
     };
 
@@ -285,7 +393,6 @@ export default function OverviewScreen() {
       setIsPaid(true);
       setPaymentType("CASH");
       setRecurrencePeriod("NONE");
-      setModalIncomeVisible(false);
       setModalExpensesVisible(false);
 
       fetchAllData();
@@ -358,11 +465,29 @@ export default function OverviewScreen() {
         {/* --- HEADER SECTION --- */}
         <View style={styles.header}>
           <Text style={styles.monthText}>OVERVIEW</Text>
-          <Text style={styles.greetingText}>
-            Good morning{userName ? `, ${userName}` : ""}.
-          </Text>
+
+          {/* Greeting Row with Card Manager Button */}
+          <View style={styles.userGreetingRow}>
+            <Text style={styles.greetingText}>
+              Hello{userName ? `, ${userName}` : ""}.
+            </Text>
+            <TouchableOpacity
+              style={styles.cardIconButton}
+              onPress={() => {
+                setCardModalMode("LIST");
+                setModalCardVisible(true);
+              }}
+            >
+              <Ionicons
+                name="card-outline"
+                size={20}
+                color={colors.textLight}
+              />
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.subtitleText}>
-            Your finances are looking healthy.
+            Take good care of your finances!
           </Text>
 
           <View style={styles.balanceCard}>
@@ -424,6 +549,39 @@ export default function OverviewScreen() {
 
         {/* --- BODY CONTENT --- */}
         <View style={styles.body}>
+          {/* Spending Trend */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>Spending Trend</Text>
+
+            <View style={styles.chartContainer}>
+              <LineChart
+                data={trendData}
+                curved
+                color={colors.primaryOrange || "#C86D4B"}
+                thickness={2.5}
+                hideDataPoints
+                height={130}
+                spacing={44}
+                initialSpacing={15}
+                endSpacing={15}
+                noOfSections={3}
+                rulesType="dashed"
+                rulesColor="#E5E7EB"
+                yAxisColor="transparent"
+                xAxisColor="#E5E7EB"
+                yAxisTextStyle={{
+                  color: colors.textMuted || "#9CA3AF",
+                  fontSize: 11,
+                }}
+                xAxisLabelTextStyle={{
+                  color: colors.textMuted || "#9CA3AF",
+                  fontSize: 11,
+                }}
+                formatYLabel={(val) => `${Number(val)}`}
+              />
+            </View>
+          </View>
+
           {/* Budget Overview */}
           <View style={styles.sectionCard}>
             <Text style={styles.cardTitle}>Budget Overview</Text>
@@ -463,7 +621,7 @@ export default function OverviewScreen() {
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.cardTitle}>Recent</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push("/transactions")}>
                 <Text style={styles.seeAllText}>See all →</Text>
               </TouchableOpacity>
             </View>
@@ -499,6 +657,120 @@ export default function OverviewScreen() {
         </View>
       </ScrollView>
 
+      {/* --- CARD MANAGEMENT MODAL --- */}
+      <Modal visible={modalCardVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {cardModalMode === "LIST" ? (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>Registered Cards</Text>
+                  <TouchableOpacity
+                    style={styles.addCardHeaderButton}
+                    onPress={() => setCardModalMode("FORM")}
+                  >
+                    <Text style={styles.addCardHeaderButtonText}>
+                      + Add Card
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {userCards.length === 0 ? (
+                  <View style={styles.emptyCardsContainer}>
+                    <Text style={styles.emptyCardsText}>
+                      No cards registered
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView style={{ maxHeight: 240, marginVertical: 12 }}>
+                    {userCards.map((c) => (
+                      <View key={c.id} style={styles.cardListItem}>
+                        <Text style={styles.cardListItemText}>💳 {c.name}</Text>
+                        <Text style={styles.cardListItemBadge}>
+                          {c.cardType}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setModalCardVisible(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <TouchableOpacity onPress={() => setCardModalMode("LIST")}>
+                    <Text style={styles.backButtonText}>← Back</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>New Card</Text>
+                  <View style={{ width: 40 }} />
+                </View>
+
+                <Text style={styles.inputLabel}>Card Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Chase Sapphire, Nubank"
+                  value={newCardName}
+                  onChangeText={setNewCardName}
+                />
+
+                <Text style={styles.inputLabel}>Card Type</Text>
+                <View style={styles.categoryContainer}>
+                  {(["CREDIT", "DEBIT"] as const).map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.categoryChip,
+                        newCardType === type && styles.categoryChipSelected,
+                      ]}
+                      onPress={() => setNewCardType(type)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          newCardType === type &&
+                            styles.categoryChipTextSelected,
+                        ]}
+                      >
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setCardModalMode("LIST")}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={handleCreateCard}
+                    disabled={submittingCard}
+                  >
+                    {submittingCard ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>Save Card</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* --- ADD INCOME MODAL --- */}
       <Modal visible={modalIncomeVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -521,53 +793,6 @@ export default function OverviewScreen() {
               value={incomeValue}
               onChangeText={setIncomeValue}
             />
-            {/* 
-            <Text style={styles.inputLabel}>Category</Text>
-            <View style={styles.categoryContainer}>
-              {INCOME_CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.categoryChip,
-                    incomeCategory === cat && styles.categoryChipSelected,
-                  ]}
-                  onPress={() => setIncomeCategory(cat)}
-                >
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      incomeCategory === cat && styles.categoryChipTextSelected,
-                    ]}
-                  >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View> */}
-            {/* 
-            <Text style={styles.inputLabel}>Deposit Method</Text>
-            <View style={styles.categoryContainer}>
-              {(["CASH", "CARD"] as const).map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.categoryChip,
-                    incomePaymentType === type && styles.categoryChipSelected,
-                  ]}
-                  onPress={() => setIncomePaymentType(type)}
-                >
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      incomePaymentType === type &&
-                        styles.categoryChipTextSelected,
-                    ]}
-                  >
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View> */}
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -641,26 +866,71 @@ export default function OverviewScreen() {
 
             <Text style={styles.inputLabel}>Payment Method</Text>
             <View style={styles.categoryContainer}>
-              {(["CASH", "CARD"] as const).map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.categoryChip,
-                    paymentType === type && styles.categoryChipSelected,
-                  ]}
-                  onPress={() => setPaymentType(type)}
-                >
-                  <Text
+              {(["CASH", "CARD"] as const).map((type) => {
+                const isDisabled = type === "CARD" && userCards.length === 0;
+
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    disabled={isDisabled}
                     style={[
-                      styles.categoryChipText,
-                      paymentType === type && styles.categoryChipTextSelected,
+                      styles.categoryChip,
+                      paymentType === type && styles.categoryChipSelected,
+                      isDisabled && { opacity: 0.4 },
                     ]}
+                    onPress={() => {
+                      setPaymentType(type);
+                      if (
+                        type === "CARD" &&
+                        userCards.length > 0 &&
+                        !selectedCardId
+                      ) {
+                        setSelectedCardId(userCards[0].id);
+                      }
+                    }}
                   >
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        paymentType === type && styles.categoryChipTextSelected,
+                      ]}
+                    >
+                      {type} {isDisabled ? "(No Cards Available)" : ""}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+
+            {/* Select Card option if CARD is active */}
+            {paymentType === "CARD" && userCards.length > 0 && (
+              <>
+                <Text style={styles.inputLabel}>Select Card</Text>
+                <View style={styles.categoryContainer}>
+                  {userCards.map((card) => (
+                    <TouchableOpacity
+                      key={card.id}
+                      style={[
+                        styles.categoryChip,
+                        selectedCardId === card.id &&
+                          styles.categoryChipSelected,
+                      ]}
+                      onPress={() => setSelectedCardId(card.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          selectedCardId === card.id &&
+                            styles.categoryChipTextSelected,
+                        ]}
+                      >
+                        💳 {card.name} ({card.cardType})
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             <Text style={styles.inputLabel}>Repeat</Text>
             <View style={styles.categoryContainer}>
@@ -746,11 +1016,25 @@ const styles = StyleSheet.create({
     color: colors.textLightMuted,
     letterSpacing: 1.5,
   },
+  userGreetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
   greetingText: {
     fontSize: 28,
     fontWeight: "bold",
     color: colors.textLight,
-    marginTop: 4,
+  },
+  cardIconButton: {
+    backgroundColor: colors.headerCardOverlay,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  cardIconText: {
+    fontSize: 18,
   },
   subtitleText: {
     fontSize: 14,
@@ -833,6 +1117,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   seeAllText: { fontSize: 13, fontWeight: "600", color: colors.primaryOrange },
+  chartContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingRight: 12,
+    marginTop: 8,
+  },
   budgetItem: { marginBottom: 16 },
   budgetHeader: {
     flexDirection: "row",
@@ -872,7 +1162,7 @@ const styles = StyleSheet.create({
   transactionAmount: { fontSize: 15, fontWeight: "bold" },
   expenseText: { color: colors.textDark },
 
-  /* Modal Styles */
+  /* Modal Base Styles */
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -883,12 +1173,63 @@ const styles = StyleSheet.create({
     padding: 24,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    minHeight: "40%",
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "bold",
     color: colors.textDark,
+  },
+  modalHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
+  },
+  addCardHeaderButton: {
+    backgroundColor: colors.primaryTeal || "#008080",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  addCardHeaderButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  backButtonText: {
+    fontSize: 14,
+    color: colors.primaryTeal || "#008080",
+    fontWeight: "600",
+  },
+  emptyCardsContainer: {
+    paddingVertical: 32,
+    alignItems: "center",
+  },
+  emptyCardsText: {
+    color: colors.textMuted || "#9CA3AF",
+    fontSize: 15,
+  },
+  cardListItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.screenBackground || "#F5F5F5",
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  cardListItemText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textDark,
+  },
+  cardListItemBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 0.5,
   },
   inputLabel: {
     fontSize: 13,
@@ -925,7 +1266,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
-  modalActions: { flexDirection: "row", gap: 12, marginTop: 24 },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: "auto",
+    paddingTop: 15,
+  },
   modalButton: {
     flex: 1,
     paddingVertical: 14,

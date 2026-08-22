@@ -1,10 +1,11 @@
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { createContext, useContext, useEffect, useState } from "react";
+import api, { setOnUnauthenticated } from "../services/api";
 
 interface AuthContextType {
   token: string | null;
   isLoading: boolean;
-  signIn: (newToken: string) => Promise<void>;
+  signIn: (newToken: string, newRefreshToken: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -19,29 +20,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const signOut = async () => {
+    delete api.defaults.headers.common["Authorization"];
+    await deleteItem("userToken");
+    await deleteItem("refreshToken");
+    setToken(null);
+  };
+
+  const signIn = async (newToken: string, newRefreshToken: string) => {
+    // Synchronously set header on Axios instance to beat storage race conditions
+    api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+    await setItem("userToken", newToken);
+    await setItem("refreshToken", newRefreshToken);
+    setToken(newToken);
+  };
+
   useEffect(() => {
+    setOnUnauthenticated(() => {
+      signOut();
+    });
+
     const loadStoredToken = async () => {
       try {
         const storedToken = await getItem("userToken");
-        setToken(storedToken);
+        if (storedToken) {
+          api.defaults.headers.common["Authorization"] =
+            `Bearer ${storedToken}`;
+          setToken(storedToken);
+        }
       } catch (e) {
         console.error("Failed to load token:", e);
       } finally {
         setIsLoading(false);
       }
     };
+
     loadStoredToken();
   }, []);
-
-  const signIn = async (newToken: string) => {
-    await setItem("userToken", newToken);
-    setToken(newToken); // ⚡ Updates state globally so RootLayout sees it immediately
-  };
-
-  const signOut = async () => {
-    await deleteItem("userToken");
-    setToken(null);
-  };
 
   return (
     <AuthContext.Provider value={{ token, isLoading, signIn, signOut }}>

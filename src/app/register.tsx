@@ -1,3 +1,4 @@
+import { useAuth } from "@/app/_layout";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -15,7 +16,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors_sign_register } from "../constants/theme";
 import api from "../services/api";
-import { useAuth } from "./_layout";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -24,7 +24,6 @@ export default function RegisterScreen() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [monthlyIncome, setMonthlyIncome] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -33,7 +32,7 @@ export default function RegisterScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleRegister = async () => {
-    if (!fullName.trim() || !email.trim() || !password || !monthlyIncome) {
+    if (!fullName.trim() || !email.trim() || !password) {
       Alert.alert("Missing Information", "Please fill in all fields.");
       return;
     }
@@ -54,60 +53,53 @@ export default function RegisterScreen() {
       return;
     }
 
-    const parsedIncome = parseFloat(monthlyIncome);
-    if (isNaN(parsedIncome) || parsedIncome < 0) {
-      Alert.alert(
-        "Invalid Income",
-        "Please enter a valid monthly income number.",
-      );
-      return;
-    }
-
     setLoading(true);
     setErrorMessage("");
-
     try {
       const response = await api.post("/api/v1/auth/register", {
         name: fullName.trim(),
         email: email.trim().toLowerCase(),
         password: password,
-        monthlyIncome: parsedIncome,
+        monthlyIncome: 0,
         accountRole: "NORMAL",
       });
 
-      const { token } = response.data;
+      const accessToken = response.data.accessToken || response.data.token;
+      const refreshToken = response.data.refreshToken;
 
-      if (token) {
-        // Triggers react state update in RootLayout via AuthContext
-        await signIn(token);
+      if (accessToken && refreshToken) {
+        await signIn(accessToken, refreshToken);
+      } else {
+        setErrorMessage("Invalid server response. Missing security tokens.");
       }
     } catch (error: any) {
-      console.error("Registration failed:", error);
-      const backendMessage =
-        error.response?.data?.message ||
-        error.response?.data ||
-        "Unable to connect to server. Please try again.";
-
-      setErrorMessage(
-        typeof backendMessage === "string"
-          ? backendMessage
-          : "Registration failed.",
+      // 1. Log exact Spring Boot validation output to Metro terminal
+      console.log(
+        "FULL SPRING RESPONSE:",
+        JSON.stringify(error.response?.data, null, 2),
       );
+
+      // 2. Extract specific validation field errors if Spring returns them
+      let backendMessage = "Registration failed. Please check your inputs.";
+
+      if (error.response?.data) {
+        const data = error.response.data;
+        if (typeof data === "string") {
+          backendMessage = data;
+        } else if (data.message) {
+          backendMessage = data.message;
+        } else if (data.errors && Array.isArray(data.errors)) {
+          // Handles Spring FieldError arrays
+          backendMessage = data.errors
+            .map((e: any) => e.defaultMessage || e.message)
+            .join(", ");
+        }
+      }
+
+      setErrorMessage(backendMessage);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleIncomeChange = (text: string) => {
-    let cleaned = text.replace(/[^0-9.]/g, "");
-    const parts = cleaned.split(".");
-    if (parts.length > 2) {
-      cleaned = `${parts[0]}.${parts.slice(1).join("")}`;
-    }
-    if (parts.length === 2 && parts[1].length > 2) {
-      cleaned = `${parts[0]}.${parts[1].slice(0, 2)}`;
-    }
-    setMonthlyIncome(cleaned);
   };
 
   return (
@@ -183,36 +175,26 @@ export default function RegisterScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Min. 8 characters"
-              placeholderTextColor={colors_sign_register.textMuted}
-              secureTextEntry={!showPassword}
-              editable={!loading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              disabled={loading}
-            >
-              <Text style={styles.showText}>
-                {showPassword ? "hide" : "show"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>MONTHLY INCOME</Text>
-            <TextInput
-              style={styles.input}
-              value={monthlyIncome}
-              onChangeText={handleIncomeChange}
-              placeholder="0.00"
-              placeholderTextColor={colors_sign_register.textMuted}
-              keyboardType="decimal-pad"
-              editable={!loading}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Min. 8 characters"
+                placeholderTextColor={colors_sign_register.textMuted}
+                secureTextEntry={!showPassword}
+                editable={!loading}
+              />
+              <TouchableOpacity
+                style={styles.showButton}
+                onPress={() => setShowPassword(!showPassword)}
+                disabled={loading}
+              >
+                <Text style={styles.showText}>
+                  {showPassword ? "hide" : "show"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -372,10 +354,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors_sign_register.inputBorder,
   },
+  passwordContainer: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  passwordInput: {
+    paddingRight: 60,
+  },
+  showButton: {
+    position: "absolute",
+    right: 16,
+    height: "100%",
+    justifyContent: "center",
+  },
   showText: {
     fontSize: 13,
     color: colors_sign_register.textMuted,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   checkboxContainer: {
     flexDirection: "row",
