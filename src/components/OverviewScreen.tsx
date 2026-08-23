@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -64,6 +65,7 @@ const CATEGORIES = [
 ];
 
 export default function OverviewScreen() {
+  const { t, i18n } = useTranslation();
   const { token } = useAuth();
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -72,6 +74,10 @@ export default function OverviewScreen() {
   const [userName, setUserName] = useState<string>("");
   const [monthlyIncome, setMonthlyIncome] = useState<number>(0);
   const [investmentPot, setInvestmentPot] = useState<number>(0);
+
+  // Raw API Data
+  const [rawExpenses, setRawExpenses] = useState<SpringBootExpense[]>([]);
+  const [rawIncomes, setRawIncomes] = useState<SpringBootIncome[]>([]);
 
   // Expense Data States
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
@@ -107,7 +113,6 @@ export default function OverviewScreen() {
   const [submittingIncome, setSubmittingIncome] = useState<boolean>(false);
   const [incomeSource, setIncomeSource] = useState("");
   const [incomeValue, setIncomeValue] = useState("");
-  const [incomes, setIncomes] = useState<SpringBootIncome[]>([]);
 
   // Trend Data
   const [trendData, setTrendData] = useState<
@@ -126,21 +131,14 @@ export default function OverviewScreen() {
     }
   }, [token]);
 
+  // Re-process formatting whenever raw data OR current language changes
+  useEffect(() => {
+    if (rawExpenses.length > 0 || rawIncomes.length > 0) {
+      processFigmaData(rawExpenses, rawIncomes);
+    }
+  }, [i18n.language, rawExpenses, rawIncomes]);
+
   const processMonthlyTrend = (expenses: SpringBootExpense[]) => {
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
     const now = new Date();
     const last6Months = [];
 
@@ -156,8 +154,12 @@ export default function OverviewScreen() {
         })
         .reduce((sum, exp) => sum + exp.value, 0);
 
+      const rawLabel = d.toLocaleDateString(i18n.language, { month: "short" });
+      const capitalizedLabel =
+        rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+
       last6Months.push({
-        label: monthNames[month],
+        label: capitalizedLabel,
         value: monthlyTotal,
       });
     }
@@ -191,15 +193,14 @@ export default function OverviewScreen() {
       const fetchedIncomes =
         incomesRes.status === "fulfilled" ? incomesRes.value.data : [];
 
+      setRawExpenses(fetchedExpenses);
+      setRawIncomes(fetchedIncomes);
+
       if (userRes.status === "fulfilled") {
         const user = userRes.value.data;
         setUserName(user.name || "");
         setMonthlyIncome(user.monthlyIncome || 0);
         setInvestmentPot(user.investmentPot || 0);
-      }
-
-      if (incomesRes.status === "fulfilled") {
-        setIncomes(fetchedIncomes);
       }
 
       if (cardsRes.status === "fulfilled") {
@@ -253,11 +254,11 @@ export default function OverviewScreen() {
       category: item.category,
       rawDate: item.dueDate ? new Date(item.dueDate) : new Date(),
       date: item.dueDate
-        ? new Date(item.dueDate).toLocaleDateString("en-US", {
+        ? new Date(item.dueDate).toLocaleDateString(i18n.language, {
             month: "short",
             day: "numeric",
           })
-        : "Today",
+        : t("today", "Today"),
       amount: item.value,
       emoji: getCategoryEmoji(item.category),
     }));
@@ -269,11 +270,11 @@ export default function OverviewScreen() {
       category: "DEPOSIT",
       rawDate: item.createdAt ? new Date(item.createdAt) : new Date(),
       date: item.createdAt
-        ? new Date(item.createdAt).toLocaleDateString("en-US", {
+        ? new Date(item.createdAt).toLocaleDateString(i18n.language, {
             month: "short",
             day: "numeric",
           })
-        : "Today",
+        : t("today", "Today"),
       amount: item.value,
       emoji: "💰",
     }));
@@ -464,12 +465,13 @@ export default function OverviewScreen() {
       >
         {/* --- HEADER SECTION --- */}
         <View style={styles.header}>
-          <Text style={styles.monthText}>OVERVIEW</Text>
+          <Text style={styles.monthText}>{t("overview", "OVERVIEW")}</Text>
 
           {/* Greeting Row with Card Manager Button */}
           <View style={styles.userGreetingRow}>
             <Text style={styles.greetingText}>
-              Hello{userName ? `, ${userName}` : ""}.
+              {t("hello", "Hello")}
+              {userName ? `, ${userName}` : ""}.
             </Text>
             <TouchableOpacity
               style={styles.cardIconButton}
@@ -487,22 +489,24 @@ export default function OverviewScreen() {
           </View>
 
           <Text style={styles.subtitleText}>
-            Take good care of your finances!
+            {t("takeCareFinances", "Take good care of your finances!")}
           </Text>
 
           <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>TOTAL BALANCE</Text>
+            <Text style={styles.balanceLabel}>
+              {t("totalBalance", "TOTAL BALANCE")}
+            </Text>
             <Text style={styles.balanceAmount}>
               $
-              {totalBalance.toLocaleString("en-US", {
+              {totalBalance.toLocaleString(i18n.language, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </Text>
             {investmentPot > 0 && (
               <Text style={styles.balanceTrend}>
-                Investment Pot: $
-                {investmentPot.toLocaleString("en-US", {
+                {t("investmentPot", "Investment Pot")}: $
+                {investmentPot.toLocaleString(i18n.language, {
                   minimumFractionDigits: 2,
                 })}
               </Text>
@@ -515,13 +519,15 @@ export default function OverviewScreen() {
               onPress={() => setModalIncomeVisible(true)}
             >
               <View style={styles.rowContainer}>
-                <Text style={styles.miniCardLabel}>INCOME</Text>
+                <Text style={styles.miniCardLabel}>
+                  {t("income", "INCOME")}
+                </Text>
                 <Text style={styles.miniCardAdd}>+</Text>
               </View>
 
               <Text style={styles.miniCardValue}>
                 $
-                {monthlyIncome.toLocaleString("en-US", {
+                {monthlyIncome.toLocaleString(i18n.language, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -533,12 +539,14 @@ export default function OverviewScreen() {
               onPress={() => setModalExpensesVisible(true)}
             >
               <View style={styles.rowContainer}>
-                <Text style={styles.miniCardLabel}>EXPENSES</Text>
+                <Text style={styles.miniCardLabel}>
+                  {t("expenses", "EXPENSES")}
+                </Text>
                 <Text style={styles.miniCardAdd}>+</Text>
               </View>
               <Text style={styles.miniCardValue}>
                 $
-                {totalExpenses.toLocaleString("en-US", {
+                {totalExpenses.toLocaleString(i18n.language, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -551,7 +559,9 @@ export default function OverviewScreen() {
         <View style={styles.body}>
           {/* Spending Trend */}
           <View style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>Spending Trend</Text>
+            <Text style={styles.cardTitle}>
+              {t("spendingTrend", "Spending Trend")}
+            </Text>
 
             <View style={styles.chartContainer}>
               <LineChart
@@ -584,20 +594,26 @@ export default function OverviewScreen() {
 
           {/* Budget Overview */}
           <View style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>Budget Overview</Text>
+            <Text style={styles.cardTitle}>
+              {t("monthlyBudget", "Monthly Budget")}
+            </Text>
             {budgetItems.map((item) => {
-              const progressPercentage = Math.min(
-                (item.spent / item.limit) * 100,
-                100,
-              );
+              const sharePercentage =
+                totalExpenses > 0 ? (item.spent / totalExpenses) * 100 : 0;
+
               return (
                 <View key={item.id} style={styles.budgetItem}>
                   <View style={styles.budgetHeader}>
-                    <Text style={styles.budgetCategory}>{item.category}</Text>
+                    {/* Translated category lookup with fallback */}
+                    <Text style={styles.budgetCategory}>
+                      {t(item.category.toLowerCase(), {
+                        defaultValue: item.category,
+                      })}
+                    </Text>
                     <Text style={styles.budgetAmounts}>
                       ${item.spent.toFixed(0)}{" "}
                       <Text style={styles.budgetLimit}>
-                        / ${item.limit.toFixed(0)}
+                        ({sharePercentage.toFixed(0)}%)
                       </Text>
                     </Text>
                   </View>
@@ -606,7 +622,7 @@ export default function OverviewScreen() {
                       style={[
                         styles.progressBarFill,
                         {
-                          width: `${progressPercentage}%`,
+                          width: `${Math.min(sharePercentage, 100)}%`,
                           backgroundColor: item.color,
                         },
                       ]}
@@ -620,9 +636,11 @@ export default function OverviewScreen() {
           {/* Recent Transactions */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.cardTitle}>Recent</Text>
+              <Text style={styles.cardTitle}>{t("recent", "Recent")}</Text>
               <TouchableOpacity onPress={() => router.push("/transactions")}>
-                <Text style={styles.seeAllText}>See all →</Text>
+                <Text style={styles.seeAllText}>
+                  {t("seeAll", "See all")} →
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -635,7 +653,12 @@ export default function OverviewScreen() {
                 <View style={styles.transactionMeta}>
                   <Text style={styles.transactionTitle}>{tx.title}</Text>
                   <Text style={styles.transactionSubtitle}>
-                    {tx.category} · {tx.date}
+                    {String(
+                      t(tx.category.toLowerCase(), {
+                        defaultValue: tx.category,
+                      }),
+                    )}{" "}
+                    · {tx.date}
                   </Text>
                 </View>
 
@@ -664,13 +687,15 @@ export default function OverviewScreen() {
             {cardModalMode === "LIST" ? (
               <>
                 <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>Registered Cards</Text>
+                  <Text style={styles.modalTitle}>
+                    {t("registeredCards", "Registered Cards")}
+                  </Text>
                   <TouchableOpacity
                     style={styles.addCardHeaderButton}
                     onPress={() => setCardModalMode("FORM")}
                   >
                     <Text style={styles.addCardHeaderButtonText}>
-                      + Add Card
+                      + {t("addCard", "Add Card")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -678,7 +703,7 @@ export default function OverviewScreen() {
                 {userCards.length === 0 ? (
                   <View style={styles.emptyCardsContainer}>
                     <Text style={styles.emptyCardsText}>
-                      No cards registered
+                      {t("noCardsRegistered", "No cards registered")}
                     </Text>
                   </View>
                 ) : (
@@ -687,7 +712,12 @@ export default function OverviewScreen() {
                       <View key={c.id} style={styles.cardListItem}>
                         <Text style={styles.cardListItemText}>💳 {c.name}</Text>
                         <Text style={styles.cardListItemBadge}>
-                          {c.cardType}
+                          {String(
+                            t(c.cardType.toLowerCase(), {
+                              defaultValue:
+                                c.cardType === "CREDIT" ? "Credit" : "Debit",
+                            }),
+                          )}
                         </Text>
                       </View>
                     ))}
@@ -699,7 +729,9 @@ export default function OverviewScreen() {
                     style={[styles.modalButton, styles.cancelButton]}
                     onPress={() => setModalCardVisible(false)}
                   >
-                    <Text style={styles.cancelButtonText}>Close</Text>
+                    <Text style={styles.cancelButtonText}>
+                      {t("close", "Close")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -707,13 +739,19 @@ export default function OverviewScreen() {
               <>
                 <View style={styles.modalHeaderRow}>
                   <TouchableOpacity onPress={() => setCardModalMode("LIST")}>
-                    <Text style={styles.backButtonText}>← Back</Text>
+                    <Text style={styles.backButtonText}>
+                      ← {t("back", "Back")}
+                    </Text>
                   </TouchableOpacity>
-                  <Text style={styles.modalTitle}>New Card</Text>
+                  <Text style={styles.modalTitle}>
+                    {t("newCard", "New Card")}
+                  </Text>
                   <View style={{ width: 40 }} />
                 </View>
 
-                <Text style={styles.inputLabel}>Card Name</Text>
+                <Text style={styles.inputLabel}>
+                  {t("cardName", "Card Name")}
+                </Text>
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. Chase Sapphire, Nubank"
@@ -721,7 +759,9 @@ export default function OverviewScreen() {
                   onChangeText={setNewCardName}
                 />
 
-                <Text style={styles.inputLabel}>Card Type</Text>
+                <Text style={styles.inputLabel}>
+                  {t("cardType", "Card Type")}
+                </Text>
                 <View style={styles.categoryContainer}>
                   {(["CREDIT", "DEBIT"] as const).map((type) => (
                     <TouchableOpacity
@@ -739,7 +779,12 @@ export default function OverviewScreen() {
                             styles.categoryChipTextSelected,
                         ]}
                       >
-                        {type}
+                        {String(
+                          t(type.toLowerCase(), {
+                            defaultValue:
+                              type === "CREDIT" ? "Credit" : "Debit",
+                          }),
+                        )}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -750,7 +795,9 @@ export default function OverviewScreen() {
                     style={[styles.modalButton, styles.cancelButton]}
                     onPress={() => setCardModalMode("LIST")}
                   >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={styles.cancelButtonText}>
+                      {t("cancel", "Cancel")}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -761,7 +808,9 @@ export default function OverviewScreen() {
                     {submittingCard ? (
                       <ActivityIndicator color="#FFF" />
                     ) : (
-                      <Text style={styles.saveButtonText}>Save Card</Text>
+                      <Text style={styles.saveButtonText}>
+                        {t("saveCard", "Save Card")}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -775,9 +824,13 @@ export default function OverviewScreen() {
       <Modal visible={modalIncomeVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Income Deposit</Text>
+            <Text style={styles.modalTitle}>
+              {t("addIncomeDeposit", "Add Income Deposit")}
+            </Text>
 
-            <Text style={styles.inputLabel}>Source / Description</Text>
+            <Text style={styles.inputLabel}>
+              {t("sourceDescription", "Source / Description")}
+            </Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. Monthly Salary, Freelance"
@@ -785,7 +838,7 @@ export default function OverviewScreen() {
               onChangeText={setIncomeSource}
             />
 
-            <Text style={styles.inputLabel}>Amount ($)</Text>
+            <Text style={styles.inputLabel}>{t("amount", "Amount ($)")}</Text>
             <TextInput
               style={styles.input}
               placeholder="0.00"
@@ -799,7 +852,9 @@ export default function OverviewScreen() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setModalIncomeVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>
+                  {t("cancel", "Cancel")}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -810,7 +865,9 @@ export default function OverviewScreen() {
                 {submittingIncome ? (
                   <ActivityIndicator color="#FFF" />
                 ) : (
-                  <Text style={styles.saveButtonText}>Add to Income</Text>
+                  <Text style={styles.saveButtonText}>
+                    {t("addToIncome", "Add to Income")}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -822,9 +879,13 @@ export default function OverviewScreen() {
       <Modal visible={modalExpensesVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Expense</Text>
+            <Text style={styles.modalTitle}>
+              {t("addNewExpense", "Add New Expense")}
+            </Text>
 
-            <Text style={styles.inputLabel}>Description</Text>
+            <Text style={styles.inputLabel}>
+              {t("description", "Description")}
+            </Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. Grocery Shopping"
@@ -832,7 +893,7 @@ export default function OverviewScreen() {
               onChangeText={setDescription}
             />
 
-            <Text style={styles.inputLabel}>Amount ($)</Text>
+            <Text style={styles.inputLabel}>{t("amount", "Amount ($)")}</Text>
             <TextInput
               style={styles.input}
               placeholder="0.00"
@@ -841,7 +902,7 @@ export default function OverviewScreen() {
               onChangeText={setValue}
             />
 
-            <Text style={styles.inputLabel}>Category</Text>
+            <Text style={styles.inputLabel}>{t("category", "Category")}</Text>
             <View style={styles.categoryContainer}>
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity
@@ -858,13 +919,15 @@ export default function OverviewScreen() {
                       category === cat && styles.categoryChipTextSelected,
                     ]}
                   >
-                    {cat}
+                    {String(t(cat.toLowerCase(), { defaultValue: cat }))}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Payment Method</Text>
+            <Text style={styles.inputLabel}>
+              {t("paymentMethod", "Payment Method")}
+            </Text>
             <View style={styles.categoryContainer}>
               {(["CASH", "CARD"] as const).map((type) => {
                 const isDisabled = type === "CARD" && userCards.length === 0;
@@ -895,17 +958,29 @@ export default function OverviewScreen() {
                         paymentType === type && styles.categoryChipTextSelected,
                       ]}
                     >
-                      {type} {isDisabled ? "(No Cards Available)" : ""}
+                      {String(
+                        t(type.toLowerCase(), {
+                          defaultValue: type === "CASH" ? "Cash" : "Card",
+                        }),
+                      )}
+                      {isDisabled
+                        ? ` ${String(
+                            t("noCardsAvailable", {
+                              defaultValue: "(No Cards Available)",
+                            }),
+                          )}`
+                        : ""}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Select Card option if CARD is active */}
             {paymentType === "CARD" && userCards.length > 0 && (
               <>
-                <Text style={styles.inputLabel}>Select Card</Text>
+                <Text style={styles.inputLabel}>
+                  {t("selectCard", "Select Card")}
+                </Text>
                 <View style={styles.categoryContainer}>
                   {userCards.map((card) => (
                     <TouchableOpacity
@@ -924,15 +999,21 @@ export default function OverviewScreen() {
                             styles.categoryChipTextSelected,
                         ]}
                       >
-                        💳 {card.name} ({card.cardType})
+                        💳 {card.name} (
+                        {String(
+                          t(card.cardType.toLowerCase(), {
+                            defaultValue:
+                              card.cardType === "CREDIT" ? "Credit" : "Debit",
+                          }),
+                        )}
+                        )
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </>
             )}
-
-            <Text style={styles.inputLabel}>Repeat</Text>
+            {/* <Text style={styles.inputLabel}>{t("repeat", "Repeat")}</Text>
             <View style={styles.categoryContainer}>
               {(["NONE", "WEEKLY", "MONTHLY", "YEARLY"] as const).map(
                 (period) => (
@@ -952,15 +1033,27 @@ export default function OverviewScreen() {
                           styles.categoryChipTextSelected,
                       ]}
                     >
-                      {period}
+                      {String(
+                        t(period.toLowerCase(), {
+                          defaultValue:
+                            period === "NONE"
+                              ? "None"
+                              : period === "WEEKLY"
+                                ? "Weekly"
+                                : period === "MONTHLY"
+                                  ? "Monthly"
+                                  : "Yearly",
+                        }),
+                      )}
                     </Text>
                   </TouchableOpacity>
                 ),
               )}
-            </View>
-
+            </View> */}
             <View style={styles.switchRow}>
-              <Text style={styles.inputLabel}>Mark as Paid</Text>
+              <Text style={styles.inputLabel}>
+                {t("markAsPaid", "Mark as Paid")}
+              </Text>
               <Switch
                 value={isPaid}
                 onValueChange={setIsPaid}
@@ -973,7 +1066,9 @@ export default function OverviewScreen() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setModalExpensesVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>
+                  {t("cancel", "Cancel")}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -984,7 +1079,9 @@ export default function OverviewScreen() {
                 {submitting ? (
                   <ActivityIndicator color="#FFF" />
                 ) : (
-                  <Text style={styles.saveButtonText}>Save Expense</Text>
+                  <Text style={styles.saveButtonText}>
+                    {t("saveExpense", "Save Expense")}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1032,9 +1129,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
-  },
-  cardIconText: {
-    fontSize: 18,
   },
   subtitleText: {
     fontSize: 14,
@@ -1161,8 +1255,6 @@ const styles = StyleSheet.create({
   transactionSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   transactionAmount: { fontSize: 15, fontWeight: "bold" },
   expenseText: { color: colors.textDark },
-
-  /* Modal Base Styles */
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

@@ -1,5 +1,5 @@
-// app/_layout.tsx
 import api, { setOnUnauthenticated } from "@/services/api";
+import "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { createContext, useContext, useEffect, useState } from "react";

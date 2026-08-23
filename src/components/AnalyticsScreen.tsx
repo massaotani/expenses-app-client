@@ -1,5 +1,6 @@
 import api from "@/services/api";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Dimensions,
@@ -21,7 +22,6 @@ import Svg, {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Backend models
 interface ExpenseItem {
   id: string;
   description?: string;
@@ -57,7 +57,6 @@ const parseAmount = (val: any): number => {
   return 0;
 };
 
-// Color Palette
 const COLORS = {
   tealDark: "#204B4C",
   tealLight: "#356566",
@@ -81,7 +80,6 @@ const COLORS = {
   } as Record<string, string>,
 };
 
-// Fallback palette loop for custom DB categories
 const FALLBACK_PALETTE = [
   "#204B4C",
   "#D87A53",
@@ -103,6 +101,7 @@ const getCategoryColor = (cat: string, index: number): string => {
 };
 
 export default function AnalyticsScreen() {
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
@@ -155,14 +154,20 @@ export default function AnalyticsScreen() {
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const rawLabel = d.toLocaleDateString(i18n.language || "en", {
+        month: "short",
+      });
+      const capitalizedLabel =
+        rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+
       months.push({
-        label: d.toLocaleDateString("en-US", { month: "short" }),
+        label: capitalizedLabel,
         year: d.getFullYear(),
         monthIndex: d.getMonth(),
       });
     }
     return months;
-  }, []);
+  }, [i18n.language]);
 
   const monthlyData = useMemo(() => {
     return last6Months.map((m) => {
@@ -182,7 +187,6 @@ export default function AnalyticsScreen() {
         }
       });
 
-      // Use sum of registered income entries if available, otherwise fall back to profile default
       const monthIncome = hasIncomeEntries
         ? registeredIncome
         : baseMonthlyIncome;
@@ -209,7 +213,6 @@ export default function AnalyticsScreen() {
     });
   }, [expenses, incomes, baseMonthlyIncome, last6Months]);
 
-  // Current month summary metrics
   const currentMonthSummary = useMemo(() => {
     const current = monthlyData[monthlyData.length - 1] || {
       income: 0,
@@ -220,7 +223,6 @@ export default function AnalyticsScreen() {
     return current;
   }, [monthlyData]);
 
-  // Aggregation for "Spending by Category" synced with database data
   const categorySpending = useMemo(() => {
     const currentMonthIndex = new Date().getMonth();
     const currentYear = new Date().getFullYear();
@@ -298,7 +300,6 @@ export default function AnalyticsScreen() {
     Math.round(maxBarValue * p),
   );
 
-  // Dynamic Net Range to handle both negative balance and positive savings
   const minNetValue = Math.min(...monthlyData.map((d) => d.net), 0);
   const maxNetValue = Math.max(...monthlyData.map((d) => d.net), 1000);
   const netRange = maxNetValue - minNetValue || 1;
@@ -307,7 +308,7 @@ export default function AnalyticsScreen() {
     Math.round(minNetValue + netRange * p),
   );
 
-  const CIRCUMFERENCE = 2 * Math.PI * 35; // Donut radius 35
+  const CIRCUMFERENCE = 2 * Math.PI * 35;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -324,21 +325,31 @@ export default function AnalyticsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Analytics</Text>
+          <Text style={styles.headerTitle}>{t("analytics", "Analytics")}</Text>
           <Text style={styles.headerSubtitle}>
-            Spending insights ·{" "}
-            {new Date().toLocaleDateString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
+            {t("spendingInsights", "Spending insights")} ·{" "}
+            {(() => {
+              const rawDate = new Date().toLocaleDateString(
+                i18n.language || "en",
+                {
+                  month: "long",
+                  year: "numeric",
+                },
+              );
+              return rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
+            })()}
           </Text>
         </View>
 
         <View style={styles.cardsWrapper}>
           {/* 1. Income vs. Expenses Bar Chart */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Income vs. Expenses</Text>
-            <Text style={styles.cardSubtitle}>Last 6 months</Text>
+            <Text style={styles.cardTitle}>
+              {t("incomeVsExpenses", "Income vs. Expenses")}
+            </Text>
+            <Text style={styles.cardSubtitle}>
+              {t("last6Months", "Last 6 months")}
+            </Text>
 
             <View style={styles.chartWrapper}>
               <Svg height={200} width={chartWidth}>
@@ -413,7 +424,9 @@ export default function AnalyticsScreen() {
                       { backgroundColor: COLORS.expenseOrange },
                     ]}
                   />
-                  <Text style={styles.legendText}>Expenses</Text>
+                  <Text style={styles.legendText}>
+                    {t("expenses", "Expenses")}
+                  </Text>
                 </View>
                 <View style={styles.legendItem}>
                   <View
@@ -422,7 +435,7 @@ export default function AnalyticsScreen() {
                       { backgroundColor: COLORS.tealDark },
                     ]}
                   />
-                  <Text style={styles.legendText}>Income</Text>
+                  <Text style={styles.legendText}>{t("income", "Income")}</Text>
                 </View>
               </View>
             </View>
@@ -430,8 +443,12 @@ export default function AnalyticsScreen() {
 
           {/* 2. Cash vs. Card Breakdown */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Payment Method Breakdown</Text>
-            <Text style={styles.cardSubtitle}>Cash vs. Card</Text>
+            <Text style={styles.cardTitle}>
+              {t("paymentMethodBreakdown", "Payment Method Breakdown")}
+            </Text>
+            <Text style={styles.cardSubtitle}>
+              {t("cardVsCash", "Card vs. Cash")}
+            </Text>
 
             <View style={styles.stackedBarContainer}>
               <View
@@ -463,7 +480,9 @@ export default function AnalyticsScreen() {
                       { backgroundColor: COLORS.cardColor },
                     ]}
                   />
-                  <Text style={styles.paymentTypeLabel}>Card Expenses</Text>
+                  <Text style={styles.paymentTypeLabel}>
+                    {t("cardExpenses", "Card Expenses")}
+                  </Text>
                 </View>
                 <Text style={styles.paymentValueText}>
                   $
@@ -472,7 +491,7 @@ export default function AnalyticsScreen() {
                   })}
                 </Text>
                 <Text style={styles.paymentPercentageText}>
-                  {paymentTypeBreakdown.cardPct}% of total
+                  {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
                 </Text>
               </View>
 
@@ -484,7 +503,9 @@ export default function AnalyticsScreen() {
                       { backgroundColor: COLORS.cashColor },
                     ]}
                   />
-                  <Text style={styles.paymentTypeLabel}>Cash Expenses</Text>
+                  <Text style={styles.paymentTypeLabel}>
+                    {t("cashExpenses", "Cash Expenses")}
+                  </Text>
                 </View>
                 <Text style={styles.paymentValueText}>
                   $
@@ -493,7 +514,7 @@ export default function AnalyticsScreen() {
                   })}
                 </Text>
                 <Text style={styles.paymentPercentageText}>
-                  {paymentTypeBreakdown.cashPct}% of total
+                  {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
                 </Text>
               </View>
             </View>
@@ -501,9 +522,11 @@ export default function AnalyticsScreen() {
 
           {/* 3. Spending by Category */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Spending by Category</Text>
+            <Text style={styles.cardTitle}>
+              {t("spendingByCategory", "Spending by Category")}
+            </Text>
             <Text style={styles.cardSubtitle}>
-              Total: $
+              {t("total", "Total")}: $
               {categorySpending.totalSpending.toLocaleString("en-US", {
                 minimumFractionDigits: 2,
               })}
@@ -529,7 +552,7 @@ export default function AnalyticsScreen() {
                       fontWeight="600"
                       textAnchor="middle"
                     >
-                      No Expenses
+                      {t("noExpenses", "No Expenses")}
                     </SvgText>
                   </>
                 ) : (
@@ -562,7 +585,6 @@ export default function AnalyticsScreen() {
               </Svg>
             </View>
 
-            {/* Line-by-Line Category Legend */}
             <View style={styles.categoryListContainer}>
               {categorySpending.sortedEntries.map((item) => (
                 <View key={item.category} style={styles.categoryRow}>
@@ -573,7 +595,13 @@ export default function AnalyticsScreen() {
                         { backgroundColor: item.color },
                       ]}
                     />
-                    <Text style={styles.categoryName}>{item.category}</Text>
+                    <Text style={styles.categoryName}>
+                      {String(
+                        t(item.category.toLowerCase(), {
+                          defaultValue: item.category,
+                        }),
+                      )}
+                    </Text>
                   </View>
                   <Text style={styles.categoryValue}>
                     $
@@ -591,15 +619,19 @@ export default function AnalyticsScreen() {
 
           {/* 4. Net Savings Trend Line Chart */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Net Savings Trend</Text>
+            <Text style={styles.cardTitle}>
+              {t("netSavingsTrend", "Net Savings Trend")}
+            </Text>
             <Text style={styles.cardSubtitle}>
-              Income – Expenses ({currentMonthSummary.month})
+              {t("income", "Income")} – {t("expenses", "Expenses")} (
+              {currentMonthSummary.month})
             </Text>
 
-            {/* Metric Summary Row for Income, Expenses, and Net Savings */}
             <View style={styles.netMetricRow}>
               <View style={styles.netMetricBox}>
-                <Text style={styles.netMetricLabel}>Income</Text>
+                <Text style={styles.netMetricLabel}>
+                  {t("income", "Income")}
+                </Text>
                 <Text style={styles.netIncomeText}>
                   $
                   {currentMonthSummary.income.toLocaleString("en-US", {
@@ -609,7 +641,9 @@ export default function AnalyticsScreen() {
               </View>
 
               <View style={styles.netMetricBox}>
-                <Text style={styles.netMetricLabel}>Expenses</Text>
+                <Text style={styles.netMetricLabel}>
+                  {t("expenses", "Expenses")}
+                </Text>
                 <Text style={styles.netExpenseText}>
                   $
                   {currentMonthSummary.expenses.toLocaleString("en-US", {
@@ -619,7 +653,9 @@ export default function AnalyticsScreen() {
               </View>
 
               <View style={styles.netMetricBox}>
-                <Text style={styles.netMetricLabel}>Net Savings</Text>
+                <Text style={styles.netMetricLabel}>
+                  {t("netSavings", "Net Savings")}
+                </Text>
                 <Text
                   style={[
                     styles.netValueText,

@@ -1,5 +1,6 @@
 import api from "@/services/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   FlatList,
@@ -46,7 +47,6 @@ export interface Transaction {
   title: string;
   amount: number;
   category: string;
-  dateFormatted: string;
   rawDate: Date;
   type: "INCOME" | "EXPENSE";
   icon: string;
@@ -59,6 +59,27 @@ const parseAmount = (val: any): number => {
     return isNaN(parsed) ? 0 : parsed;
   }
   return 0;
+};
+
+const formatWithCapitalMonth = (
+  date: Date,
+  locale: string,
+  options: Intl.DateTimeFormatOptions,
+): string => {
+  try {
+    const formatter = new Intl.DateTimeFormat(locale, options);
+    const parts = formatter.formatToParts(date);
+    return parts
+      .map((part) => {
+        if (part.type === "month" && part.value) {
+          return part.value.charAt(0).toUpperCase() + part.value.slice(1);
+        }
+        return part.value;
+      })
+      .join("");
+  } catch {
+    return date.toLocaleDateString(locale, options);
+  }
 };
 
 const getCategoryIcon = (
@@ -80,19 +101,25 @@ const getCategoryIcon = (
   return "💳";
 };
 
-const formatDate = (dateString: string): { formatted: string; raw: Date } => {
+const parseRawDate = (dateString: string): Date => {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) {
-    return { formatted: "Recent", raw: new Date() };
-  }
-  const formatted = date.toLocaleDateString("en-US", {
+  return isNaN(date.getTime()) ? new Date() : date;
+};
+
+const formatDate = (
+  date: Date,
+  locale: string,
+  recentLabel: string,
+): string => {
+  if (isNaN(date.getTime())) return recentLabel;
+  return formatWithCapitalMonth(date, locale, {
     month: "short",
     day: "numeric",
   });
-  return { formatted, raw: date };
 };
 
 export default function TransactionsScreen() {
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -104,7 +131,7 @@ export default function TransactionsScreen() {
       const [expensesRes, incomesRes, userRes] = await Promise.allSettled([
         api.get<ExpenseItem[]>("/api/v1/expenses"),
         api.get<IncomeItem[]>("/api/v1/incomes"),
-        api.get<UserProfile>("/api/v1/users/me"), // Fetch base user profile
+        api.get<UserProfile>("/api/v1/users/me"),
       ]);
 
       const expensesData =
@@ -121,7 +148,7 @@ export default function TransactionsScreen() {
       ).map((item) => {
         const numericValue = item.value ?? item.amount;
         const rawDateStr = item.dueDate || item.paidAt || item.date || "";
-        const { formatted, raw } = formatDate(rawDateStr);
+        const raw = parseRawDate(rawDateStr);
         const cat = item.category || "General";
 
         return {
@@ -129,7 +156,6 @@ export default function TransactionsScreen() {
           title: item.description || item.title || "Expense",
           amount: Math.abs(parseAmount(numericValue)),
           category: cat,
-          dateFormatted: formatted,
           rawDate: raw,
           type: "EXPENSE",
           icon: getCategoryIcon(cat, "EXPENSE"),
@@ -141,7 +167,7 @@ export default function TransactionsScreen() {
       ).map((item) => {
         const numericValue = item.value ?? item.amount;
         const rawDateStr = item.createdAt || item.date || "";
-        const { formatted, raw } = formatDate(rawDateStr);
+        const raw = parseRawDate(rawDateStr);
         const cat = item.category || "Income";
 
         return {
@@ -150,7 +176,6 @@ export default function TransactionsScreen() {
             item.description || item.title || item.source || "Income Deposit",
           amount: Math.abs(parseAmount(numericValue)),
           category: cat,
-          dateFormatted: formatted,
           rawDate: raw,
           type: "INCOME",
           icon: getCategoryIcon(cat, "INCOME"),
@@ -179,9 +204,8 @@ export default function TransactionsScreen() {
     fetchData();
   }, []);
 
-  // Compute summary values including monthly income base
   const { totalIn, totalOut, netBalance } = useMemo(() => {
-    let inSum = monthlyIncome; // Start with base monthly income
+    let inSum = monthlyIncome;
     let outSum = 0;
     allTransactions.forEach((t) => {
       if (t.type === "INCOME") inSum += t.amount;
@@ -215,24 +239,47 @@ export default function TransactionsScreen() {
     );
   }, [allTransactions, selectedFilter]);
 
+  const translateCategory = useCallback(
+    (category: string) => {
+      const key = category.toLowerCase();
+      return t(key, { defaultValue: category });
+    },
+    [t],
+  );
+
+  const getFilterLabel = useCallback(
+    (filter: string) => {
+      if (filter === "All") return t("all", "All");
+      if (filter === "Income") return t("income", "INCOME");
+      return translateCategory(filter);
+    },
+    [t, translateCategory],
+  );
+
+  const formattedHeaderDate = useMemo(() => {
+    return formatWithCapitalMonth(new Date(), i18n.language, {
+      month: "long",
+      year: "numeric",
+    });
+  }, [i18n.language]);
+
   const renderHeader = () => (
     <View style={styles.headerWrapper}>
       <View style={styles.greenHeaderContainer}>
-        <Text style={styles.headerTitle}>Transactions</Text>
+        <Text style={styles.headerTitle}>
+          {t("transactions", "Transactions")}
+        </Text>
         <Text style={styles.headerSubtitle}>
-          {new Date().toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric",
-          })}{" "}
-          · {allTransactions.length} records
+          {formattedHeaderDate} · {allTransactions.length}{" "}
+          {t("records", "records")}
         </Text>
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>IN</Text>
+            <Text style={styles.summaryLabel}>{t("in", "IN")}</Text>
             <Text style={styles.summaryValue}>
               +$
-              {totalIn.toLocaleString("en-US", {
+              {totalIn.toLocaleString(i18n.language, {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
               })}
@@ -240,10 +287,10 @@ export default function TransactionsScreen() {
           </View>
 
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>OUT</Text>
+            <Text style={styles.summaryLabel}>{t("out", "OUT")}</Text>
             <Text style={styles.summaryValue}>
               -$
-              {totalOut.toLocaleString("en-US", {
+              {totalOut.toLocaleString(i18n.language, {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
               })}
@@ -251,10 +298,10 @@ export default function TransactionsScreen() {
           </View>
 
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>NET</Text>
+            <Text style={styles.summaryLabel}>{t("net", "NET")}</Text>
             <Text style={styles.summaryValue}>
               {netBalance >= 0 ? "+" : "-"}$
-              {Math.abs(netBalance).toLocaleString("en-US", {
+              {Math.abs(netBalance).toLocaleString(i18n.language, {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
               })}
@@ -283,7 +330,7 @@ export default function TransactionsScreen() {
                   isActive && styles.filterChipTextActive,
                 ]}
               >
-                {item}
+                {getFilterLabel(item)}
               </Text>
             </TouchableOpacity>
           );
@@ -318,6 +365,18 @@ export default function TransactionsScreen() {
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
           const isIncome = item.type === "INCOME";
+          const formattedDate = formatDate(
+            item.rawDate,
+            i18n.language,
+            t("recent", "Recent"),
+          );
+          const displayTitle =
+            item.title === "Expense"
+              ? t("expense", "Expense")
+              : item.title === "Income Deposit"
+                ? t("incomeDeposit", "Income Deposit")
+                : item.title;
+
           return (
             <View style={styles.card}>
               <View style={styles.iconContainer}>
@@ -326,7 +385,7 @@ export default function TransactionsScreen() {
 
               <View style={styles.cardDetails}>
                 <Text style={styles.itemTitle} numberOfLines={1}>
-                  {item.title}
+                  {displayTitle}
                 </Text>
                 <View style={styles.tagRow}>
                   <View style={styles.categoryBadge}>
@@ -336,10 +395,10 @@ export default function TransactionsScreen() {
                         isIncome && styles.incomeBadgeText,
                       ]}
                     >
-                      {item.category}
+                      {translateCategory(item.category)}
                     </Text>
                   </View>
-                  <Text style={styles.dateText}>{item.dateFormatted}</Text>
+                  <Text style={styles.dateText}>{formattedDate}</Text>
                 </View>
               </View>
 
