@@ -91,6 +91,7 @@ export const resources = {
       out: "OUT",
       net: "NET",
       all: "All",
+      income_transaction: "Income",
       expense: "Expense",
       incomeDeposit: "Income Deposit",
 
@@ -206,6 +207,7 @@ export const resources = {
       out: "SAÍDA",
       net: "LÍQUIDO",
       all: "Todos",
+      income_transaction: "Depósito",
       expense: "Despesa",
       incomeDeposit: "Depósito de Receita",
 
@@ -321,6 +323,7 @@ export const resources = {
       out: "SALIDA",
       net: "NETO",
       all: "Todos",
+      income_transaction: "Depósito",
       expense: "Gasto",
       incomeDeposit: "Depósito de Ingreso",
 
@@ -435,6 +438,7 @@ export const resources = {
       out: "支出",
       net: "収支",
       all: "すべて",
+      income_transaction: "入金",
       expense: "支出",
       incomeDeposit: "入金",
 

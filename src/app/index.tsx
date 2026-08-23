@@ -13,13 +13,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors_sign_register } from "../constants/theme";
 import { useAuth } from "./_layout";
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,12 +44,10 @@ export default function LoginScreen() {
         password: password,
       });
 
-      // 1. Destructure both tokens (supports 'accessToken' or legacy 'token' field name)
       const { accessToken, token, refreshToken } = response.data;
       const jwtAccessToken = accessToken || token;
 
       if (jwtAccessToken && refreshToken) {
-        // 2. Pass both tokens to AuthContext to save in SecureStore
         await signIn(jwtAccessToken, refreshToken);
       } else {
         setErrorMessage("Invalid server response. Missing security tokens.");
@@ -77,16 +76,17 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={colors_sign_register.headerBackground}
+        backgroundColor="transparent"
+        translucent
       />
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
           <View style={styles.headerCircle} />
           <Text style={styles.headerTitle}>Welcome.{"\n"}</Text>
           <Text style={styles.headerSubtitle}>
@@ -197,7 +197,7 @@ export default function LoginScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -212,7 +212,6 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors_sign_register.headerBackground,
     paddingHorizontal: 28,
-    paddingTop: 20,
     paddingBottom: 40,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,

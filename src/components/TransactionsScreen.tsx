@@ -1,14 +1,19 @@
 import api from "@/services/api";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -51,6 +56,14 @@ export interface Transaction {
   type: "INCOME" | "EXPENSE";
   icon: string;
 }
+
+const CATEGORIES = [
+  "Food",
+  "Housing",
+  "Transportation",
+  "Entertainment",
+  "Utilities",
+];
 
 const parseAmount = (val: any): number => {
   if (typeof val === "number") return isNaN(val) ? 0 : val;
@@ -125,6 +138,17 @@ export default function TransactionsScreen() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<string>("All");
   const [monthlyIncome, setMonthlyIncome] = useState<number>(0);
+
+  // Modal & Edit States
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+
+  const router = useRouter();
 
   const fetchData = async () => {
     try {
@@ -205,7 +229,7 @@ export default function TransactionsScreen() {
   }, []);
 
   const { totalIn, totalOut, netBalance } = useMemo(() => {
-    let inSum = monthlyIncome;
+    let inSum = 0; // Removed monthlyIncome static baseline
     let outSum = 0;
     allTransactions.forEach((t) => {
       if (t.type === "INCOME") inSum += t.amount;
@@ -216,7 +240,7 @@ export default function TransactionsScreen() {
       totalOut: outSum,
       netBalance: inSum - outSum,
     };
-  }, [allTransactions, monthlyIncome]);
+  }, [allTransactions]);
 
   const filterCategories = useMemo(() => {
     const categoriesSet = new Set<string>();
@@ -241,8 +265,16 @@ export default function TransactionsScreen() {
 
   const translateCategory = useCallback(
     (category: string) => {
-      const key = category.toLowerCase();
-      return t(key, { defaultValue: category });
+      if (!category) return "";
+
+      const normalized = category.toLowerCase();
+
+      // Explicitly handle income transactions
+      if (normalized === "income" || normalized === "income_transaction") {
+        return t("income_transaction", { defaultValue: "Income" });
+      }
+
+      return t(normalized, { defaultValue: category });
     },
     [t],
   );
@@ -250,7 +282,7 @@ export default function TransactionsScreen() {
   const getFilterLabel = useCallback(
     (filter: string) => {
       if (filter === "All") return t("all", "All");
-      if (filter === "Income") return t("income", "INCOME");
+      if (filter === "Income") return t("income_transaction", "Income");
       return translateCategory(filter);
     },
     [t, translateCategory],
@@ -262,6 +294,132 @@ export default function TransactionsScreen() {
       year: "numeric",
     });
   }, [i18n.language]);
+
+  const handleCardPress = (item: Transaction) => {
+    setSelectedTransaction(item);
+    setIsEditing(false); // Reset to view mode on open
+    setModalVisible(true);
+  };
+
+  const handleStartEdit = () => {
+    if (!selectedTransaction) return;
+    setEditDescription(selectedTransaction.title);
+    setEditAmount(selectedTransaction.amount.toString());
+    setEditCategory(selectedTransaction.category);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedTransaction) return;
+
+    const isIncome = selectedTransaction.type === "INCOME";
+    const rawId = selectedTransaction.id.replace(
+      isIncome ? "inc-" : "exp-",
+      "",
+    );
+    const parsedAmount = parseFloat(editAmount);
+
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert(
+        t("error", "Error"),
+        t("invalidAmount", "Please enter a valid amount."),
+      );
+      return;
+    }
+
+    // Pass complete ISO string for Jackson LocalDateTime parsing
+    const rawDateObj = new Date(selectedTransaction.rawDate);
+    const isoDate = !isNaN(rawDateObj.getTime())
+      ? rawDateObj.toISOString()
+      : new Date().toISOString();
+
+    try {
+      if (isIncome) {
+        await api.put(`/api/v1/incomes/${rawId}`, {
+          description: editDescription,
+          value: parsedAmount,
+          amount: parsedAmount,
+          date: isoDate,
+        });
+      } else {
+        // Matches ExpenseRequest.java DTO requirements exactly
+        await api.put(`/api/v1/expenses/${rawId}`, {
+          description: editDescription,
+          value: parsedAmount,
+          category: editCategory.toUpperCase(), // FOOD, RENT, HOUSING, UTILITIES, ENTERTAINMENT, TRANSPORTATION, OTHERS
+          dueDate: isoDate, // Jackson requires LocalDateTime compatible ISO timestamp
+          paymentType: "CASH",
+          recurrencePeriod: "NONE",
+          isPaid: true,
+        });
+      }
+
+      setAllTransactions((prev) =>
+        prev.map((item) =>
+          item.id === selectedTransaction.id
+            ? {
+                ...item,
+                title: editDescription,
+                amount: parsedAmount,
+                category: isIncome ? item.category : editCategory,
+              }
+            : item,
+        ),
+      );
+
+      setIsEditing(false);
+      setModalVisible(false);
+    } catch (error: any) {
+      console.error(
+        "Failed to update transaction:",
+        error.response?.data || error.message,
+      );
+      Alert.alert(
+        t("error", "Error"),
+        t("updateFailed", "Failed to update transaction."),
+      );
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedTransaction) return;
+
+    const isIncome = selectedTransaction.type === "INCOME";
+    const rawId = selectedTransaction.id.replace(
+      isIncome ? "inc-" : "exp-",
+      "",
+    );
+    const endpoint = isIncome
+      ? `/api/v1/incomes/${rawId}`
+      : `/api/v1/expenses/${rawId}`;
+
+    Alert.alert(
+      t("delete", "Delete"),
+      t("confirmDelete", "Are you sure you want to delete this transaction?"),
+      [
+        { text: t("cancel", "Cancel"), style: "cancel" },
+        {
+          text: t("delete", "Delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.delete(endpoint);
+              setAllTransactions((prev) =>
+                prev.filter((item) => item.id !== selectedTransaction.id),
+              );
+              setModalVisible(false);
+            } catch (error) {
+              console.error("Failed to delete transaction:", error);
+              Alert.alert(
+                t("error", "Error"),
+                t("deleteFailed", "Failed to delete transaction."),
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const renderHeader = () => (
     <View style={styles.headerWrapper}>
@@ -370,22 +528,20 @@ export default function TransactionsScreen() {
             i18n.language,
             t("recent", "Recent"),
           );
-          const displayTitle =
-            item.title === "Expense"
-              ? t("expense", "Expense")
-              : item.title === "Income Deposit"
-                ? t("incomeDeposit", "Income Deposit")
-                : item.title;
 
           return (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.7}
+              onPress={() => handleCardPress(item)}
+            >
               <View style={styles.iconContainer}>
                 <Text style={styles.iconEmoji}>{item.icon}</Text>
               </View>
 
               <View style={styles.cardDetails}>
                 <Text style={styles.itemTitle} numberOfLines={1}>
-                  {displayTitle}
+                  {item.title}
                 </Text>
                 <View style={styles.tagRow}>
                   <View style={styles.categoryBadge}>
@@ -412,10 +568,174 @@ export default function TransactionsScreen() {
                   ? `+${item.amount.toFixed(2)}`
                   : `-${item.amount.toFixed(2)}`}
               </Text>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
+
+      {/* Details & In-Modal Edit */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {selectedTransaction && (
+              <>
+                {!isEditing ? (
+                  /* VIEW MODE */
+                  <>
+                    <Text style={styles.modalTitle}>
+                      {selectedTransaction.title}
+                    </Text>
+                    <Text style={styles.modalAmount}>
+                      ${selectedTransaction.amount.toFixed(2)}
+                    </Text>
+
+                    <View style={styles.modalDetailRow}>
+                      <Text style={styles.modalDetailLabel}>
+                        {t("category", "Category")}:
+                      </Text>
+                      <Text style={styles.modalDetailValue}>
+                        {translateCategory(selectedTransaction.category)}
+                      </Text>
+                    </View>
+
+                    {/* Show Actions for BOTH Income & Expense */}
+                    <View style={styles.modalActions}>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.editBtn]}
+                        onPress={handleStartEdit}
+                      >
+                        <Text style={styles.btnText}>{t("edit", "Edit")}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.deleteBtn]}
+                        onPress={handleDelete}
+                      >
+                        <Text style={styles.btnText}>
+                          {t("delete", "Delete")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.closeBtn}
+                      onPress={() => setModalVisible(false)}
+                    >
+                      <Text style={styles.closeBtnText}>
+                        {t("close", "Close")}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  /* EDIT MODE */
+                  <>
+                    <Text style={styles.modalTitle}>
+                      {t("edit", "Edit")}{" "}
+                      {selectedTransaction.type === "INCOME"
+                        ? t("income_transaction", "Deposit")
+                        : t("expense", "Expense")}
+                    </Text>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>
+                        {t("description", "Description")}
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editDescription}
+                        onChangeText={setEditDescription}
+                        placeholder={t("description", "Description")}
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>
+                        {t("amount", "Amount")}
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editAmount}
+                        onChangeText={setEditAmount}
+                        keyboardType="decimal-pad"
+                        placeholder="0.00"
+                      />
+                    </View>
+
+                    {/* Only show Category Chips when editing EXPENSES */}
+                    {selectedTransaction.type === "EXPENSE" && (
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          {t("category", "Category")}
+                        </Text>
+                        <View style={styles.categoryContainer}>
+                          {CATEGORIES.map((cat) => {
+                            const isSelected =
+                              editCategory.toLowerCase() === cat.toLowerCase();
+                            return (
+                              <TouchableOpacity
+                                key={cat}
+                                style={[
+                                  styles.categoryChip,
+                                  isSelected && styles.categoryChipSelected,
+                                ]}
+                                onPress={() => setEditCategory(cat)}
+                                activeOpacity={0.7}
+                              >
+                                <Text
+                                  style={[
+                                    styles.categoryChipText,
+                                    isSelected &&
+                                      styles.categoryChipTextSelected,
+                                  ]}
+                                >
+                                  {String(
+                                    t(cat.toLowerCase(), { defaultValue: cat }),
+                                  )}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+
+                    <View style={styles.modalActions}>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.cancelBtn]}
+                        onPress={() => setIsEditing(false)}
+                      >
+                        <Text style={styles.cancelBtnText}>
+                          {t("cancel", "Cancel")}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.editBtn]}
+                        onPress={handleSaveEdit}
+                      >
+                        <Text style={styles.btnText}>
+                          {t("saveCard", "Save")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -569,5 +889,122 @@ const styles = StyleSheet.create({
   },
   incomeAmount: {
     color: "#1E6B5C",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    marginBottom: 8,
+  },
+  modalAmount: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#204B4C",
+    marginVertical: 12,
+  },
+  modalDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingVertical: 8,
+  },
+  modalDetailLabel: {
+    color: "#8E8E93",
+    fontSize: 14,
+  },
+  modalDetailValue: {
+    fontWeight: "600",
+    fontSize: 14,
+    color: "#1C1C1E",
+  },
+  inputGroup: {
+    width: "100%",
+    marginTop: 12,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6E6B64",
+    marginBottom: 4,
+  },
+  input: {
+    backgroundColor: "#F4F1EA",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: "#1C1C1E",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
+    width: "100%",
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  editBtn: {
+    backgroundColor: "#204B4C",
+  },
+  deleteBtn: {
+    backgroundColor: "#D9534F",
+  },
+  cancelBtn: {
+    backgroundColor: "#EBE6DD",
+  },
+  btnText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  cancelBtnText: {
+    color: "#4A4A4A",
+    fontWeight: "700",
+  },
+  closeBtn: {
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  closeBtnText: {
+    color: "#8E8E93",
+    fontWeight: "600",
+  },
+  categoryContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 6,
+  },
+  categoryChip: {
+    backgroundColor: "#EBE6DD",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  categoryChipSelected: {
+    backgroundColor: "#204B4C",
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4A4A4A",
+  },
+  categoryChipTextSelected: {
+    color: "#FFFFFF",
   },
 });

@@ -13,26 +13,29 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors_sign_register } from "../constants/theme";
 import api from "../services/api";
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleRegister = async () => {
-    if (!fullName.trim() || !email.trim() || !password) {
+    if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
       Alert.alert("Missing Information", "Please fill in all fields.");
       return;
     }
@@ -41,6 +44,14 @@ export default function RegisterScreen() {
       Alert.alert(
         "Weak Password",
         "Password must be at least 8 characters long.",
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert(
+        "Password Mismatch",
+        "Passwords do not match. Please verify and try again.",
       );
       return;
     }
@@ -73,13 +84,11 @@ export default function RegisterScreen() {
         setErrorMessage("Invalid server response. Missing security tokens.");
       }
     } catch (error: any) {
-      // 1. Log exact Spring Boot validation output to Metro terminal
       console.log(
         "FULL SPRING RESPONSE:",
         JSON.stringify(error.response?.data, null, 2),
       );
 
-      // 2. Extract specific validation field errors if Spring returns them
       let backendMessage = "Registration failed. Please check your inputs.";
 
       if (error.response?.data) {
@@ -89,7 +98,6 @@ export default function RegisterScreen() {
         } else if (data.message) {
           backendMessage = data.message;
         } else if (data.errors && Array.isArray(data.errors)) {
-          // Handles Spring FieldError arrays
           backendMessage = data.errors
             .map((e: any) => e.defaultMessage || e.message)
             .join(", ");
@@ -103,16 +111,17 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={colors_sign_register.headerBackground}
+        backgroundColor="transparent"
+        translucent
       />
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <View style={styles.headerCircle} />
 
           <TouchableOpacity
@@ -197,6 +206,30 @@ export default function RegisterScreen() {
             </View>
           </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>CONFIRM PASSWORD</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Repeat your password"
+                placeholderTextColor={colors_sign_register.textMuted}
+                secureTextEntry={!showConfirmPassword}
+                editable={!loading}
+              />
+              <TouchableOpacity
+                style={styles.showButton}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={loading}
+              >
+                <Text style={styles.showText}>
+                  {showConfirmPassword ? "hide" : "show"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <TouchableOpacity
             style={styles.checkboxContainer}
             onPress={() => setAgreeTerms(!agreeTerms)}
@@ -255,7 +288,7 @@ export default function RegisterScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -270,7 +303,6 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors_sign_register.headerBackground,
     paddingHorizontal: 28,
-    paddingTop: 16,
     paddingBottom: 36,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,

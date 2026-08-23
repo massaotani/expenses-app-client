@@ -6,11 +6,11 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -90,7 +90,11 @@ export default function OverviewScreen() {
 
   // Card Management Modal States
   const [modalCardVisible, setModalCardVisible] = useState<boolean>(false);
-  const [cardModalMode, setCardModalMode] = useState<"LIST" | "FORM">("LIST");
+  const [cardModalMode, setCardModalMode] = useState<
+    "LIST" | "FORM" | "DETAILS" | "EDIT"
+  >("LIST");
+  const [selectedCardForAction, setSelectedCardForAction] =
+    useState<UserCard | null>(null);
   const [newCardName, setNewCardName] = useState<string>("");
   const [newCardType, setNewCardType] = useState<"CREDIT" | "DEBIT">("CREDIT");
   const [submittingCard, setSubmittingCard] = useState<boolean>(false);
@@ -315,6 +319,69 @@ export default function OverviewScreen() {
     } finally {
       setSubmittingCard(false);
     }
+  };
+  const handleStartEditCard = () => {
+    if (!selectedCardForAction) return;
+    setNewCardName(selectedCardForAction.name);
+    setNewCardType(selectedCardForAction.cardType);
+    setCardModalMode("EDIT");
+  };
+
+  const handleUpdateCard = async () => {
+    if (!selectedCardForAction || !newCardName.trim()) {
+      Alert.alert(t("error", "Error"), "Please enter a card name.");
+      return;
+    }
+
+    setSubmittingCard(true);
+
+    try {
+      await api.put(`/api/v1/cards/${selectedCardForAction.id}`, {
+        name: newCardName.trim(),
+        cardType: newCardType,
+      });
+
+      setNewCardName("");
+      setNewCardType("CREDIT");
+      setSelectedCardForAction(null);
+      setCardModalMode("LIST");
+      await fetchAllData();
+    } catch (error) {
+      console.error("Error updating card:", error);
+      Alert.alert(t("error", "Error"), "Failed to update card.");
+    } finally {
+      setSubmittingCard(false);
+    }
+  };
+
+  const handleDeleteCard = async () => {
+    if (!selectedCardForAction) return;
+
+    Alert.alert(
+      t("delete", "Delete"),
+      "Are you sure you want to delete this card?",
+      [
+        { text: t("cancel", "Cancel"), style: "cancel" },
+        {
+          text: t("delete", "Delete"),
+          style: "destructive",
+          onPress: async () => {
+            setSubmittingCard(true);
+            try {
+              await api.delete(`/api/v1/cards/${selectedCardForAction.id}`);
+              setSelectedCardForAction(null);
+              setCardModalMode("LIST");
+              await fetchAllData();
+            } catch (error) {
+              console.error("Error deleting card:", error);
+              Alert.alert(t("error", "Error"), "Failed to delete card.");
+            } finally {
+              setSubmittingCard(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleAddIncome = async () => {
@@ -682,9 +749,16 @@ export default function OverviewScreen() {
 
       {/* --- CARD MANAGEMENT MODAL --- */}
       <Modal visible={modalCardVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {cardModalMode === "LIST" ? (
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalCardVisible(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* 1. LIST MODE */}
+            {cardModalMode === "LIST" && (
               <>
                 <View style={styles.modalHeaderRow}>
                   <Text style={styles.modalTitle}>
@@ -692,7 +766,11 @@ export default function OverviewScreen() {
                   </Text>
                   <TouchableOpacity
                     style={styles.addCardHeaderButton}
-                    onPress={() => setCardModalMode("FORM")}
+                    onPress={() => {
+                      setNewCardName("");
+                      setNewCardType("CREDIT");
+                      setCardModalMode("FORM");
+                    }}
                   >
                     <Text style={styles.addCardHeaderButtonText}>
                       + {t("addCard", "Add Card")}
@@ -709,7 +787,14 @@ export default function OverviewScreen() {
                 ) : (
                   <ScrollView style={{ maxHeight: 240, marginVertical: 12 }}>
                     {userCards.map((c) => (
-                      <View key={c.id} style={styles.cardListItem}>
+                      <TouchableOpacity
+                        key={c.id}
+                        style={styles.cardListItem}
+                        onPress={() => {
+                          setSelectedCardForAction(c);
+                          setCardModalMode("DETAILS");
+                        }}
+                      >
                         <Text style={styles.cardListItemText}>💳 {c.name}</Text>
                         <Text style={styles.cardListItemBadge}>
                           {String(
@@ -719,7 +804,7 @@ export default function OverviewScreen() {
                             }),
                           )}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
@@ -735,7 +820,10 @@ export default function OverviewScreen() {
                   </TouchableOpacity>
                 </View>
               </>
-            ) : (
+            )}
+
+            {/* 2. CARD DETAILS MODE */}
+            {cardModalMode === "DETAILS" && selectedCardForAction && (
               <>
                 <View style={styles.modalHeaderRow}>
                   <TouchableOpacity onPress={() => setCardModalMode("LIST")}>
@@ -744,7 +832,74 @@ export default function OverviewScreen() {
                     </Text>
                   </TouchableOpacity>
                   <Text style={styles.modalTitle}>
-                    {t("newCard", "New Card")}
+                    {selectedCardForAction.name}
+                  </Text>
+                  <View style={{ width: 40 }} />
+                </View>
+
+                <View style={{ marginVertical: 20 }}>
+                  <Text style={styles.inputLabel}>
+                    {t("cardType", "Card Type")}
+                  </Text>
+                  <Text style={styles.cardListItemText}>
+                    💳{" "}
+                    {String(
+                      t(selectedCardForAction.cardType.toLowerCase(), {
+                        defaultValue:
+                          selectedCardForAction.cardType === "CREDIT"
+                            ? "Credit"
+                            : "Debit",
+                      }),
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={handleStartEditCard}
+                  >
+                    <Text style={styles.cancelButtonText}>
+                      {t("edit", "Edit")}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, { backgroundColor: "#EF4444" }]}
+                    onPress={handleDeleteCard}
+                    disabled={submittingCard}
+                  >
+                    {submittingCard ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>
+                        {t("delete", "Delete")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* 3. EDIT OR CREATE FORM MODE */}
+            {(cardModalMode === "FORM" || cardModalMode === "EDIT") && (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setCardModalMode(
+                        cardModalMode === "EDIT" ? "DETAILS" : "LIST",
+                      )
+                    }
+                  >
+                    <Text style={styles.backButtonText}>
+                      ← {t("back", "Back")}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>
+                    {cardModalMode === "EDIT"
+                      ? `${t("edit", "Edit")} ${t("card", "Card")}`
+                      : t("newCard", "New Card")}
                   </Text>
                   <View style={{ width: 40 }} />
                 </View>
@@ -793,7 +948,11 @@ export default function OverviewScreen() {
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setCardModalMode("LIST")}
+                    onPress={() =>
+                      setCardModalMode(
+                        cardModalMode === "EDIT" ? "DETAILS" : "LIST",
+                      )
+                    }
                   >
                     <Text style={styles.cancelButtonText}>
                       {t("cancel", "Cancel")}
@@ -802,7 +961,11 @@ export default function OverviewScreen() {
 
                   <TouchableOpacity
                     style={[styles.modalButton, styles.saveButton]}
-                    onPress={handleCreateCard}
+                    onPress={
+                      cardModalMode === "EDIT"
+                        ? handleUpdateCard
+                        : handleCreateCard
+                    }
                     disabled={submittingCard}
                   >
                     {submittingCard ? (
@@ -816,14 +979,20 @@ export default function OverviewScreen() {
                 </View>
               </>
             )}
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* --- ADD INCOME MODAL --- */}
       <Modal visible={modalIncomeVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalIncomeVisible(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
             <Text style={styles.modalTitle}>
               {t("addIncomeDeposit", "Add Income Deposit")}
             </Text>
@@ -871,14 +1040,20 @@ export default function OverviewScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* --- ADD EXPENSE MODAL --- */}
       <Modal visible={modalExpensesVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalExpensesVisible(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
             <Text style={styles.modalTitle}>
               {t("addNewExpense", "Add New Expense")}
             </Text>
@@ -1050,7 +1225,7 @@ export default function OverviewScreen() {
                 ),
               )}
             </View> */}
-            <View style={styles.switchRow}>
+            {/* <View style={styles.switchRow}>
               <Text style={styles.inputLabel}>
                 {t("markAsPaid", "Mark as Paid")}
               </Text>
@@ -1059,7 +1234,7 @@ export default function OverviewScreen() {
                 onValueChange={setIsPaid}
                 trackColor={{ true: colors.primaryTeal }}
               />
-            </View>
+            </View> */}
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -1085,8 +1260,8 @@ export default function OverviewScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
