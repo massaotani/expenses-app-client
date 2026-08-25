@@ -9,6 +9,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://expenses-app-server.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       }
