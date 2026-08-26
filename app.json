@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Ledger",
-    "slug": "ledger-app",
+    "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/ledger-icon.png",
@@ -15,8 +15,6 @@
       "adaptiveIcon": {
         "backgroundColor": "#204B4C",
         "foregroundImage": "./assets/images/ledger-icon.png"
-        // "backgroundImage": "./assets/images/android-icon-background.png",
-        // "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,

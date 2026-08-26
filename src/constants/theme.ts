@@ -14,6 +14,8 @@ export const colors = {
   sageTeal: "#729B96",
   softOrange: "#E29C82",
   goldenOchre: "#D9A05B",
+  depositText: "#16A34A",
+  expenseText: "#EF4444",
 
   progressTrack: "#EFEFEA",
   border: "#E8E8E3",

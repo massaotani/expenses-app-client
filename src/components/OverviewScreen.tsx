@@ -774,7 +774,7 @@ export default function OverviewScreen() {
       {/* --- CARD MANAGEMENT MODAL --- */}
       <Modal visible={modalCardVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardAvoidingView}
         >
           <Pressable
@@ -1036,7 +1036,7 @@ export default function OverviewScreen() {
       {/* --- ADD INCOME MODAL --- */}
       <Modal visible={modalIncomeVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardAvoidingView}
         >
           <Pressable
@@ -1118,7 +1118,7 @@ export default function OverviewScreen() {
       {/* --- ADD EXPENSE MODAL --- */}
       <Modal visible={modalExpensesVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardAvoidingView}
         >
           <Pressable
@@ -1419,7 +1419,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
-  incomeText: { color: colors.primaryTeal || "#008080" },
+  incomeText: { color: colors.depositText },
   sectionCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
   transactionTitle: { fontSize: 15, fontWeight: "600", color: colors.textDark },
   transactionSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   transactionAmount: { fontSize: 15, fontWeight: "bold" },
-  expenseText: { color: colors.textDark },
+  expenseText: { color: colors.expenseText },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

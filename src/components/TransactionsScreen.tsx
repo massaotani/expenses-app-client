@@ -1,3 +1,4 @@
+import { colors } from "@/constants/theme";
 import api from "@/services/api";
 import { parseFlexibleNumber } from "@/utils/storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -764,7 +765,7 @@ export default function TransactionsScreen() {
         onRequestClose={() => setModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardAvoidingView}
         >
           <Pressable
@@ -1228,10 +1229,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   expenseAmount: {
-    color: "#1C1C1E",
+    color: colors.expenseText,
   },
   incomeAmount: {
-    color: "#1E6B5C",
+    color: colors.depositText,
   },
   keyboardAvoidingView: {
     flex: 1,

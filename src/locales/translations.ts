@@ -114,6 +114,7 @@ export const resources = {
       health: "Health",
       shopping: "Shopping",
       general: "General",
+      cardsUsage: "Card Breakdown",
     },
   },
   pt: {
@@ -231,6 +232,7 @@ export const resources = {
       health: "Saúde",
       shopping: "Compras",
       general: "Geral",
+      cardsUsage: "Detalhamento por Cartão",
     },
   },
   es: {
@@ -348,6 +350,7 @@ export const resources = {
       health: "Salud",
       shopping: "Compras",
       general: "General",
+      cardsUsage: "Desglose por Tarjeta",
     },
   },
   ja: {
@@ -464,6 +467,7 @@ export const resources = {
       health: "健康・医療",
       shopping: "買い物",
       general: "全般",
+      cardsUsage: "カード別内訳",
     },
   },
 };
