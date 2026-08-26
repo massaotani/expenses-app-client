@@ -5,6 +5,8 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -117,177 +119,186 @@ export default function RegisterScreen() {
         backgroundColor="transparent"
         translucent
       />
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <View style={styles.headerCircle} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+            <View style={styles.headerCircle} />
 
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={loading}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={16}
-              color={colors_sign_register.textLight}
-            />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>Create your{"\n"}account.</Text>
-          <Text style={styles.headerSubtitle}>
-            Start tracking your expenses today
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          {errorMessage !== "" && (
-            <View style={styles.errorContainer}>
-              <Ionicons
-                name="alert-circle"
-                size={18}
-                color="#D9383A"
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>FULL NAME</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="e.g. Massao Tani"
-              placeholderTextColor={colors_sign_register.textMuted}
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>EMAIL</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="e.g. massao@gmail.com"
-              placeholderTextColor={colors_sign_register.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASSWORD</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Min. 8 characters"
-                placeholderTextColor={colors_sign_register.textMuted}
-                secureTextEntry={!showPassword}
-                editable={!loading}
-              />
-              <TouchableOpacity
-                style={styles.showButton}
-                onPress={() => setShowPassword(!showPassword)}
-                disabled={loading}
-              >
-                <Text style={styles.showText}>
-                  {showPassword ? "hide" : "show"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>CONFIRM PASSWORD</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Repeat your password"
-                placeholderTextColor={colors_sign_register.textMuted}
-                secureTextEntry={!showConfirmPassword}
-                editable={!loading}
-              />
-              <TouchableOpacity
-                style={styles.showButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                disabled={loading}
-              >
-                <Text style={styles.showText}>
-                  {showConfirmPassword ? "hide" : "show"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => setAgreeTerms(!agreeTerms)}
-            activeOpacity={0.8}
-            disabled={loading}
-          >
-            <View
-              style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              disabled={loading}
             >
-              {agreeTerms && (
-                <Ionicons
-                  name="checkmark"
-                  size={12}
-                  color={colors_sign_register.textLight}
-                />
-              )}
-            </View>
-            <Text style={styles.checkboxText}>
-              I agree to the{" "}
-              <Text style={styles.linkText}>Terms of Service</Text> and{" "}
-              <Text style={styles.linkText}>Privacy Policy</Text>
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.createButton,
-              agreeTerms && !loading
-                ? styles.createButtonActive
-                : styles.createButtonDisabled,
-            ]}
-            disabled={!agreeTerms || loading}
-            onPress={handleRegister}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors_sign_register.textLight} />
-            ) : (
-              <Text
-                style={[
-                  styles.createButtonText,
-                  agreeTerms
-                    ? styles.createButtonTextActive
-                    : styles.createButtonTextDisabled,
-                ]}
-              >
-                Create Account
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.back()} disabled={loading}>
-              <Text style={styles.signinText}>Sign in</Text>
+              <Ionicons
+                name="arrow-back"
+                size={16}
+                color={colors_sign_register.textLight}
+              />
+              <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
+
+            <Text style={styles.headerTitle}>Create your{"\n"}account.</Text>
+            <Text style={styles.headerSubtitle}>
+              Start tracking your expenses today
+            </Text>
           </View>
-        </View>
-      </ScrollView>
+
+          <View style={styles.form}>
+            {errorMessage !== "" && (
+              <View style={styles.errorContainer}>
+                <Ionicons
+                  name="alert-circle"
+                  size={18}
+                  color="#D9383A"
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>FULL NAME</Text>
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="e.g. Massao Tani"
+                placeholderTextColor={colors_sign_register.textMuted}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>EMAIL</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="e.g. massao@gmail.com"
+                placeholderTextColor={colors_sign_register.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>PASSWORD</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Min. 8 characters"
+                  placeholderTextColor={colors_sign_register.textMuted}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  style={styles.showButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                >
+                  <Text style={styles.showText}>
+                    {showPassword ? "hide" : "show"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>CONFIRM PASSWORD</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Repeat your password"
+                  placeholderTextColor={colors_sign_register.textMuted}
+                  secureTextEntry={!showConfirmPassword}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  style={styles.showButton}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={loading}
+                >
+                  <Text style={styles.showText}>
+                    {showConfirmPassword ? "hide" : "show"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={() => setAgreeTerms(!agreeTerms)}
+              activeOpacity={0.8}
+              disabled={loading}
+            >
+              <View
+                style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}
+              >
+                {agreeTerms && (
+                  <Ionicons
+                    name="checkmark"
+                    size={12}
+                    color={colors_sign_register.textLight}
+                  />
+                )}
+              </View>
+              <Text style={styles.checkboxText}>
+                I agree to the{" "}
+                <Text style={styles.linkText}>Terms of Service</Text> and{" "}
+                <Text style={styles.linkText}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.createButton,
+                agreeTerms && !loading
+                  ? styles.createButtonActive
+                  : styles.createButtonDisabled,
+              ]}
+              disabled={!agreeTerms || loading}
+              onPress={handleRegister}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors_sign_register.textLight} />
+              ) : (
+                <Text
+                  style={[
+                    styles.createButtonText,
+                    agreeTerms
+                      ? styles.createButtonTextActive
+                      : styles.createButtonTextDisabled,
+                  ]}
+                >
+                  Create Account
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                disabled={loading}
+              >
+                <Text style={styles.signinText}>Sign in</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -296,6 +307,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors_sign_register.screenBackground,
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,

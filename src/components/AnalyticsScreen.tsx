@@ -22,6 +22,12 @@ import Svg, {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+interface UserCard {
+  id: string;
+  name: string;
+  cardType: "CREDIT" | "DEBIT" | string;
+}
+
 interface ExpenseItem {
   id: string;
   description?: string;
@@ -29,6 +35,9 @@ interface ExpenseItem {
   amount?: number | string;
   category: string;
   paymentType?: "CASH" | "CARD" | string;
+  paymentMethod?: string;
+  cardId?: string | null;
+  card?: { id: string; name: string } | string;
   dueDate?: string;
   paidAt?: string;
   date?: string;
@@ -51,10 +60,15 @@ interface UserProfile {
 const parseAmount = (val: any): number => {
   if (typeof val === "number") return isNaN(val) ? 0 : val;
   if (typeof val === "string") {
-    const parsed = parseFloat(val);
+    const normalized = val.replace(",", ".");
+    const parsed = parseFloat(normalized);
     return isNaN(parsed) ? 0 : parsed;
   }
   return 0;
+};
+
+const formatAmount = (val: number): string => {
+  return (isNaN(val) ? 0 : val).toFixed(2);
 };
 
 const COLORS = {
@@ -106,15 +120,18 @@ export default function AnalyticsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [incomes, setIncomes] = useState<IncomeItem[]>([]);
+  const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [baseMonthlyIncome, setBaseMonthlyIncome] = useState<number>(0);
 
   const fetchData = async () => {
     try {
-      const [expensesRes, incomesRes, userRes] = await Promise.allSettled([
-        api.get<ExpenseItem[]>("/api/v1/expenses"),
-        api.get<IncomeItem[]>("/api/v1/incomes"),
-        api.get<UserProfile>("/api/v1/users/me"),
-      ]);
+      const [expensesRes, incomesRes, userRes, cardsRes] =
+        await Promise.allSettled([
+          api.get<ExpenseItem[]>("/api/v1/expenses"),
+          api.get<IncomeItem[]>("/api/v1/incomes"),
+          api.get<UserProfile>("/api/v1/users/me"),
+          api.get<UserCard[]>("/api/v1/cards"),
+        ]);
 
       setExpenses(
         expensesRes.status === "fulfilled" &&
@@ -126,6 +143,11 @@ export default function AnalyticsScreen() {
         incomesRes.status === "fulfilled" &&
           Array.isArray(incomesRes.value.data)
           ? incomesRes.value.data
+          : [],
+      );
+      setUserCards(
+        cardsRes.status === "fulfilled" && Array.isArray(cardsRes.value.data)
+          ? cardsRes.value.data
           : [],
       );
 
@@ -214,13 +236,14 @@ export default function AnalyticsScreen() {
   }, [expenses, incomes, baseMonthlyIncome, last6Months]);
 
   const currentMonthSummary = useMemo(() => {
-    const current = monthlyData[monthlyData.length - 1] || {
-      income: 0,
-      expenses: 0,
-      net: 0,
-      month: "",
-    };
-    return current;
+    return (
+      monthlyData[monthlyData.length - 1] || {
+        income: 0,
+        expenses: 0,
+        net: 0,
+        month: "",
+      }
+    );
   }, [monthlyData]);
 
   const categorySpending = useMemo(() => {
@@ -282,6 +305,52 @@ export default function AnalyticsScreen() {
       cardPct: Math.round((cardSum / total) * 100),
     };
   }, [expenses]);
+
+  const cardUsageBreakdown = useMemo(() => {
+    const cardTotals: Record<string, { card: UserCard; totalSpent: number }> =
+      {};
+
+    userCards.forEach((c) => {
+      cardTotals[c.id] = { card: c, totalSpent: 0 };
+    });
+
+    let unassignedCardSpending = 0;
+
+    expenses.forEach((exp) => {
+      if (exp.paymentType?.toUpperCase() === "CASH") return;
+
+      const val = parseAmount(exp.value ?? exp.amount);
+      const targetCardId =
+        exp.cardId ||
+        (typeof exp.card === "object" ? exp.card?.id : null) ||
+        userCards.find(
+          (c) =>
+            c.id === exp.paymentMethod ||
+            c.name.toLowerCase() === exp.paymentMethod?.toLowerCase(),
+        )?.id;
+
+      if (targetCardId && cardTotals[targetCardId]) {
+        cardTotals[targetCardId].totalSpent += val;
+      } else {
+        unassignedCardSpending += val;
+      }
+    });
+
+    const totalCardSpent = paymentTypeBreakdown.card;
+
+    const cardsList = Object.values(cardTotals)
+      .map(({ card, totalSpent }) => ({
+        card,
+        totalSpent,
+        percentage:
+          totalCardSpent > 0
+            ? Math.round((totalSpent / totalCardSpent) * 100)
+            : 0,
+      }))
+      .sort((a, b) => b.totalSpent - a.totalSpent);
+
+    return { cardsList, unassignedCardSpending, totalCardSpent };
+  }, [expenses, userCards, paymentTypeBreakdown.card]);
 
   if (loading && !refreshing) {
     return (
@@ -485,10 +554,7 @@ export default function AnalyticsScreen() {
                   </Text>
                 </View>
                 <Text style={styles.paymentValueText}>
-                  $
-                  {paymentTypeBreakdown.card.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
+                  ${formatAmount(paymentTypeBreakdown.card)}
                 </Text>
                 <Text style={styles.paymentPercentageText}>
                   {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
@@ -508,16 +574,54 @@ export default function AnalyticsScreen() {
                   </Text>
                 </View>
                 <Text style={styles.paymentValueText}>
-                  $
-                  {paymentTypeBreakdown.cash.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
+                  ${formatAmount(paymentTypeBreakdown.cash)}
                 </Text>
                 <Text style={styles.paymentPercentageText}>
                   {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
                 </Text>
               </View>
             </View>
+
+            {/* Sub-breakdown per Card */}
+            {cardUsageBreakdown.cardsList.length > 0 && (
+              <View style={styles.cardBreakdownContainer}>
+                <Text style={styles.cardBreakdownTitle}>
+                  {t("cardsUsage", "Card Breakdown")}
+                </Text>
+                {cardUsageBreakdown.cardsList.map(
+                  ({ card, totalSpent, percentage }) => (
+                    <View key={card.id} style={styles.cardUsageRow}>
+                      <View style={styles.cardUsageHeader}>
+                        <View style={styles.cardNameContainer}>
+                          <Text style={styles.cardIcon}>💳</Text>
+                          <Text style={styles.cardNameText}>{card.name}</Text>
+                          <View style={styles.cardTypeBadge}>
+                            <Text style={styles.cardTypeBadgeText}>
+                              {String(
+                                t(card.cardType.toLowerCase(), {
+                                  defaultValue: card.cardType,
+                                }),
+                              )}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.cardSpentText}>
+                          ${formatAmount(totalSpent)}
+                        </Text>
+                      </View>
+                      <View style={styles.cardProgressBarTrack}>
+                        <View
+                          style={[
+                            styles.cardProgressBarFill,
+                            { width: `${percentage}%` },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  ),
+                )}
+              </View>
+            )}
           </View>
 
           {/* 3. Spending by Category */}
@@ -527,9 +631,7 @@ export default function AnalyticsScreen() {
             </Text>
             <Text style={styles.cardSubtitle}>
               {t("total", "Total")}: $
-              {categorySpending.totalSpending.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-              })}
+              {formatAmount(categorySpending.totalSpending)}
             </Text>
 
             <View style={styles.donutWrapper}>
@@ -604,10 +706,7 @@ export default function AnalyticsScreen() {
                     </Text>
                   </View>
                   <Text style={styles.categoryValue}>
-                    $
-                    {item.amount.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}{" "}
+                    ${formatAmount(item.amount)}{" "}
                     <Text style={styles.categoryPercentage}>
                       ({item.percentage}%)
                     </Text>
@@ -633,10 +732,7 @@ export default function AnalyticsScreen() {
                   {t("income", "Income")}
                 </Text>
                 <Text style={styles.netIncomeText}>
-                  $
-                  {currentMonthSummary.income.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
+                  ${formatAmount(currentMonthSummary.income)}
                 </Text>
               </View>
 
@@ -645,10 +741,7 @@ export default function AnalyticsScreen() {
                   {t("expenses", "Expenses")}
                 </Text>
                 <Text style={styles.netExpenseText}>
-                  $
-                  {currentMonthSummary.expenses.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
+                  ${formatAmount(currentMonthSummary.expenses)}
                 </Text>
               </View>
 
@@ -667,10 +760,7 @@ export default function AnalyticsScreen() {
                     },
                   ]}
                 >
-                  $
-                  {currentMonthSummary.net.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
+                  ${formatAmount(currentMonthSummary.net)}
                 </Text>
               </View>
             </View>
@@ -881,6 +971,68 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textMuted,
     marginTop: 2,
+  },
+  cardBreakdownContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderColor,
+    gap: 12,
+  },
+  cardBreakdownTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.textDark,
+    marginBottom: 2,
+  },
+  cardUsageRow: {
+    gap: 6,
+  },
+  cardUsageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cardIcon: {
+    fontSize: 14,
+  },
+  cardNameText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textDark,
+  },
+  cardTypeBadge: {
+    backgroundColor: "#EFECE6",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  cardTypeBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: COLORS.textMuted,
+    textTransform: "uppercase",
+  },
+  cardSpentText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.tealDark,
+  },
+  cardProgressBarTrack: {
+    height: 6,
+    backgroundColor: "#EFECE6",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  cardProgressBarFill: {
+    height: "100%",
+    backgroundColor: COLORS.tealDark,
+    borderRadius: 3,
   },
   donutWrapper: {
     alignItems: "center",

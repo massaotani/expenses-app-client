@@ -18,6 +18,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.app"
     },
@@ -43,9 +44,7 @@
     },
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "f332972d-eccc-4d90-a625-0095067cb61a"
-      }
+      "eas": {}
     }
   }
 }
