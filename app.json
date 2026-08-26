@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "app",
-    "slug": "app",
+    "name": "Ledger",
+    "slug": "ledger-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/ledger-icon.png",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/ledger-icon.png",
       "bundleIdentifier": "com.anonymous.app"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#204B4C",
+        "foregroundImage": "./assets/images/ledger-icon.png"
+        // "backgroundImage": "./assets/images/android-icon-background.png",
+        // "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
@@ -44,7 +44,10 @@
     },
     "extra": {
       "router": {},
-      "eas": {}
-    }
+      "eas": {
+        "projectId": "4f45edb8-4fbc-40b3-b726-a49289f48860"
+      }
+    },
+    "owner": "massaotani"
   }
 }
