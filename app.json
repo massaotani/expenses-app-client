@@ -22,7 +22,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/ledger-icon.png"
     },
     "plugins": [
       "expo-router",
@@ -43,7 +43,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4f45edb8-4fbc-40b3-b726-a49289f48860"
+        
       }
     },
     "owner": "massaotani"
