@@ -124,9 +124,13 @@ export default function RegisterScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContainer}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            { paddingBottom: insets.bottom + 24 }, // Dynamically handles bottom spacing
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
           <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
             <View style={styles.headerCircle} />

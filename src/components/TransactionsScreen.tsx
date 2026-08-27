@@ -778,9 +778,13 @@ export default function TransactionsScreen() {
             >
               <ScrollView
                 keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
                 showsVerticalScrollIndicator={false}
                 style={styles.modalScrollView}
-                contentContainerStyle={styles.modalScrollViewContent}
+                contentContainerStyle={[
+                  styles.modalScrollViewContent,
+                  { paddingBottom: 60 },
+                ]}
               >
                 {selectedTransaction && (
                   <>

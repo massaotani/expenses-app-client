@@ -791,7 +791,8 @@ export default function OverviewScreen() {
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ flexGrow: 1 }}
+                automaticallyAdjustKeyboardInsets={true}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
               >
                 {/* 1. LIST MODE */}
                 {cardModalMode === "LIST" && (
