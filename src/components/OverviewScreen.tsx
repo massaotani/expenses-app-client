@@ -7,9 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../app/_layout";
 import { colors } from "../constants/theme";
@@ -772,548 +771,538 @@ export default function OverviewScreen() {
       </ScrollView>
 
       {/* --- CARD MANAGEMENT MODAL --- */}
-      <Modal visible={modalCardVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboardAvoidingView}
+      <Modal
+        statusBarTranslucent={true}
+        visible={modalCardVisible}
+        animationType="slide"
+        transparent
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            Keyboard.dismiss();
+            setModalCardVisible(false);
+          }}
         >
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={() => {
-              Keyboard.dismiss();
-              setModalCardVisible(false);
-            }}
+          <KeyboardAwareScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid={true}
+            enableAutomaticScroll={true}
+            extraScrollHeight={50}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
           >
             <Pressable
               style={styles.modalContent}
               onPress={(e) => e.stopPropagation()}
             >
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets={true}
-                contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
-              >
-                {/* 1. LIST MODE */}
-                {cardModalMode === "LIST" && (
-                  <>
-                    <View style={styles.modalHeaderRow}>
-                      <Text style={styles.modalTitle}>
-                        {t("registeredCards", "Registered Cards")}
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.addCardHeaderButton}
-                        onPress={() => {
-                          setNewCardName("");
-                          setNewCardType("CREDIT");
-                          setCardModalMode("FORM");
-                        }}
-                      >
-                        <Text style={styles.addCardHeaderButtonText}>
-                          + {t("addCard", "Add Card")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {userCards.length === 0 ? (
-                      <View style={styles.emptyCardsContainer}>
-                        <Text style={styles.emptyCardsText}>
-                          {t("noCardsRegistered", "No cards registered")}
-                        </Text>
-                      </View>
-                    ) : (
-                      <ScrollView
-                        style={{ maxHeight: 240, marginVertical: 12 }}
-                      >
-                        {userCards.map((c) => (
-                          <TouchableOpacity
-                            key={c.id}
-                            style={styles.cardListItem}
-                            onPress={() => {
-                              setSelectedCardForAction(c);
-                              setCardModalMode("DETAILS");
-                            }}
-                          >
-                            <Text
-                              style={[styles.cardListItemText, { flex: 1 }]}
-                              numberOfLines={1}
-                            >
-                              💳 {c.name || t("unnamedCard", "Unnamed Card")}
-                            </Text>
-                            <Text style={styles.cardListItemBadge}>
-                              {String(
-                                t((c.cardType || "CREDIT").toLowerCase(), {
-                                  defaultValue:
-                                    c.cardType === "DEBIT" ? "Debit" : "Credit",
-                                }),
-                              )}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    )}
-
-                    <View style={styles.modalActions}>
-                      <TouchableOpacity
-                        style={[styles.modalButton, styles.cancelButton]}
-                        onPress={() => setModalCardVisible(false)}
-                      >
-                        <Text style={styles.cancelButtonText}>
-                          {t("close", "Close")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-
-                {/* 2. CARD DETAILS MODE */}
-                {cardModalMode === "DETAILS" && selectedCardForAction && (
-                  <>
-                    <View style={styles.modalHeaderRow}>
-                      <TouchableOpacity
-                        onPress={() => setCardModalMode("LIST")}
-                      >
-                        <Text style={styles.backButtonText}>
-                          ← {t("back", "Back")}
-                        </Text>
-                      </TouchableOpacity>
-                      <Text style={styles.modalTitle}>
-                        {selectedCardForAction.name}
-                      </Text>
-                      <View style={{ width: 40 }} />
-                    </View>
-
-                    <View style={{ marginVertical: 20 }}>
-                      <Text style={styles.inputLabel}>
-                        {t("cardType", "Card Type")}
-                      </Text>
-                      <Text style={styles.cardListItemText}>
-                        💳{" "}
-                        {String(
-                          t(selectedCardForAction.cardType.toLowerCase(), {
-                            defaultValue:
-                              selectedCardForAction.cardType === "CREDIT"
-                                ? "Credit"
-                                : "Debit",
-                          }),
-                        )}
-                      </Text>
-                    </View>
-
-                    <View style={styles.modalActions}>
-                      <TouchableOpacity
-                        style={[styles.modalButton, styles.cancelButton]}
-                        onPress={handleStartEditCard}
-                      >
-                        <Text style={styles.cancelButtonText}>
-                          {t("edit", "Edit")}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.modalButton,
-                          { backgroundColor: "#EF4444" },
-                        ]}
-                        onPress={handleDeleteCard}
-                        disabled={submittingCard}
-                      >
-                        {submittingCard ? (
-                          <ActivityIndicator color="#FFF" />
-                        ) : (
-                          <Text style={styles.saveButtonText}>
-                            {t("delete", "Delete")}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-
-                {/* 3. EDIT OR CREATE FORM MODE */}
-                {(cardModalMode === "FORM" || cardModalMode === "EDIT") && (
-                  <>
-                    <View style={styles.modalHeaderRow}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          setCardModalMode(
-                            cardModalMode === "EDIT" ? "DETAILS" : "LIST",
-                          )
-                        }
-                      >
-                        <Text style={styles.backButtonText}>
-                          ← {t("back", "Back")}
-                        </Text>
-                      </TouchableOpacity>
-                      <Text style={styles.modalTitle}>
-                        {cardModalMode === "EDIT"
-                          ? `${t("edit", "Edit")} ${t("card", "Card")}`
-                          : t("newCard", "New Card")}
-                      </Text>
-                      <View style={{ width: 40 }} />
-                    </View>
-
-                    <Text style={styles.inputLabel}>
-                      {t("cardName", "Card Name")}
+              {/* 1. LIST MODE */}
+              {cardModalMode === "LIST" && (
+                <>
+                  <View style={styles.modalHeaderRow}>
+                    <Text style={styles.modalTitle}>
+                      {t("registeredCards", "Registered Cards")}
                     </Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. Chase Sapphire, Nubank"
-                      value={newCardName}
-                      onChangeText={setNewCardName}
-                    />
+                    <TouchableOpacity
+                      style={styles.addCardHeaderButton}
+                      onPress={() => {
+                        setNewCardName("");
+                        setNewCardType("CREDIT");
+                        setCardModalMode("FORM");
+                      }}
+                    >
+                      <Text style={styles.addCardHeaderButtonText}>
+                        + {t("addCard", "Add Card")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
 
-                    <Text style={styles.inputLabel}>
-                      {t("cardType", "Card Type")}
-                    </Text>
-                    <View style={styles.categoryContainer}>
-                      {(["CREDIT", "DEBIT"] as const).map((type) => (
+                  {userCards.length === 0 ? (
+                    <View style={styles.emptyCardsContainer}>
+                      <Text style={styles.emptyCardsText}>
+                        {t("noCardsRegistered", "No cards registered")}
+                      </Text>
+                    </View>
+                  ) : (
+                    <ScrollView style={{ maxHeight: 240, marginVertical: 12 }}>
+                      {userCards.map((c) => (
                         <TouchableOpacity
-                          key={type}
-                          style={[
-                            styles.categoryChip,
-                            newCardType === type && styles.categoryChipSelected,
-                          ]}
-                          onPress={() => setNewCardType(type)}
+                          key={c.id}
+                          style={styles.cardListItem}
+                          onPress={() => {
+                            setSelectedCardForAction(c);
+                            setCardModalMode("DETAILS");
+                          }}
                         >
                           <Text
-                            style={[
-                              styles.categoryChipText,
-                              newCardType === type &&
-                                styles.categoryChipTextSelected,
-                            ]}
+                            style={[styles.cardListItemText, { flex: 1 }]}
+                            numberOfLines={1}
                           >
+                            💳 {c.name || t("unnamedCard", "Unnamed Card")}
+                          </Text>
+                          <Text style={styles.cardListItemBadge}>
                             {String(
-                              t(type.toLowerCase(), {
+                              t((c.cardType || "CREDIT").toLowerCase(), {
                                 defaultValue:
-                                  type === "CREDIT" ? "Credit" : "Debit",
+                                  c.cardType === "DEBIT" ? "Debit" : "Credit",
                               }),
                             )}
                           </Text>
                         </TouchableOpacity>
                       ))}
-                    </View>
+                    </ScrollView>
+                  )}
 
-                    <View style={styles.modalActions}>
-                      <TouchableOpacity
-                        style={[styles.modalButton, styles.cancelButton]}
-                        onPress={() =>
-                          setCardModalMode(
-                            cardModalMode === "EDIT" ? "DETAILS" : "LIST",
-                          )
-                        }
-                      >
-                        <Text style={styles.cancelButtonText}>
-                          {t("cancel", "Cancel")}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.modalButton, styles.saveButton]}
-                        onPress={
-                          cardModalMode === "EDIT"
-                            ? handleUpdateCard
-                            : handleCreateCard
-                        }
-                        disabled={submittingCard}
-                      >
-                        {submittingCard ? (
-                          <ActivityIndicator color="#FFF" />
-                        ) : (
-                          <Text style={styles.saveButtonText}>
-                            {t("saveCard", "Save Card")}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* --- ADD INCOME MODAL --- */}
-      <Modal visible={modalIncomeVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboardAvoidingView}
-        >
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={() => {
-              Keyboard.dismiss();
-              setModalIncomeVisible(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ flexGrow: 1 }}
-              >
-                <Text style={styles.modalTitle}>
-                  {t("addIncomeDeposit", "Add Income Deposit")}
-                </Text>
-
-                <Text style={styles.inputLabel}>
-                  {t("sourceDescription", "Source / Description")}
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Monthly Salary, Freelance"
-                  value={incomeSource}
-                  onChangeText={setIncomeSource}
-                />
-
-                <Text style={styles.inputLabel}>
-                  {t("amount", "Amount ($)")}
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  value={incomeValue}
-                  onChangeText={(text) => {
-                    const normalized = text
-                      .replace(/,/g, ".")
-                      .replace(/(\.\d{2})\d+$/, "$1");
-                    setIncomeValue(normalized);
-                  }}
-                />
-
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setModalIncomeVisible(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>
-                      {t("cancel", "Cancel")}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.saveButton]}
-                    onPress={handleAddIncome}
-                    disabled={submittingIncome}
-                  >
-                    {submittingIncome ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.saveButtonText}>
-                        {t("addToIncome", "Add to Income")}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* --- ADD EXPENSE MODAL --- */}
-      <Modal visible={modalExpensesVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboardAvoidingView}
-        >
-          <Pressable
-            style={styles.modalOverlay}
-            onPress={() => {
-              Keyboard.dismiss();
-              setModalExpensesVisible(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ flexGrow: 1 }}
-              >
-                <Text style={styles.modalTitle}>
-                  {t("addNewExpense", "Add New Expense")}
-                </Text>
-
-                <Text style={styles.inputLabel}>
-                  {t("description", "Description")}
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Grocery Shopping"
-                  value={description}
-                  onChangeText={setDescription}
-                />
-
-                <Text style={styles.inputLabel}>
-                  {t("amount", "Amount ($)")}
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  value={value}
-                  onChangeText={(text) => {
-                    const normalized = text
-                      .replace(/,/g, ".")
-                      .replace(/(\.\d{2})\d+$/, "$1");
-                    setValue(normalized);
-                  }}
-                />
-
-                <Text style={styles.inputLabel}>
-                  {t("category", "Category")}
-                </Text>
-                <View style={styles.categoryContainer}>
-                  {CATEGORIES.map((cat) => (
+                  <View style={styles.modalActions}>
                     <TouchableOpacity
-                      key={cat}
-                      style={[
-                        styles.categoryChip,
-                        category === cat && styles.categoryChipSelected,
-                      ]}
-                      onPress={() => setCategory(cat)}
+                      style={[styles.modalButton, styles.cancelButton]}
+                      onPress={() => setModalCardVisible(false)}
                     >
-                      <Text
-                        style={[
-                          styles.categoryChipText,
-                          category === cat && styles.categoryChipTextSelected,
-                        ]}
-                      >
-                        {String(t(cat.toLowerCase(), { defaultValue: cat }))}
+                      <Text style={styles.cancelButtonText}>
+                        {t("close", "Close")}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  </View>
+                </>
+              )}
 
-                <Text style={styles.inputLabel}>
-                  {t("paymentMethod", "Payment Method")}
-                </Text>
-                <View style={styles.categoryContainer}>
-                  {(["CASH", "CARD"] as const).map((type) => {
-                    const isDisabled =
-                      type === "CARD" && userCards.length === 0;
+              {/* 2. CARD DETAILS MODE */}
+              {cardModalMode === "DETAILS" && selectedCardForAction && (
+                <>
+                  <View style={styles.modalHeaderRow}>
+                    <TouchableOpacity onPress={() => setCardModalMode("LIST")}>
+                      <Text style={styles.backButtonText}>
+                        ← {t("back", "Back")}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.modalTitle}>
+                      {selectedCardForAction.name}
+                    </Text>
+                    <View style={{ width: 40 }} />
+                  </View>
 
-                    return (
+                  <View style={{ marginVertical: 20 }}>
+                    <Text style={styles.inputLabel}>
+                      {t("cardType", "Card Type")}
+                    </Text>
+                    <Text style={styles.cardListItemText}>
+                      💳{" "}
+                      {String(
+                        t(selectedCardForAction.cardType.toLowerCase(), {
+                          defaultValue:
+                            selectedCardForAction.cardType === "CREDIT"
+                              ? "Credit"
+                              : "Debit",
+                        }),
+                      )}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.cancelButton]}
+                      onPress={handleStartEditCard}
+                    >
+                      <Text style={styles.cancelButtonText}>
+                        {t("edit", "Edit")}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        { backgroundColor: "#EF4444" },
+                      ]}
+                      onPress={handleDeleteCard}
+                      disabled={submittingCard}
+                    >
+                      {submittingCard ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={styles.saveButtonText}>
+                          {t("delete", "Delete")}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              {/* 3. EDIT OR CREATE FORM MODE */}
+              {(cardModalMode === "FORM" || cardModalMode === "EDIT") && (
+                <>
+                  <View style={styles.modalHeaderRow}>
+                    <TouchableOpacity
+                      onPress={() =>
+                        setCardModalMode(
+                          cardModalMode === "EDIT" ? "DETAILS" : "LIST",
+                        )
+                      }
+                    >
+                      <Text style={styles.backButtonText}>
+                        ← {t("back", "Back")}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.modalTitle}>
+                      {cardModalMode === "EDIT"
+                        ? `${t("edit", "Edit")} ${t("card", "Card")}`
+                        : t("newCard", "New Card")}
+                    </Text>
+                    <View style={{ width: 40 }} />
+                  </View>
+
+                  <Text style={styles.inputLabel}>
+                    {t("cardName", "Card Name")}
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. Chase Sapphire, Nubank"
+                    value={newCardName}
+                    onChangeText={setNewCardName}
+                  />
+
+                  <Text style={styles.inputLabel}>
+                    {t("cardType", "Card Type")}
+                  </Text>
+                  <View style={styles.categoryContainer}>
+                    {(["CREDIT", "DEBIT"] as const).map((type) => (
                       <TouchableOpacity
                         key={type}
-                        disabled={isDisabled}
                         style={[
                           styles.categoryChip,
-                          paymentType === type && styles.categoryChipSelected,
-                          isDisabled && { opacity: 0.4 },
+                          newCardType === type && styles.categoryChipSelected,
                         ]}
-                        onPress={() => {
-                          setPaymentType(type);
-                          if (
-                            type === "CARD" &&
-                            userCards.length > 0 &&
-                            !selectedCardId
-                          ) {
-                            setSelectedCardId(userCards[0].id);
-                          }
-                        }}
+                        onPress={() => setNewCardType(type)}
                       >
                         <Text
                           style={[
                             styles.categoryChipText,
-                            paymentType === type &&
+                            newCardType === type &&
                               styles.categoryChipTextSelected,
                           ]}
                         >
                           {String(
                             t(type.toLowerCase(), {
-                              defaultValue: type === "CASH" ? "Cash" : "Card",
+                              defaultValue:
+                                type === "CREDIT" ? "Credit" : "Debit",
                             }),
                           )}
-                          {isDisabled
-                            ? ` ${String(
-                                t("noCardsAvailable", {
-                                  defaultValue: "(No Cards Available)",
-                                }),
-                              )}`
-                            : ""}
                         </Text>
                       </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                    ))}
+                  </View>
 
-                {paymentType === "CARD" && userCards.length > 0 && (
-                  <>
-                    <Text style={styles.inputLabel}>
-                      {t("selectCard", "Select Card")}
-                    </Text>
-                    <View style={styles.categoryContainer}>
-                      {userCards.map((card) => (
-                        <TouchableOpacity
-                          key={card.id}
-                          style={[
-                            styles.categoryChip,
-                            selectedCardId === card.id &&
-                              styles.categoryChipSelected,
-                          ]}
-                          onPress={() => setSelectedCardId(card.id)}
-                        >
-                          <Text
-                            style={[
-                              styles.categoryChipText,
-                              selectedCardId === card.id &&
-                                styles.categoryChipTextSelected,
-                            ]}
-                          >
-                            💳 {card.name} (
-                            {String(
-                              t(card.cardType.toLowerCase(), {
-                                defaultValue:
-                                  card.cardType === "CREDIT"
-                                    ? "Credit"
-                                    : "Debit",
-                              }),
-                            )}
-                            )
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </>
-                )}
-
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setModalExpensesVisible(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>
-                      {t("cancel", "Cancel")}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.saveButton]}
-                    onPress={handleAddExpense}
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.saveButtonText}>
-                        {t("saveExpense", "Save Expense")}
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.cancelButton]}
+                      onPress={() =>
+                        setCardModalMode(
+                          cardModalMode === "EDIT" ? "DETAILS" : "LIST",
+                        )
+                      }
+                    >
+                      <Text style={styles.cancelButtonText}>
+                        {t("cancel", "Cancel")}
                       </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.saveButton]}
+                      onPress={
+                        cardModalMode === "EDIT"
+                          ? handleUpdateCard
+                          : handleCreateCard
+                      }
+                      disabled={submittingCard}
+                    >
+                      {submittingCard ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={styles.saveButtonText}>
+                          {t("saveCard", "Save Card")}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
+        </Pressable>
+      </Modal>
+
+      {/* --- ADD INCOME MODAL --- */}
+      <Modal
+        statusBarTranslucent={true}
+        visible={modalIncomeVisible}
+        animationType="slide"
+        transparent
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            Keyboard.dismiss();
+            setModalIncomeVisible(false);
+          }}
+        >
+          <KeyboardAwareScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid={true}
+            enableAutomaticScroll={true}
+            extraScrollHeight={60}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
+          >
+            <Pressable
+              style={styles.modalContent}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <Text style={styles.modalTitle}>
+                {t("addIncomeDeposit", "Add Income Deposit")}
+              </Text>
+
+              <Text style={styles.inputLabel}>
+                {t("sourceDescription", "Source / Description")}
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Monthly Salary, Freelance"
+                value={incomeSource}
+                onChangeText={setIncomeSource}
+              />
+
+              <Text style={styles.inputLabel}>{t("amount", "Amount ($)")}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                value={incomeValue}
+                onChangeText={(text) => {
+                  const normalized = text
+                    .replace(/,/g, ".")
+                    .replace(/(\.\d{2})\d+$/, "$1");
+                  setIncomeValue(normalized);
+                }}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setModalIncomeVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>
+                    {t("cancel", "Cancel")}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.saveButton]}
+                  onPress={handleAddIncome}
+                  disabled={submittingIncome}
+                >
+                  {submittingIncome ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>
+                      {t("addToIncome", "Add to Income")}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAwareScrollView>
+        </Pressable>
+      </Modal>
+
+      {/* --- ADD EXPENSE MODAL --- */}
+      <Modal visible={modalExpensesVisible} animationType="slide" transparent>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            Keyboard.dismiss();
+            setModalExpensesVisible(false);
+          }}
+        >
+          <KeyboardAwareScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid={true}
+            enableAutomaticScroll={true}
+            extraScrollHeight={30}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
+          >
+            <Pressable
+              style={styles.modalContent}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <Text style={styles.modalTitle}>
+                {t("addNewExpense", "Add New Expense")}
+              </Text>
+
+              <Text style={styles.inputLabel}>
+                {t("description", "Description")}
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Grocery Shopping"
+                value={description}
+                onChangeText={setDescription}
+              />
+
+              <Text style={styles.inputLabel}>{t("amount", "Amount ($)")}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                value={value}
+                onChangeText={(text) => {
+                  const normalized = text
+                    .replace(/,/g, ".")
+                    .replace(/(\.\d{2})\d+$/, "$1");
+                  setValue(normalized);
+                }}
+              />
+
+              <Text style={styles.inputLabel}>{t("category", "Category")}</Text>
+              <View style={styles.categoryContainer}>
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      category === cat && styles.categoryChipSelected,
+                    ]}
+                    onPress={() => setCategory(cat)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        category === cat && styles.categoryChipTextSelected,
+                      ]}
+                    >
+                      {String(t(cat.toLowerCase(), { defaultValue: cat }))}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>
+                {t("paymentMethod", "Payment Method")}
+              </Text>
+              <View style={styles.categoryContainer}>
+                {(["CASH", "CARD"] as const).map((type) => {
+                  const isDisabled = type === "CARD" && userCards.length === 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      disabled={isDisabled}
+                      style={[
+                        styles.categoryChip,
+                        paymentType === type && styles.categoryChipSelected,
+                        isDisabled && { opacity: 0.4 },
+                      ]}
+                      onPress={() => {
+                        setPaymentType(type);
+                        if (
+                          type === "CARD" &&
+                          userCards.length > 0 &&
+                          !selectedCardId
+                        ) {
+                          setSelectedCardId(userCards[0].id);
+                        }
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          paymentType === type &&
+                            styles.categoryChipTextSelected,
+                        ]}
+                      >
+                        {String(
+                          t(type.toLowerCase(), {
+                            defaultValue: type === "CASH" ? "Cash" : "Card",
+                          }),
+                        )}
+                        {isDisabled
+                          ? ` ${String(
+                              t("noCardsAvailable", {
+                                defaultValue: "(No Cards Available)",
+                              }),
+                            )}`
+                          : ""}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {paymentType === "CARD" && userCards.length > 0 && (
+                <>
+                  <Text style={styles.inputLabel}>
+                    {t("selectCard", "Select Card")}
+                  </Text>
+                  <View style={styles.categoryContainer}>
+                    {userCards.map((card) => (
+                      <TouchableOpacity
+                        key={card.id}
+                        style={[
+                          styles.categoryChip,
+                          selectedCardId === card.id &&
+                            styles.categoryChipSelected,
+                        ]}
+                        onPress={() => setSelectedCardId(card.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryChipText,
+                            selectedCardId === card.id &&
+                              styles.categoryChipTextSelected,
+                          ]}
+                        >
+                          💳 {card.name} (
+                          {String(
+                            t(card.cardType.toLowerCase(), {
+                              defaultValue:
+                                card.cardType === "CREDIT" ? "Credit" : "Debit",
+                            }),
+                          )}
+                          )
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setModalExpensesVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>
+                    {t("cancel", "Cancel")}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.saveButton]}
+                  onPress={handleAddExpense}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>
+                      {t("saveExpense", "Save Expense")}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAwareScrollView>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -1327,7 +1316,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.screenBackground,
   },
-  keyboardAvoidingView: { flex: 1 },
   flex1: { flex: 1 },
   header: {
     backgroundColor: colors.headerBackground,

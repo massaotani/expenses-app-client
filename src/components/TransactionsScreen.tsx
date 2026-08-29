@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -20,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface ExpenseItem {
@@ -181,7 +181,6 @@ export default function TransactionsScreen() {
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editCategory, setEditCategory] = useState("");
-  const [editPaymentMethod, setEditPaymentMethod] = useState("");
 
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH");
@@ -759,315 +758,305 @@ export default function TransactionsScreen() {
 
       {/* Details & In-Modal Edit */}
       <Modal
+        statusBarTranslucent={true}
         animationType="slide"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboardAvoidingView}
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}
         >
           <Pressable
-            style={styles.modalOverlay}
-            onPress={() => setModalVisible(false)}
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
           >
-            <Pressable
-              style={styles.modalContent}
-              onPress={(e) => e.stopPropagation()}
+            <KeyboardAwareScrollView
+              enableOnAndroid={true}
+              extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={styles.modalScrollView}
+              contentContainerStyle={[
+                styles.modalScrollViewContent,
+                { paddingBottom: 60 },
+              ]}
             >
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets={true}
-                showsVerticalScrollIndicator={false}
-                style={styles.modalScrollView}
-                contentContainerStyle={[
-                  styles.modalScrollViewContent,
-                  { paddingBottom: 60 },
-                ]}
-              >
-                {selectedTransaction && (
-                  <>
-                    {!isEditing ? (
-                      /* VIEW MODE */
-                      <>
-                        <Text style={styles.modalTitle}>
-                          {selectedTransaction.title}
-                        </Text>
-                        <Text style={styles.modalAmount}>
-                          ${selectedTransaction.amount.toFixed(2)}
-                        </Text>
+              {selectedTransaction && (
+                <>
+                  {!isEditing ? (
+                    /* VIEW MODE */
+                    <>
+                      <Text style={styles.modalTitle}>
+                        {selectedTransaction.title}
+                      </Text>
+                      <Text style={styles.modalAmount}>
+                        ${selectedTransaction.amount.toFixed(2)}
+                      </Text>
 
+                      <View style={styles.modalDetailRow}>
+                        <Text style={styles.modalDetailLabel}>
+                          {t("category", "Category")}:
+                        </Text>
+                        <Text style={styles.modalDetailValue}>
+                          {translateCategory(selectedTransaction.category)}
+                        </Text>
+                      </View>
+
+                      {selectedTransaction.type === "EXPENSE" && (
                         <View style={styles.modalDetailRow}>
                           <Text style={styles.modalDetailLabel}>
-                            {t("category", "Category")}:
+                            {t("paymentMethod", "Payment Method")}:
                           </Text>
                           <Text style={styles.modalDetailValue}>
-                            {translateCategory(selectedTransaction.category)}
+                            {getPaymentIcon(
+                              selectedTransaction.paymentMethod || "Cash",
+                            )}{" "}
+                            {translatePaymentMethod(
+                              selectedTransaction.paymentMethod || "Cash",
+                            )}
                           </Text>
                         </View>
+                      )}
 
-                        {selectedTransaction.type === "EXPENSE" && (
-                          <View style={styles.modalDetailRow}>
-                            <Text style={styles.modalDetailLabel}>
-                              {t("paymentMethod", "Payment Method")}:
-                            </Text>
-                            <Text style={styles.modalDetailValue}>
-                              {getPaymentIcon(
-                                selectedTransaction.paymentMethod || "Cash",
-                              )}{" "}
-                              {translatePaymentMethod(
-                                selectedTransaction.paymentMethod || "Cash",
-                              )}
-                            </Text>
-                          </View>
-                        )}
-
-                        <View style={styles.modalActions}>
-                          <TouchableOpacity
-                            style={[styles.actionBtn, styles.editBtn]}
-                            onPress={handleStartEdit}
-                          >
-                            <Text style={styles.btnText}>
-                              {t("edit", "Edit")}
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.actionBtn, styles.deleteBtn]}
-                            onPress={handleDelete}
-                          >
-                            <Text style={styles.btnText}>
-                              {t("delete", "Delete")}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-
+                      <View style={styles.modalActions}>
                         <TouchableOpacity
-                          style={styles.closeBtn}
-                          onPress={() => setModalVisible(false)}
+                          style={[styles.actionBtn, styles.editBtn]}
+                          onPress={handleStartEdit}
                         >
-                          <Text style={styles.closeBtnText}>
-                            {t("close", "Close")}
+                          <Text style={styles.btnText}>
+                            {t("edit", "Edit")}
                           </Text>
                         </TouchableOpacity>
-                      </>
-                    ) : (
-                      /* EDIT MODE */
-                      <>
-                        <Text style={styles.modalTitle}>
-                          {t("edit", "Edit")}{" "}
-                          {selectedTransaction.type === "INCOME"
-                            ? t("income_transaction", "Deposit")
-                            : t("expense", "Expense")}
+
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.deleteBtn]}
+                          onPress={handleDelete}
+                        >
+                          <Text style={styles.btnText}>
+                            {t("delete", "Delete")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.closeBtn}
+                        onPress={() => setModalVisible(false)}
+                      >
+                        <Text style={styles.closeBtnText}>
+                          {t("close", "Close")}
                         </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    /* EDIT MODE */
+                    <>
+                      <Text style={styles.modalTitle}>
+                        {t("edit", "Edit")}{" "}
+                        {selectedTransaction.type === "INCOME"
+                          ? t("income_transaction", "Deposit")
+                          : t("expense", "Expense")}
+                      </Text>
 
-                        <View style={styles.inputGroup}>
-                          <Text style={styles.inputLabel}>
-                            {t("description", "Description")}
-                          </Text>
-                          <TextInput
-                            style={styles.input}
-                            value={editDescription}
-                            onChangeText={setEditDescription}
-                            placeholder={t("description", "Description")}
-                          />
-                        </View>
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          {t("description", "Description")}
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          value={editDescription}
+                          onChangeText={setEditDescription}
+                          placeholder={t("description", "Description")}
+                        />
+                      </View>
 
-                        <View style={styles.inputGroup}>
-                          <Text style={styles.inputLabel}>
-                            {t("amount", "Amount")}
-                          </Text>
-                          <TextInput
-                            style={styles.input}
-                            value={editAmount}
-                            onChangeText={(text) => {
-                              const normalized = text
-                                .replace(/,/g, ".")
-                                .replace(/(\.\d{2})\d+$/, "$1");
-                              setEditAmount(normalized);
-                            }}
-                            keyboardType="decimal-pad"
-                            placeholder="0.00"
-                          />
-                        </View>
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          {t("amount", "Amount")}
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          value={editAmount}
+                          onChangeText={(text) => {
+                            const normalized = text
+                              .replace(/,/g, ".")
+                              .replace(/(\.\d{2})\d+$/, "$1");
+                            setEditAmount(normalized);
+                          }}
+                          keyboardType="decimal-pad"
+                          placeholder="0.00"
+                        />
+                      </View>
 
-                        {selectedTransaction.type === "EXPENSE" && (
-                          <>
-                            <View style={styles.inputGroup}>
-                              <Text style={styles.inputLabel}>
-                                {t("category", "Category")}
-                              </Text>
-                              <View style={styles.categoryContainer}>
-                                {CATEGORIES.map((cat) => {
-                                  const isSelected =
-                                    editCategory.toLowerCase() ===
-                                    cat.toLowerCase();
-                                  return (
-                                    <TouchableOpacity
-                                      key={cat}
-                                      style={[
-                                        styles.categoryChip,
-                                        isSelected &&
-                                          styles.categoryChipSelected,
-                                      ]}
-                                      onPress={() => setEditCategory(cat)}
-                                      activeOpacity={0.7}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.categoryChipText,
-                                          isSelected &&
-                                            styles.categoryChipTextSelected,
-                                        ]}
-                                      >
-                                        {String(
-                                          t(cat.toLowerCase(), {
-                                            defaultValue: cat,
-                                          }),
-                                        )}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                              <Text style={styles.inputLabel}>
-                                {t("paymentMethod", "Payment Method")}
-                              </Text>
-                              <View style={styles.categoryContainer}>
-                                {(["CASH", "CARD"] as const).map((type) => {
-                                  const isDisabled =
-                                    type === "CARD" && userCards.length === 0;
-
-                                  return (
-                                    <TouchableOpacity
-                                      key={type}
-                                      disabled={isDisabled}
-                                      style={[
-                                        styles.categoryChip,
-                                        paymentType === type &&
-                                          styles.categoryChipSelected,
-                                        isDisabled && { opacity: 0.4 },
-                                      ]}
-                                      onPress={() => {
-                                        setPaymentType(type);
-                                        if (
-                                          type === "CARD" &&
-                                          userCards.length > 0 &&
-                                          !selectedCardId
-                                        ) {
-                                          setSelectedCardId(userCards[0].id);
-                                        }
-                                      }}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.categoryChipText,
-                                          paymentType === type &&
-                                            styles.categoryChipTextSelected,
-                                        ]}
-                                      >
-                                        {String(
-                                          t(type.toLowerCase(), {
-                                            defaultValue:
-                                              type === "CASH" ? "Cash" : "Card",
-                                          }),
-                                        )}
-                                        {isDisabled
-                                          ? ` ${String(
-                                              t("noCardsAvailable", {
-                                                defaultValue:
-                                                  "(No Cards Available)",
-                                              }),
-                                            )}`
-                                          : ""}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-
-                              {paymentType === "CARD" &&
-                                userCards.length > 0 && (
-                                  <>
+                      {selectedTransaction.type === "EXPENSE" && (
+                        <>
+                          <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>
+                              {t("category", "Category")}
+                            </Text>
+                            <View style={styles.categoryContainer}>
+                              {CATEGORIES.map((cat) => {
+                                const isSelected =
+                                  editCategory.toLowerCase() ===
+                                  cat.toLowerCase();
+                                return (
+                                  <TouchableOpacity
+                                    key={cat}
+                                    style={[
+                                      styles.categoryChip,
+                                      isSelected && styles.categoryChipSelected,
+                                    ]}
+                                    onPress={() => setEditCategory(cat)}
+                                    activeOpacity={0.7}
+                                  >
                                     <Text
                                       style={[
-                                        styles.inputLabel,
-                                        { marginTop: 12 },
+                                        styles.categoryChipText,
+                                        isSelected &&
+                                          styles.categoryChipTextSelected,
                                       ]}
                                     >
-                                      {t("selectCard", "Select Card")}
+                                      {String(
+                                        t(cat.toLowerCase(), {
+                                          defaultValue: cat,
+                                        }),
+                                      )}
                                     </Text>
-                                    <View style={styles.categoryContainer}>
-                                      {userCards.map((card) => (
-                                        <TouchableOpacity
-                                          key={card.id}
-                                          style={[
-                                            styles.categoryChip,
-                                            selectedCardId === card.id &&
-                                              styles.categoryChipSelected,
-                                          ]}
-                                          onPress={() =>
-                                            setSelectedCardId(card.id)
-                                          }
-                                        >
-                                          <Text
-                                            style={[
-                                              styles.categoryChipText,
-                                              selectedCardId === card.id &&
-                                                styles.categoryChipTextSelected,
-                                            ]}
-                                          >
-                                            💳 {card.name} (
-                                            {String(
-                                              t(card.cardType.toLowerCase(), {
-                                                defaultValue:
-                                                  card.cardType === "CREDIT"
-                                                    ? "Credit"
-                                                    : "Debit",
-                                              }),
-                                            )}
-                                            )
-                                          </Text>
-                                        </TouchableOpacity>
-                                      ))}
-                                    </View>
-                                  </>
-                                )}
+                                  </TouchableOpacity>
+                                );
+                              })}
                             </View>
-                          </>
-                        )}
+                          </View>
 
-                        <View style={styles.modalActions}>
-                          <TouchableOpacity
-                            style={[styles.actionBtn, styles.cancelBtn]}
-                            onPress={() => setIsEditing(false)}
-                          >
-                            <Text style={styles.cancelBtnText}>
-                              {t("cancel", "Cancel")}
+                          <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>
+                              {t("paymentMethod", "Payment Method")}
                             </Text>
-                          </TouchableOpacity>
+                            <View style={styles.categoryContainer}>
+                              {(["CASH", "CARD"] as const).map((type) => {
+                                const isDisabled =
+                                  type === "CARD" && userCards.length === 0;
 
-                          <TouchableOpacity
-                            style={[styles.actionBtn, styles.editBtn]}
-                            onPress={handleSaveEdit}
-                          >
-                            <Text style={styles.btnText}>
-                              {t("saveExpense", "Save")}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </>
-                    )}
-                  </>
-                )}
-              </ScrollView>
-            </Pressable>
+                                return (
+                                  <TouchableOpacity
+                                    key={type}
+                                    disabled={isDisabled}
+                                    style={[
+                                      styles.categoryChip,
+                                      paymentType === type &&
+                                        styles.categoryChipSelected,
+                                      isDisabled && { opacity: 0.4 },
+                                    ]}
+                                    onPress={() => {
+                                      setPaymentType(type);
+                                      if (
+                                        type === "CARD" &&
+                                        userCards.length > 0 &&
+                                        !selectedCardId
+                                      ) {
+                                        setSelectedCardId(userCards[0].id);
+                                      }
+                                    }}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.categoryChipText,
+                                        paymentType === type &&
+                                          styles.categoryChipTextSelected,
+                                      ]}
+                                    >
+                                      {String(
+                                        t(type.toLowerCase(), {
+                                          defaultValue:
+                                            type === "CASH" ? "Cash" : "Card",
+                                        }),
+                                      )}
+                                      {isDisabled
+                                        ? ` ${String(
+                                            t("noCardsAvailable", {
+                                              defaultValue:
+                                                "(No Cards Available)",
+                                            }),
+                                          )}`
+                                        : ""}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+
+                            {paymentType === "CARD" && userCards.length > 0 && (
+                              <>
+                                <Text
+                                  style={[styles.inputLabel, { marginTop: 12 }]}
+                                >
+                                  {t("selectCard", "Select Card")}
+                                </Text>
+                                <View style={styles.categoryContainer}>
+                                  {userCards.map((card) => (
+                                    <TouchableOpacity
+                                      key={card.id}
+                                      style={[
+                                        styles.categoryChip,
+                                        selectedCardId === card.id &&
+                                          styles.categoryChipSelected,
+                                      ]}
+                                      onPress={() => setSelectedCardId(card.id)}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.categoryChipText,
+                                          selectedCardId === card.id &&
+                                            styles.categoryChipTextSelected,
+                                        ]}
+                                      >
+                                        💳 {card.name} (
+                                        {String(
+                                          t(card.cardType.toLowerCase(), {
+                                            defaultValue:
+                                              card.cardType === "CREDIT"
+                                                ? "Credit"
+                                                : "Debit",
+                                          }),
+                                        )}
+                                        )
+                                      </Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                </View>
+                              </>
+                            )}
+                          </View>
+                        </>
+                      )}
+
+                      <View style={styles.modalActions}>
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.cancelBtn]}
+                          onPress={() => setIsEditing(false)}
+                        >
+                          <Text style={styles.cancelBtnText}>
+                            {t("cancel", "Cancel")}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.editBtn]}
+                          onPress={handleSaveEdit}
+                        >
+                          <Text style={styles.btnText}>
+                            {t("saveExpense", "Save")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+            </KeyboardAwareScrollView>
           </Pressable>
-        </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -1237,9 +1226,6 @@ const styles = StyleSheet.create({
   },
   incomeAmount: {
     color: colors.depositText,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
   },
   modalOverlay: {
     flex: 1,
