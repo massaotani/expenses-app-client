@@ -49,7 +49,12 @@ export const resources = {
       housing: "Housing",
       transportation: "Transportation",
       entertainment: "Entertainment",
-      utilities: "Utilities",
+      fixed_expenses: "Fixed Expenses",
+      healthcare: "Healthcare",
+      clothing: "Clothing",
+      pet: "Pet",
+      travel: "Travel",
+      others: "Others",
 
       // Card Management Modal
       registeredCards: "Registered Cards",
@@ -158,7 +163,7 @@ export const resources = {
       recent: "Recentes",
       seeAll: "Ver todos",
       deposit: "Depósito",
-      cash: "Dinheiro",
+      cash: "Dinheiro / PIX",
       card: "Cartão",
       noCardsAvailable: "(Sem cartões disponíveis)",
 
@@ -166,8 +171,13 @@ export const resources = {
       food: "Alimentação",
       housing: "Moradia",
       transportation: "Transporte",
-      entertainment: "Entretenimento",
-      utilities: "Contas Básicas",
+      entertainment: "Lazer",
+      fixed_expenses: "Despesas Fixas",
+      healthcare: "Saúde",
+      clothing: "Vestuário",
+      pet: "Pets",
+      travel: "Viagens",
+      others: "Outros",
 
       // Modal de Cartões
       registeredCards: "Cartões Cadastrados",
@@ -220,9 +230,9 @@ export const resources = {
       incomeVsExpenses: "Receita vs. Despesas",
       last6Months: "Últimos 6 meses",
       paymentMethodBreakdown: "Detalhamento por Forma de Pagamento",
-      cardVsCash: "Cartão vs. Dinheiro",
+      cardVsCash: "Cartão vs. Dinheiro / PIX",
       cardExpenses: "Despesas no Cartão",
-      cashExpenses: "Despesas em Dinheiro",
+      cashExpenses: "Despesas em Dinheiro / PIX",
       ofTotal: "do total",
       spendingByCategory: "Gastos por Categoria",
       total: "Total",
@@ -285,7 +295,12 @@ export const resources = {
       housing: "Vivienda",
       transportation: "Transporte",
       entertainment: "Entretenimiento",
-      utilities: "Servicios Básicos",
+      fixed_expenses: "Gastos Fijos",
+      healthcare: "Salud",
+      clothing: "Ropa",
+      pet: "Mascotas",
+      travel: "Viajes",
+      others: "Otros",
 
       // Modal de Tarjetas
       registeredCards: "Tarjetas Registradas",
@@ -402,7 +417,12 @@ export const resources = {
       housing: "住居費",
       transportation: "交通費",
       entertainment: "娯楽費",
-      utilities: "光熱費",
+      fixed_expenses: "固定費",
+      healthcare: "医療・健康",
+      clothing: "衣類",
+      pet: "ペット",
+      travel: "旅行",
+      others: "その他",
 
       // カード管理モーダル
       registeredCards: "登録済みカード",

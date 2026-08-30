@@ -9,11 +9,17 @@ export const colors = {
   textLight: "#FFFFFF",
   textLightMuted: "rgba(255, 255, 255, 0.7)",
 
-  primaryOrange: "#C86D51", // Terracotta accent
+  primaryOrange: "#C86D51",
   primaryTeal: "#284E4C",
   sageTeal: "#729B96",
   softOrange: "#E29C82",
   goldenOchre: "#D9A05B",
+  deepOchre: "#96652C",
+  terracotta: "#B86B53",
+  amber: "#E8A855",
+  deepSage: "#486E68",
+  neutral: "#9A8B85",
+
   depositText: "#16A34A",
   expenseText: "#EF4444",
 

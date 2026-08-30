@@ -5,11 +5,13 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -76,134 +78,136 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent
-      />
-      <KeyboardAwareScrollView
-        contentContainerStyle={[
-          styles.scrollContainer,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        enableOnAndroid={true}
-        extraScrollHeight={20}
-      >
-        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-          <View style={styles.headerCircle} />
-          <Text style={styles.headerTitle}>Welcome.{"\n"}</Text>
-          <Text style={styles.headerSubtitle}>
-            Sign in to your Ledger account
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          {errorMessage !== "" && (
-            <View style={styles.errorContainer}>
-              <Ionicons
-                name="alert-circle"
-                size={18}
-                color="#D9383A"
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>EMAIL</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              placeholder="e.g. youremail@mail.com"
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor="transparent"
+          translucent
+        />
+        <KeyboardAwareScrollView
+          contentContainerStyle={[
+            styles.scrollContainer,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          extraScrollHeight={20}
+        >
+          <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+            <View style={styles.headerCircle} />
+            <Text style={styles.headerTitle}>Welcome.{"\n"}</Text>
+            <Text style={styles.headerSubtitle}>
+              Sign in to your Ledger account
+            </Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASSWORD</Text>
-            <View style={styles.passwordContainer}>
+          <View style={styles.form}>
+            {errorMessage !== "" && (
+              <View style={styles.errorContainer}>
+                <Ionicons
+                  name="alert-circle"
+                  size={18}
+                  color="#D9383A"
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>EMAIL</Text>
               <TextInput
-                style={styles.passwordInput}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                secureTextEntry={!showPassword}
+                style={styles.input}
+                value={email}
+                placeholder="e.g. youremail@mail.com"
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
                 editable={!loading}
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>PASSWORD</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                >
+                  <Text style={styles.showText}>
+                    {showPassword ? "hide" : "show"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.forgotContainer} disabled={loading}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.signInButton, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors_sign_register.textLight} />
+              ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={styles.socialButton} disabled={loading}>
+                <Ionicons
+                  name="logo-google"
+                  size={18}
+                  color={colors_sign_register.textDark}
+                  style={styles.socialIcon}
+                />
+                <Text style={styles.socialButtonText}>Google</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.socialButton} disabled={loading}>
+                <Ionicons
+                  name="logo-apple"
+                  size={20}
+                  color={colors_sign_register.textDark}
+                  style={styles.socialIcon}
+                />
+                <Text style={styles.socialButtonText}>Apple</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
               <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={() => router.push("/register")}
                 disabled={loading}
               >
-                <Text style={styles.showText}>
-                  {showPassword ? "hide" : "show"}
-                </Text>
+                <Text style={styles.signupText}>Sign up</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          <TouchableOpacity style={styles.forgotContainer} disabled={loading}>
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.signInButton, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors_sign_register.textLight} />
-            ) : (
-              <Text style={styles.signInButtonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialButton} disabled={loading}>
-              <Ionicons
-                name="logo-google"
-                size={18}
-                color={colors_sign_register.textDark}
-                style={styles.socialIcon}
-              />
-              <Text style={styles.socialButtonText}>Google</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.socialButton} disabled={loading}>
-              <Ionicons
-                name="logo-apple"
-                size={20}
-                color={colors_sign_register.textDark}
-                style={styles.socialIcon}
-              />
-              <Text style={styles.socialButtonText}>Apple</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/register")}
-              disabled={loading}
-            >
-              <Text style={styles.signupText}>Sign up</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAwareScrollView>
-    </View>
+        </KeyboardAwareScrollView>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

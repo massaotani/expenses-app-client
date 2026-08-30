@@ -84,13 +84,17 @@ const COLORS = {
   textDark: "#1C1C1E",
   textMuted: "#8E8E93",
   categoryColors: {
-    Housing: "#204B4C",
-    Food: "#D87A53",
-    Transport: "#7A9A95",
-    Health: "#E5A982",
-    Entertainment: "#4E8773",
-    Shopping: "#D1B28C",
-    General: "#9E9E9E",
+    Housing: "#284E4C", // primaryTeal
+    Food: "#C86D51", // primaryOrange
+    "Fixed Expenses": "#96652C", // deepOchre
+    Fixed_Expenses: "#96652C", // deepOchre (alias)
+    Transportation: "#729B96", // sageTeal
+    Entertainment: "#D9A05B", // goldenOchre
+    Healthcare: "#E29C82", // softOrange
+    Clothing: "#B86B53", // terracotta accent
+    PET: "#E8A855", // warm amber accent
+    Travel: "#486E68", // deep sage accent
+    Others: "#9A8B85", // neutral taupe
   } as Record<string, string>,
 };
 

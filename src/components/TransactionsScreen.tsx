@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Keyboard, // Added Keyboard import
   Modal,
   Platform,
   Pressable,
@@ -131,18 +132,24 @@ const getCategoryIcon = (
   type: "INCOME" | "EXPENSE",
 ): string => {
   if (type === "INCOME") return "💰";
-  const cat = (category || "").toLowerCase();
-  if (cat.includes("food") || cat.includes("grocer")) return "🛒";
-  if (cat.includes("house") || cat.includes("rent")) return "🏠";
-  if (cat.includes("transp") || cat.includes("uber") || cat.includes("travel"))
-    return "🚗";
-  if (
-    cat.includes("entertain") ||
-    cat.includes("stream") ||
-    cat.includes("movie")
-  )
-    return "🎬";
-  return "💸";
+
+  const cat = (category || "").toLowerCase().trim();
+
+  switch (cat) {
+    case "food":
+      return "🛒";
+    case "housing":
+      return "🏠";
+    case "transportation":
+      return "🚗";
+    case "entertainment":
+      return "🎬";
+    case "fixed_expenses":
+    case "fixed expenses":
+      return "📌";
+    default:
+      return "💳";
+  }
 };
 
 const parseRawDate = (dateString: string): Date => {
@@ -762,15 +769,21 @@ export default function TransactionsScreen() {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalVisible(false);
+        }}
       >
         <Pressable
           style={styles.modalOverlay}
-          onPress={() => setModalVisible(false)}
+          onPress={() => {
+            Keyboard.dismiss();
+            setModalVisible(false);
+          }}
         >
           <Pressable
             style={styles.modalContent}
-            onPress={(e) => e.stopPropagation()}
+            onPress={() => Keyboard.dismiss()}
           >
             <KeyboardAwareScrollView
               enableOnAndroid={true}
@@ -845,7 +858,10 @@ export default function TransactionsScreen() {
 
                       <TouchableOpacity
                         style={styles.closeBtn}
-                        onPress={() => setModalVisible(false)}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setModalVisible(false);
+                        }}
                       >
                         <Text style={styles.closeBtnText}>
                           {t("close", "Close")}
@@ -1058,6 +1074,7 @@ export default function TransactionsScreen() {
                 </>
               )}
             </KeyboardAwareScrollView>
+            <View style={styles.bottomExtension} />
           </Pressable>
         </Pressable>
       </Modal>
@@ -1244,6 +1261,14 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? 34 : 24,
     maxHeight: "85%",
     width: "100%",
+  },
+  bottomExtension: {
+    position: "absolute",
+    bottom: -1000,
+    left: 0,
+    right: 0,
+    height: 1000,
+    backgroundColor: "#FFFFFF",
   },
   modalScrollView: {
     width: "100%",

@@ -1,5 +1,6 @@
 import { parseFlexibleNumber } from "@/utils/storage";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +9,7 @@ import {
   Alert,
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -61,10 +63,15 @@ export interface UserCard {
 
 const CATEGORIES = [
   "Food",
+  "Fixed Expenses",
   "Housing",
-  "Transportation",
+  "Healthcare",
   "Entertainment",
-  "Utilities",
+  "Transportation",
+  "Clothing",
+  "PET",
+  "Travel",
+  "Others",
 ];
 
 export default function OverviewScreen() {
@@ -86,6 +93,8 @@ export default function OverviewScreen() {
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [budgetItems, setBudgetItems] = useState<any[]>([]);
+  const [expenseDate, setExpenseDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
 
   // Card States
   const [userCards, setUserCards] = useState<UserCard[]>([]);
@@ -139,9 +148,7 @@ export default function OverviewScreen() {
   }, [token]);
 
   useEffect(() => {
-    if (rawExpenses.length > 0 || rawIncomes.length > 0) {
-      processFigmaData(rawExpenses, rawIncomes);
-    }
+    processFigmaData(rawExpenses, rawIncomes);
   }, [i18n.language, rawExpenses, rawIncomes]);
 
   const processMonthlyTrend = (expenses: SpringBootExpense[]) => {
@@ -171,6 +178,25 @@ export default function OverviewScreen() {
     }
 
     return last6Months;
+  };
+
+  const formatDateDDMMYYYY = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      setExpenseDate(selectedDate);
+    }
+  };
+  const handleDismiss = () => {
+    setShowDatePicker(false);
   };
 
   const fetchAllData = async () => {
@@ -405,7 +431,7 @@ export default function OverviewScreen() {
   };
 
   const handleAddIncome = async () => {
-    const normalizedValue = incomeValue.replace(".", ",");
+    const normalizedValue = incomeValue.replace(",", ".");
     const deposit = parseFloat(normalizedValue);
 
     if (
@@ -461,15 +487,23 @@ export default function OverviewScreen() {
     }
 
     setSubmitting(true);
-    const now = new Date().toISOString().slice(0, 19);
+
+    const year = expenseDate.getFullYear();
+    const month = String(expenseDate.getMonth() + 1).padStart(2, "0");
+    const day = String(expenseDate.getDate()).padStart(2, "0");
+    const time = expenseDate.toTimeString().split(" ")[0];
+    const formattedDueDate = `${year}-${month}-${day}T${time}`;
 
     const newExpense: Omit<SpringBootExpense, "id"> = {
       description: description.trim(),
       value: numericValue,
-      category: category.toUpperCase() as SpringBootExpense["category"],
-      dueDate: now,
+      category: category
+        .toUpperCase()
+        .trim()
+        .replace(/\s+/g, "_") as SpringBootExpense["category"],
+      dueDate: formattedDueDate,
       isPaid: isPaid,
-      paidAt: isPaid ? now : null,
+      paidAt: isPaid ? formattedDueDate : null,
       paymentType: paymentType,
       cardId: paymentType === "CARD" ? selectedCardId : null,
       recurrencePeriod: recurrencePeriod,
@@ -481,6 +515,7 @@ export default function OverviewScreen() {
       setDescription("");
       setValue("");
       setCategory("Food");
+      setExpenseDate(new Date());
       setIsPaid(true);
       setPaymentType("CASH");
       setRecurrencePeriod("NONE");
@@ -498,6 +533,18 @@ export default function OverviewScreen() {
     }
   };
 
+  const formatCategoryLabel = (cat: string) => {
+    if (!cat) return "";
+    const key = cat.toLowerCase().trim().replace(/\s+/g, "_");
+
+    const fallback = cat
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+    return t(key, { defaultValue: fallback });
+  };
+
   const getCategoryEmoji = (cat: string) => {
     switch (cat?.toLowerCase()) {
       case "food":
@@ -508,23 +555,39 @@ export default function OverviewScreen() {
         return "🚗";
       case "entertainment":
         return "🎬";
+      case "fixed_expenses":
+      case "fixed expenses":
+        return "📌";
       default:
         return "💳";
     }
   };
 
   const getCategoryColor = (cat: string) => {
-    switch (cat?.toLowerCase()) {
+    switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
       case "housing":
         return colors.primaryTeal;
       case "food":
         return colors.primaryOrange;
+      case "fixed expenses":
+        return colors.deepOchre;
       case "transportation":
+      case "transport":
         return colors.sageTeal;
       case "entertainment":
         return colors.goldenOchre;
-      default:
+      case "healthcare":
+      case "health":
         return colors.softOrange;
+      case "clothing":
+        return colors.terracotta;
+      case "pet":
+        return colors.amber;
+      case "travel":
+        return colors.deepSage;
+      case "others":
+      default:
+        return colors.neutral;
     }
   };
 
@@ -694,7 +757,6 @@ export default function OverviewScreen() {
               return (
                 <View key={item.id} style={styles.budgetItem}>
                   <View style={styles.budgetHeader}>
-                    {/* Translated category lookup with fallback */}
                     <Text style={styles.budgetCategory}>
                       {t(item.category.toLowerCase(), {
                         defaultValue: item.category,
@@ -794,7 +856,7 @@ export default function OverviewScreen() {
           >
             <Pressable
               style={styles.modalContent}
-              onPress={(e) => e.stopPropagation()}
+              onPress={() => Keyboard.dismiss()}
             >
               {/* 1. LIST MODE */}
               {cardModalMode === "LIST" && (
@@ -856,7 +918,10 @@ export default function OverviewScreen() {
                   <View style={styles.modalActions}>
                     <TouchableOpacity
                       style={[styles.modalButton, styles.cancelButton]}
-                      onPress={() => setModalCardVisible(false)}
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setModalCardVisible(false);
+                      }}
                     >
                       <Text style={styles.cancelButtonText}>
                         {t("close", "Close")}
@@ -1055,7 +1120,7 @@ export default function OverviewScreen() {
           >
             <Pressable
               style={styles.modalContent}
-              onPress={(e) => e.stopPropagation()}
+              onPress={() => Keyboard.dismiss()}
             >
               <Text style={styles.modalTitle}>
                 {t("addIncomeDeposit", "Add Income Deposit")}
@@ -1088,7 +1153,10 @@ export default function OverviewScreen() {
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setModalIncomeVisible(false)}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setModalIncomeVisible(false);
+                  }}
                 >
                   <Text style={styles.cancelButtonText}>
                     {t("cancel", "Cancel")}
@@ -1109,13 +1177,19 @@ export default function OverviewScreen() {
                   )}
                 </TouchableOpacity>
               </View>
+              <View style={styles.bottomExtension} />
             </Pressable>
           </KeyboardAwareScrollView>
         </Pressable>
       </Modal>
 
       {/* --- ADD EXPENSE MODAL --- */}
-      <Modal visible={modalExpensesVisible} animationType="slide" transparent>
+      <Modal
+        statusBarTranslucent={true}
+        visible={modalExpensesVisible}
+        animationType="slide"
+        transparent
+      >
         <Pressable
           style={styles.modalOverlay}
           onPress={() => {
@@ -1133,7 +1207,7 @@ export default function OverviewScreen() {
           >
             <Pressable
               style={styles.modalContent}
-              onPress={(e) => e.stopPropagation()}
+              onPress={() => Keyboard.dismiss()}
             >
               <Text style={styles.modalTitle}>
                 {t("addNewExpense", "Add New Expense")}
@@ -1180,7 +1254,7 @@ export default function OverviewScreen() {
                         category === cat && styles.categoryChipTextSelected,
                       ]}
                     >
-                      {String(t(cat.toLowerCase(), { defaultValue: cat }))}
+                      {formatCategoryLabel(cat)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -1275,11 +1349,76 @@ export default function OverviewScreen() {
                   </View>
                 </>
               )}
+              <Text style={styles.inputLabel}>{t("date", "Date")}</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={colors.textDark}
+                />
+                <Text style={styles.datePickerText}>
+                  {formatDateDDMMYYYY(expenseDate)}
+                </Text>
+              </TouchableOpacity>
 
+              {showDatePicker &&
+                (Platform.OS === "ios" ? (
+                  <Modal
+                    transparent
+                    animationType="fade"
+                    visible={showDatePicker}
+                    onRequestClose={() => setShowDatePicker(false)}
+                  >
+                    <TouchableOpacity
+                      style={styles.datePickerBackdrop}
+                      activeOpacity={1}
+                      onPress={() => setShowDatePicker(false)}
+                    >
+                      <TouchableOpacity
+                        activeOpacity={1}
+                        style={styles.datePickerContainerIOS}
+                      >
+                        <View style={styles.datePickerHeaderIOS}>
+                          <TouchableOpacity
+                            onPress={() => setShowDatePicker(false)}
+                          >
+                            <Text style={styles.datePickerDoneText}>
+                              {t("done", "Done")}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        <DateTimePicker
+                          value={expenseDate}
+                          mode="date"
+                          display="spinner"
+                          onValueChange={handleDateChange}
+                          onDismiss={handleDismiss}
+                          maximumDate={new Date(2100, 11, 31)}
+                          style={{ alignSelf: "center", width: "100%" }}
+                        />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  </Modal>
+                ) : (
+                  <DateTimePicker
+                    value={expenseDate}
+                    mode="date"
+                    display="default"
+                    onValueChange={handleDateChange}
+                    onDismiss={handleDismiss}
+                    maximumDate={new Date(2100, 11, 31)}
+                  />
+                ))}
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setModalExpensesVisible(false)}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setModalExpensesVisible(false);
+                  }}
                 >
                   <Text style={styles.cancelButtonText}>
                     {t("cancel", "Cancel")}
@@ -1300,6 +1439,7 @@ export default function OverviewScreen() {
                   )}
                 </TouchableOpacity>
               </View>
+              <View style={styles.bottomExtension} />
             </Pressable>
           </KeyboardAwareScrollView>
         </Pressable>
@@ -1483,6 +1623,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: "85%",
   },
+  bottomExtension: {
+    position: "absolute",
+    bottom: -1000,
+    left: 0,
+    right: 0,
+    height: 1000,
+    backgroundColor: colors.cardBackground || "#FFFFFF",
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: "bold",
@@ -1561,7 +1709,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   categoryChip: {
-    paddingVertical: 8,
+    flexBasis: "48%", // Fits 2 columns per row
+    flexGrow: 1, // Distributes remaining horizontal space equally
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 16,
     backgroundColor: colors.screenBackground || "#F5F5F5",
@@ -1591,4 +1743,40 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: colors.textDark, fontWeight: "600" },
   saveButton: { backgroundColor: colors.primaryTeal || "#008080" },
   saveButtonText: { color: "#FFFFFF", fontWeight: "bold" },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.screenBackground || "#F5F5F5",
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+  },
+  datePickerText: {
+    fontSize: 15,
+    color: colors.textDark,
+    fontWeight: "500",
+  },
+  datePickerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  datePickerContainerIOS: {
+    backgroundColor: colors.cardBackground || "#FFFFFF",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 20,
+  },
+  datePickerHeaderIOS: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border || "#E5E7EB",
+  },
+  datePickerDoneText: {
+    color: colors.primaryTeal || "#008080",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });
