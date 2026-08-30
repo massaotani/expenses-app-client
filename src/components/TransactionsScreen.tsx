@@ -748,8 +748,8 @@ export default function TransactionsScreen() {
                 ]}
               >
                 {isIncome
-                  ? `+${item.amount.toFixed(2)}`
-                  : `-${item.amount.toFixed(2)}`}
+                  ? `+${item.amount.toFixed(2).replace(".", ",")}`
+                  : `-${item.amount.toFixed(2).replace(".", ",")}`}
               </Text>
             </TouchableOpacity>
           );
@@ -792,7 +792,10 @@ export default function TransactionsScreen() {
                         {selectedTransaction.title}
                       </Text>
                       <Text style={styles.modalAmount}>
-                        ${selectedTransaction.amount.toFixed(2)}
+                        $
+                        {selectedTransaction.amount
+                          .toFixed(2)
+                          .replace(".", ",")}
                       </Text>
 
                       <View style={styles.modalDetailRow}>

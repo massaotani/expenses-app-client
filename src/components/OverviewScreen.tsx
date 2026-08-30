@@ -405,7 +405,7 @@ export default function OverviewScreen() {
   };
 
   const handleAddIncome = async () => {
-    const normalizedValue = incomeValue.replace(",", ".");
+    const normalizedValue = incomeValue.replace(".", ",");
     const deposit = parseFloat(normalizedValue);
 
     if (
@@ -701,7 +701,7 @@ export default function OverviewScreen() {
                       })}
                     </Text>
                     <Text style={styles.budgetAmounts}>
-                      ${item.spent.toFixed(2)}{" "}
+                      ${item.spent.toFixed(2).replace(".", ",")}{" "}
                       <Text style={styles.budgetLimit}>
                         ({sharePercentage.toFixed(0)}%)
                       </Text>
@@ -761,8 +761,8 @@ export default function OverviewScreen() {
                   ]}
                 >
                   {tx.type === "INCOME"
-                    ? `+$${tx.amount.toFixed(2)}`
-                    : `-$${tx.amount.toFixed(2)}`}
+                    ? `+$${tx.amount.toFixed(2).replace(".", ",")}`
+                    : `-$${tx.amount.toFixed(2).replace(".", ",")}`}
                 </Text>
               </View>
             ))}
@@ -1079,8 +1079,8 @@ export default function OverviewScreen() {
                 value={incomeValue}
                 onChangeText={(text) => {
                   const normalized = text
-                    .replace(/,/g, ".")
-                    .replace(/(\.\d{2})\d+$/, "$1");
+                    .replace(/\./g, ",")
+                    .replace(/(,\d{2})\d+$/, "$1");
                   setIncomeValue(normalized);
                 }}
               />
@@ -1157,8 +1157,8 @@ export default function OverviewScreen() {
                 value={value}
                 onChangeText={(text) => {
                   const normalized = text
-                    .replace(/,/g, ".")
-                    .replace(/(\.\d{2})\d+$/, "$1");
+                    .replace(/\./g, ",")
+                    .replace(/(,\d{2})\d+$/, "$1");
                   setValue(normalized);
                 }}
               />

@@ -68,7 +68,7 @@ const parseAmount = (val: any): number => {
 };
 
 const formatAmount = (val: number): string => {
-  return (isNaN(val) ? 0 : val).toFixed(2);
+  return (isNaN(val) ? 0 : val).toFixed(2).replace(".", ",");
 };
 
 const COLORS = {
