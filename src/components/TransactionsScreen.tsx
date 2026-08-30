@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Keyboard, // Added Keyboard import
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -73,10 +73,15 @@ interface UserCard {
 
 const CATEGORIES = [
   "Food",
+  "Fixed Expenses",
   "Housing",
-  "Transportation",
+  "Healthcare",
   "Entertainment",
-  "Utilities",
+  "Transportation",
+  "Clothing",
+  "PET",
+  "Travel",
+  "Others",
 ];
 
 const parseAmount = (val: any): number => {
@@ -194,7 +199,6 @@ export default function TransactionsScreen() {
   );
   const [monthlyIncome, setMonthlyIncome] = useState<number>(0);
 
-  // Modal & Edit States
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -227,9 +231,12 @@ export default function TransactionsScreen() {
       const incomesData =
         incomesRes.status === "fulfilled" ? incomesRes.value.data : [];
 
-      if (userRes.status === "fulfilled" && userRes.value.data?.monthlyIncome) {
-        setMonthlyIncome(parseAmount(userRes.value.data.monthlyIncome));
-      }
+      const userMonthlyIncome =
+        userRes.status === "fulfilled" && userRes.value.data?.monthlyIncome
+          ? parseAmount(userRes.value.data.monthlyIncome)
+          : 0;
+
+      setMonthlyIncome(userMonthlyIncome);
 
       const parsedExpenses: Transaction[] = (
         Array.isArray(expensesData) ? expensesData : []
@@ -246,13 +253,6 @@ export default function TransactionsScreen() {
           "Cash",
         ),
       }));
-
-      const userMonthlyIncome =
-        userRes.status === "fulfilled" && userRes.value.data?.monthlyIncome
-          ? parseAmount(userRes.value.data.monthlyIncome)
-          : 0;
-
-      setMonthlyIncome(userMonthlyIncome);
 
       let parsedIncomes: Transaction[] = (
         Array.isArray(incomesData) ? incomesData : []
@@ -314,7 +314,7 @@ export default function TransactionsScreen() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
-  }, []);
+  }, [selectedDate]);
 
   const changeMonth = (offset: number) => {
     setSelectedDate(
@@ -514,7 +514,7 @@ export default function TransactionsScreen() {
         await api.put(`/api/v1/expenses/${rawId}`, {
           description: editDescription,
           value: parsedAmount,
-          category: editCategory.toUpperCase(),
+          category: editCategory.toUpperCase().trim().replace(/\s+/g, "_"),
           dueDate: isoDate,
           paymentType: paymentType,
           cardId: cardIdPayload,
@@ -661,7 +661,6 @@ export default function TransactionsScreen() {
         </View>
       </View>
 
-      {/* Category Filter Pills */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -690,7 +689,6 @@ export default function TransactionsScreen() {
         })}
       </ScrollView>
 
-      {/* Payment Method Filter Pills */}
       {filterCards.length > 1 && (
         <ScrollView
           horizontal
@@ -787,12 +785,10 @@ export default function TransactionsScreen() {
               </View>
 
               <View style={styles.cardDetails}>
-                {/* Line 1: Description */}
                 <Text style={styles.itemTitle} numberOfLines={1}>
                   {item.title}
                 </Text>
 
-                {/* Line 2: Category */}
                 <View style={styles.lineRow}>
                   <View style={styles.categoryBadge}>
                     <Text
@@ -806,7 +802,6 @@ export default function TransactionsScreen() {
                   </View>
                 </View>
 
-                {/* Line 3: Payment Method / Deposit */}
                 <View style={styles.lineRow}>
                   <View
                     style={[
@@ -829,7 +824,6 @@ export default function TransactionsScreen() {
                   </View>
                 </View>
 
-                {/* Line 4: Date */}
                 <Text style={styles.dateText}>{formattedDate}</Text>
               </View>
 
@@ -848,28 +842,22 @@ export default function TransactionsScreen() {
         }}
       />
 
-      {/* Details & In-Modal Edit */}
       <Modal
-        statusBarTranslucent={true}
+        statusBarTranslucent
         animationType="slide"
-        transparent={true}
+        transparent
         visible={modalVisible}
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setModalVisible(false);
-        }}
+        onRequestClose={() => setModalVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => {
-            Keyboard.dismiss();
-            setModalVisible(false);
-          }}
-        >
+        <View style={styles.modalOverlay}>
           <Pressable
-            style={styles.modalContent}
-            onPress={() => Keyboard.dismiss()}
-          >
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              Keyboard.dismiss();
+              setModalVisible(false);
+            }}
+          />
+          <View style={styles.modalContent}>
             <KeyboardAwareScrollView
               enableOnAndroid={true}
               extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
@@ -878,13 +866,12 @@ export default function TransactionsScreen() {
               style={styles.modalScrollView}
               contentContainerStyle={[
                 styles.modalScrollViewContent,
-                { paddingBottom: 60 },
+                { paddingBottom: 10 },
               ]}
             >
               {selectedTransaction && (
                 <>
                   {!isEditing ? (
-                    /* VIEW MODE */
                     <>
                       <Text style={styles.modalTitle}>
                         {selectedTransaction.title}
@@ -921,7 +908,6 @@ export default function TransactionsScreen() {
                         </View>
                       )}
 
-                      {/* Date Row */}
                       <View style={styles.modalDetailRow}>
                         <Text style={styles.modalDetailLabel}>
                           {t("date", "Date")}:
@@ -972,7 +958,6 @@ export default function TransactionsScreen() {
                       </TouchableOpacity>
                     </>
                   ) : (
-                    /* EDIT MODE */
                     <>
                       <Text style={styles.modalTitle}>
                         {t("edit", "Edit")}{" "}
@@ -1040,9 +1025,14 @@ export default function TransactionsScreen() {
                                       ]}
                                     >
                                       {String(
-                                        t(cat.toLowerCase(), {
-                                          defaultValue: cat,
-                                        }),
+                                        t(
+                                          cat
+                                            .toLowerCase()
+                                            .replace(/\s+/g, "_"),
+                                          {
+                                            defaultValue: cat,
+                                          },
+                                        ),
                                       )}
                                     </Text>
                                   </TouchableOpacity>
@@ -1178,8 +1168,8 @@ export default function TransactionsScreen() {
               )}
             </KeyboardAwareScrollView>
             <View style={styles.bottomExtension} />
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1240,7 +1230,7 @@ const styles = StyleSheet.create({
   },
   cardDetails: {
     flex: 1,
-    gap: 4, // Creates vertical separation between each line
+    gap: 4,
   },
   lineRow: {
     flexDirection: "row",
@@ -1312,12 +1302,6 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     marginBottom: 6,
   },
-  tagRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flexWrap: "wrap",
-  },
   categoryBadge: {
     backgroundColor: "#EFECE6",
     paddingHorizontal: 8,
@@ -1382,6 +1366,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   modalScrollView: {
+    flexShrink: 1,
     width: "100%",
   },
   modalScrollViewContent: {
@@ -1437,6 +1422,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 20,
+    paddingBottom: 20,
     width: "100%",
   },
   actionBtn: {

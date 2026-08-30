@@ -1,6 +1,8 @@
 import { parseFlexibleNumber } from "@/utils/storage";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import DateTimePicker, {
+  DateTimePickerChangeEvent,
+} from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -103,7 +105,6 @@ export default function OverviewScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // User & Monthly Balance State
   const [userName, setUserName] = useState<string>("");
   const [monthlyIncome, setMonthlyIncome] = useState<number>(0);
   const [totalDeposits, setTotalDeposits] = useState<number>(0);
@@ -112,22 +113,18 @@ export default function OverviewScreen() {
     null,
   );
 
-  // Raw API Data
   const [rawExpenses, setRawExpenses] = useState<SpringBootExpense[]>([]);
   const [rawIncomes, setRawIncomes] = useState<SpringBootIncome[]>([]);
 
-  // Expense Data States
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [budgetItems, setBudgetItems] = useState<any[]>([]);
   const [expenseDate, setExpenseDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
 
-  // Card States
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
-  // Modals
   const [modalCardVisible, setModalCardVisible] = useState<boolean>(false);
   const [cardModalMode, setCardModalMode] = useState<
     "LIST" | "FORM" | "DETAILS" | "EDIT"
@@ -159,7 +156,6 @@ export default function OverviewScreen() {
     { value: number; label: string }[]
   >([]);
 
-  // Calculated Balances derived directly from MonthlyBalance model
   const effectiveIncome =
     monthlyBalance?.income ?? monthlyIncome + totalDeposits;
   const effectiveExpenses = monthlyBalance?.totalExpenses ?? totalExpenses;
@@ -245,12 +241,13 @@ export default function OverviewScreen() {
     return `${day}/${month}/${year}`;
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
+  const handleDateChange = (
+    event: DateTimePickerChangeEvent,
+    selectedDate?: Date,
+  ) => {
     if (Platform.OS === "android") setShowDatePicker(false);
     if (selectedDate) setExpenseDate(selectedDate);
   };
-
-  const handleDismiss = () => setShowDatePicker(false);
 
   const fetchAllData = async () => {
     try {
@@ -692,7 +689,6 @@ export default function OverviewScreen() {
           />
         }
       >
-        {/* --- HEADER SECTION --- */}
         <View style={styles.header}>
           <Text style={styles.monthText}>{t("overview", "OVERVIEW")}</Text>
 
@@ -720,7 +716,6 @@ export default function OverviewScreen() {
             {t("takeCareFinances", "Take good care of your finances!")}
           </Text>
 
-          {/* Balance Card */}
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>
               {t("totalBalance", "TOTAL BALANCE")}
@@ -742,7 +737,6 @@ export default function OverviewScreen() {
             )}
           </View>
 
-          {/* Income & Expenses Dual Cards */}
           <View style={styles.dualCardRow}>
             <TouchableOpacity
               style={[styles.miniCard, styles.flex1, { marginRight: 8 }]}
@@ -785,9 +779,7 @@ export default function OverviewScreen() {
           </View>
         </View>
 
-        {/* --- BODY CONTENT --- */}
         <View style={styles.body}>
-          {/* Spending Trend */}
           <View style={styles.sectionCard}>
             <Text style={styles.cardTitle}>
               {t("spendingTrend", "Spending Trend")}
@@ -822,7 +814,6 @@ export default function OverviewScreen() {
             </View>
           </View>
 
-          {/* Budget Overview */}
           <View style={styles.sectionCard}>
             <Text style={styles.cardTitle}>
               {t("monthlyBudget", "Monthly Budget")}
@@ -837,7 +828,7 @@ export default function OverviewScreen() {
                 <View key={item.id} style={styles.budgetItem}>
                   <View style={styles.budgetHeader}>
                     <Text style={styles.budgetCategory}>
-                      {t(item.category.toLowerCase(), {
+                      {t(item.category.toLowerCase().replace(/\s+/g, "_"), {
                         defaultValue: item.category,
                       })}
                     </Text>
@@ -864,7 +855,6 @@ export default function OverviewScreen() {
             })}
           </View>
 
-          {/* Recent Transactions */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.cardTitle}>{t("recent", "Recent")}</Text>
@@ -885,7 +875,7 @@ export default function OverviewScreen() {
                   <Text style={styles.transactionTitle}>{tx.title}</Text>
                   <Text style={styles.transactionSubtitle}>
                     {String(
-                      t(tx.category.toLowerCase(), {
+                      t(tx.category.toLowerCase().replace(/\s+/g, "_"), {
                         defaultValue: tx.category,
                       }),
                     )}{" "}
@@ -911,7 +901,6 @@ export default function OverviewScreen() {
         </View>
       </ScrollView>
 
-      {/* --- CARD MANAGEMENT MODAL --- */}
       <Modal
         statusBarTranslucent
         visible={modalCardVisible}
@@ -1167,12 +1156,12 @@ export default function OverviewScreen() {
                   </View>
                 </>
               )}
+              <View style={styles.bottomExtension} />
             </Pressable>
           </KeyboardAwareScrollView>
         </Pressable>
       </Modal>
 
-      {/* --- ADD INCOME MODAL --- */}
       <Modal
         statusBarTranslucent
         visible={modalIncomeVisible}
@@ -1259,7 +1248,6 @@ export default function OverviewScreen() {
         </Pressable>
       </Modal>
 
-      {/* --- ADD EXPENSE MODAL --- */}
       <Modal
         statusBarTranslucent
         visible={modalExpensesVisible}
@@ -1279,6 +1267,7 @@ export default function OverviewScreen() {
             enableOnAndroid
             enableAutomaticScroll
             extraScrollHeight={30}
+            style={{ maxHeight: "70%", width: "100%" }}
             contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
           >
             <Pressable
@@ -1468,7 +1457,6 @@ export default function OverviewScreen() {
                           mode="date"
                           display="spinner"
                           onValueChange={handleDateChange}
-                          onDismiss={handleDismiss}
                           maximumDate={new Date(2100, 11, 31)}
                           style={{ alignSelf: "center", width: "100%" }}
                         />
@@ -1481,7 +1469,6 @@ export default function OverviewScreen() {
                     mode="date"
                     display="default"
                     onValueChange={handleDateChange}
-                    onDismiss={handleDismiss}
                     maximumDate={new Date(2100, 11, 31)}
                   />
                 ))}
@@ -1535,7 +1522,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.headerBackground,
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 25,
   },
   monthText: {
     fontSize: 12,
@@ -1693,9 +1680,10 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: colors.cardBackground || "#FFFFFF",
     padding: 24,
+    paddingBottom: 50,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: "85%",
+    // maxHeight: "85%",
   },
   bottomExtension: {
     position: "absolute",
@@ -1798,7 +1786,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 12,
-    marginTop: "auto",
+    marginTop: 30,
     paddingTop: 15,
   },
   modalButton: {
