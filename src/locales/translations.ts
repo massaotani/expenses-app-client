@@ -88,6 +88,7 @@ export const resources = {
       weekly: "Weekly",
       monthly: "Monthly",
       yearly: "Yearly",
+      date: "Date",
 
       // Transactions Screen
       transactions: "Transactions",
@@ -100,6 +101,7 @@ export const resources = {
       income_transaction: "Income",
       expense: "Expense",
       incomeDeposit: "Income Deposit",
+      noTransactionsRegistered: "No transactions registered.",
 
       // Analytics
       analytics: "Analytics",
@@ -211,6 +213,7 @@ export const resources = {
       weekly: "Semanal",
       monthly: "Mensal",
       yearly: "Anual",
+      date: "Data",
 
       // Tela de Transações
       transactions: "Transações",
@@ -223,6 +226,7 @@ export const resources = {
       income_transaction: "Depósito",
       expense: "Despesa",
       incomeDeposit: "Depósito de Receita",
+      noTransactionsRegistered: "Nenhuma transação registrada.",
 
       // Análises
       analytics: "Análises",
@@ -314,6 +318,7 @@ export const resources = {
       saveCard: "Guardar Tarjeta",
       credit: "Crédito",
       debit: "Débito",
+      date: "Fecha",
 
       // Modal de Ingresos
       addIncomeDeposit: "Agregar Ingreso",
@@ -346,6 +351,7 @@ export const resources = {
       income_transaction: "Depósito",
       expense: "Gasto",
       incomeDeposit: "Depósito de Ingreso",
+      noTransactionsRegistered: "No hay transacciones registradas.",
 
       // Análisis
       analytics: "Análisis",
@@ -436,6 +442,7 @@ export const resources = {
       saveCard: "カードを保存",
       credit: "クレジット",
       debit: "デビット",
+      date: "日付",
 
       // 収入モーダル
       addIncomeDeposit: "収入の追加",
@@ -468,6 +475,7 @@ export const resources = {
       income_transaction: "入金",
       expense: "支出",
       incomeDeposit: "入金",
+      noTransactionsRegistered: "登録された取引はありません。",
 
       // 分析
       analytics: "分析",

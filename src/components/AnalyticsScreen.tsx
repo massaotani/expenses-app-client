@@ -126,6 +126,7 @@ export default function AnalyticsScreen() {
   const [incomes, setIncomes] = useState<IncomeItem[]>([]);
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [baseMonthlyIncome, setBaseMonthlyIncome] = useState<number>(0);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const fetchData = async () => {
     try {
@@ -251,8 +252,8 @@ export default function AnalyticsScreen() {
   }, [monthlyData]);
 
   const categorySpending = useMemo(() => {
-    const currentMonthIndex = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    const targetMonth = selectedDate.getMonth();
+    const targetYear = selectedDate.getFullYear();
     const totals: Record<string, number> = {};
 
     expenses.forEach((exp) => {
@@ -260,11 +261,12 @@ export default function AnalyticsScreen() {
         exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
       const d = new Date(rawDate);
 
-      const isCurrentMonth =
-        isNaN(d.getTime()) ||
-        (d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear);
+      const isTargetMonth =
+        !isNaN(d.getTime()) &&
+        d.getMonth() === targetMonth &&
+        d.getFullYear() === targetYear;
 
-      if (isCurrentMonth) {
+      if (isTargetMonth) {
         const catName = exp.category ? exp.category.trim() : "General";
         totals[catName] =
           (totals[catName] || 0) + parseAmount(exp.value ?? exp.amount);
@@ -285,7 +287,13 @@ export default function AnalyticsScreen() {
       }));
 
     return { totals, sortedEntries, totalSpending };
-  }, [expenses]);
+  }, [expenses, selectedDate]);
+
+  const changeMonth = (offset: number) => {
+    setSelectedDate(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1),
+    );
+  };
 
   const paymentTypeBreakdown = useMemo(() => {
     let cashSum = 0;

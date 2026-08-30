@@ -51,7 +51,8 @@ export interface UserProfile {
 export interface SpringBootIncome {
   id: string;
   description: string;
-  value: number;
+  value?: number;
+  amount?: number;
   createdAt: string;
 }
 
@@ -59,6 +60,15 @@ export interface UserCard {
   id: string;
   name: string;
   cardType: "CREDIT" | "DEBIT";
+}
+
+export interface MonthlyBalance {
+  id?: string;
+  year: number;
+  month: number;
+  income: number;
+  totalExpenses: number;
+  savings: number;
 }
 
 const CATEGORIES = [
@@ -74,16 +84,33 @@ const CATEGORIES = [
   "Others",
 ];
 
+const toLocalISOString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
 export default function OverviewScreen() {
   const { t, i18n } = useTranslation();
-  const { token } = useAuth();
+  const { token, signOut } = useAuth();
+  const router = useRouter();
+
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // User State
+  // User & Monthly Balance State
   const [userName, setUserName] = useState<string>("");
   const [monthlyIncome, setMonthlyIncome] = useState<number>(0);
+  const [totalDeposits, setTotalDeposits] = useState<number>(0);
   const [investmentPot, setInvestmentPot] = useState<number>(0);
+  const [monthlyBalance, setMonthlyBalance] = useState<MonthlyBalance | null>(
+    null,
+  );
 
   // Raw API Data
   const [rawExpenses, setRawExpenses] = useState<SpringBootExpense[]>([]);
@@ -100,7 +127,7 @@ export default function OverviewScreen() {
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
-  // Card Management Modal States
+  // Modals
   const [modalCardVisible, setModalCardVisible] = useState<boolean>(false);
   const [cardModalMode, setCardModalMode] = useState<
     "LIST" | "FORM" | "DETAILS" | "EDIT"
@@ -111,7 +138,6 @@ export default function OverviewScreen() {
   const [newCardType, setNewCardType] = useState<"CREDIT" | "DEBIT">("CREDIT");
   const [submittingCard, setSubmittingCard] = useState<boolean>(false);
 
-  // Expense Modal States
   const [modalExpensesVisible, setModalExpensesVisible] =
     useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -124,22 +150,21 @@ export default function OverviewScreen() {
     "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"
   >("NONE");
 
-  // Income Modal States
   const [modalIncomeVisible, setModalIncomeVisible] = useState<boolean>(false);
   const [submittingIncome, setSubmittingIncome] = useState<boolean>(false);
   const [incomeSource, setIncomeSource] = useState("");
   const [incomeValue, setIncomeValue] = useState("");
 
-  // Trend Data
   const [trendData, setTrendData] = useState<
     { value: number; label: string }[]
   >([]);
 
-  // Dynamic Total Balance: Monthly Income - Dynamic Expenses
-  const totalBalance = monthlyIncome - totalExpenses;
-
-  const router = useRouter();
-  const { signOut } = useAuth();
+  // Calculated Balances derived directly from MonthlyBalance model
+  const effectiveIncome =
+    monthlyBalance?.income ?? monthlyIncome + totalDeposits;
+  const effectiveExpenses = monthlyBalance?.totalExpenses ?? totalExpenses;
+  const totalBalance =
+    monthlyBalance?.savings ?? effectiveIncome - effectiveExpenses;
 
   useEffect(() => {
     if (token) {
@@ -150,6 +175,13 @@ export default function OverviewScreen() {
   useEffect(() => {
     processFigmaData(rawExpenses, rawIncomes);
   }, [i18n.language, rawExpenses, rawIncomes]);
+
+  const formatCurrency = (amount: number) => {
+    return (amount || 0).toLocaleString(i18n.language, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   const processMonthlyTrend = (expenses: SpringBootExpense[]) => {
     const now = new Date();
@@ -171,13 +203,39 @@ export default function OverviewScreen() {
       const capitalizedLabel =
         rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
 
-      last6Months.push({
-        label: capitalizedLabel,
-        value: monthlyTotal,
-      });
+      last6Months.push({ label: capitalizedLabel, value: monthlyTotal });
     }
 
     return last6Months;
+  };
+
+  const parseLocalDateTime = (
+    dateInput: string | Date | undefined | null,
+  ): Date => {
+    if (!dateInput) return new Date();
+    if (dateInput instanceof Date) return dateInput;
+
+    let formattedInput = dateInput;
+    if (
+      typeof dateInput === "string" &&
+      dateInput.includes("T") &&
+      !dateInput.endsWith("Z") &&
+      !dateInput.includes("+") &&
+      !/\-\d{2}:\d{2}$/.test(dateInput)
+    ) {
+      formattedInput = `${dateInput}Z`;
+    }
+
+    const parsed = new Date(formattedInput);
+    if (!isNaN(parsed.getTime())) return parsed;
+
+    const [datePart] = dateInput.split("T");
+    const parts = datePart.split("-").map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    return new Date();
   };
 
   const formatDateDDMMYYYY = (date: Date) => {
@@ -188,28 +246,38 @@ export default function OverviewScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === "android") {
-      setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      setExpenseDate(selectedDate);
-    }
+    if (Platform.OS === "android") setShowDatePicker(false);
+    if (selectedDate) setExpenseDate(selectedDate);
   };
-  const handleDismiss = () => {
-    setShowDatePicker(false);
-  };
+
+  const handleDismiss = () => setShowDatePicker(false);
 
   const fetchAllData = async () => {
     try {
-      const [expensesRes, userRes, incomesRes, cardsRes] =
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+
+      const [expensesRes, userRes, incomesRes, cardsRes, balanceRes] =
         await Promise.allSettled([
-          api.get<SpringBootExpense[]>("/api/v1/expenses"),
+          api.get<SpringBootExpense[]>("/api/v1/expenses", {
+            params: { year, month },
+          }),
           api.get<UserProfile>("/api/v1/users/me"),
-          api.get<SpringBootIncome[]>("/api/v1/incomes"),
+          api.get<SpringBootIncome[]>("/api/v1/incomes", {
+            params: { year, month },
+          }),
           api.get<UserCard[]>("/api/v1/cards"),
+          api.get<MonthlyBalance>("/api/v1/monthly-balances/current"),
         ]);
 
-      const isUnauthorized = [expensesRes, userRes, incomesRes, cardsRes].some(
+      const isUnauthorized = [
+        expensesRes,
+        userRes,
+        incomesRes,
+        cardsRes,
+        balanceRes,
+      ].some(
         (res) =>
           res.status === "rejected" && res.reason?.response?.status === 401,
       );
@@ -235,6 +303,10 @@ export default function OverviewScreen() {
         setInvestmentPot(user.investmentPot || 0);
       }
 
+      if (balanceRes.status === "fulfilled") {
+        setMonthlyBalance(balanceRes.value.data);
+      }
+
       if (cardsRes.status === "fulfilled") {
         const cards = cardsRes.value.data || [];
         setUserCards(cards);
@@ -257,8 +329,14 @@ export default function OverviewScreen() {
     expenses: SpringBootExpense[],
     incomesList: SpringBootIncome[],
   ) => {
-    const total = expenses.reduce((sum, item) => sum + item.value, 0);
-    setTotalExpenses(total);
+    const totalExp = expenses.reduce((sum, item) => sum + (item.value || 0), 0);
+    setTotalExpenses(totalExp);
+
+    const totalDep = incomesList.reduce(
+      (sum, item) => sum + (item.value ?? item.amount ?? 0),
+      0,
+    );
+    setTotalDeposits(totalDep);
 
     setTrendData(processMonthlyTrend(expenses));
 
@@ -279,37 +357,43 @@ export default function OverviewScreen() {
     }));
     setBudgetItems(groupedBudgets);
 
-    const formattedExpenses = expenses.map((item) => ({
-      id: `exp-${item.id || Math.random()}`,
-      type: "EXPENSE" as const,
-      title: item.description,
-      category: item.category,
-      rawDate: item.dueDate ? new Date(item.dueDate) : new Date(),
-      date: item.dueDate
-        ? new Date(item.dueDate).toLocaleDateString(i18n.language, {
-            month: "short",
-            day: "numeric",
-          })
-        : t("today", "Today"),
-      amount: item.value,
-      emoji: getCategoryEmoji(item.category),
-    }));
+    const formattedExpenses = expenses.map((item) => {
+      const parsedDate = parseLocalDateTime(item.dueDate);
+      return {
+        id: `exp-${item.id || Math.random()}`,
+        type: "EXPENSE" as const,
+        title: item.description,
+        category: item.category,
+        rawDate: parsedDate,
+        date: item.dueDate
+          ? parsedDate.toLocaleDateString(i18n.language, {
+              month: "short",
+              day: "numeric",
+            })
+          : t("today", "Today"),
+        amount: item.value,
+        emoji: getCategoryEmoji(item.category),
+      };
+    });
 
-    const formattedIncomes = incomesList.map((item) => ({
-      id: `inc-${item.id || Math.random()}`,
-      type: "INCOME" as const,
-      title: item.description,
-      category: "DEPOSIT",
-      rawDate: item.createdAt ? new Date(item.createdAt) : new Date(),
-      date: item.createdAt
-        ? new Date(item.createdAt).toLocaleDateString(i18n.language, {
-            month: "short",
-            day: "numeric",
-          })
-        : t("today", "Today"),
-      amount: item.value,
-      emoji: "💰",
-    }));
+    const formattedIncomes = incomesList.map((item) => {
+      const parsedDate = parseLocalDateTime(item.createdAt);
+      return {
+        id: `inc-${item.id || Math.random()}`,
+        type: "INCOME" as const,
+        title: item.description,
+        category: "DEPOSIT",
+        rawDate: parsedDate,
+        date: item.createdAt
+          ? parsedDate.toLocaleDateString(i18n.language, {
+              month: "short",
+              day: "numeric",
+            })
+          : t("today", "Today"),
+        amount: item.value ?? item.amount ?? 0,
+        emoji: "💰",
+      };
+    });
 
     const combined = [...formattedExpenses, ...formattedIncomes].sort(
       (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
@@ -321,6 +405,114 @@ export default function OverviewScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchAllData();
+  };
+
+  const handleAddIncome = async () => {
+    const normalizedValue = incomeValue.replace(",", ".");
+    const deposit = parseFloat(normalizedValue);
+
+    if (
+      !incomeSource.trim() ||
+      !incomeValue.trim() ||
+      isNaN(deposit) ||
+      deposit <= 0
+    ) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter a valid description and deposit amount.",
+      );
+      return;
+    }
+
+    setSubmittingIncome(true);
+
+    try {
+      await api.post("/api/v1/incomes", {
+        description: incomeSource.trim(),
+        amount: deposit,
+        value: deposit,
+        createdAt: toLocalISOString(new Date()),
+      });
+
+      setIncomeSource("");
+      setIncomeValue("");
+      setModalIncomeVisible(false);
+      await fetchAllData();
+    } catch (error) {
+      console.error("Error creating income record:", error);
+      Alert.alert("Error", "Failed to save income deposit.");
+    } finally {
+      setSubmittingIncome(false);
+    }
+  };
+
+  const handleAddExpense = async () => {
+    const numericValue = parseFlexibleNumber(value);
+
+    if (!description.trim() || !value.trim() || isNaN(numericValue)) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter a valid description and amount.",
+      );
+      return;
+    }
+
+    if (paymentType === "CARD" && (!selectedCardId || userCards.length === 0)) {
+      Alert.alert(
+        "Validation Error",
+        "Please select a card to pay with this expense.",
+      );
+      return;
+    }
+
+    setSubmitting(true);
+
+    const now = new Date();
+    const fullLocalDateTime = new Date(
+      expenseDate.getFullYear(),
+      expenseDate.getMonth(),
+      expenseDate.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds(),
+    );
+
+    const formattedDueDate = toLocalISOString(fullLocalDateTime);
+
+    const newExpense: Omit<SpringBootExpense, "id"> = {
+      description: description.trim(),
+      value: numericValue,
+      category: category
+        .toUpperCase()
+        .trim()
+        .replace(/\s+/g, "_") as SpringBootExpense["category"],
+      dueDate: formattedDueDate,
+      isPaid: isPaid,
+      paidAt: isPaid ? formattedDueDate : null,
+      paymentType: paymentType,
+      cardId: paymentType === "CARD" ? selectedCardId : null,
+      recurrencePeriod: recurrencePeriod,
+    };
+
+    try {
+      await api.post("/api/v1/expenses", newExpense);
+
+      setDescription("");
+      setValue("");
+      setCategory("Food");
+      setExpenseDate(new Date());
+      setIsPaid(true);
+      setPaymentType("CASH");
+      setRecurrencePeriod("NONE");
+      setModalExpensesVisible(false);
+
+      await fetchAllData();
+    } catch (error) {
+      console.error("Error creating expense:", error);
+      Alert.alert("Error", "Failed to save expense.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCreateCard = async () => {
@@ -338,15 +530,13 @@ export default function OverviewScreen() {
       });
 
       setUserCards((prevCards) => [...prevCards, response.data]);
-
       setNewCardName("");
       setNewCardType("CREDIT");
       setCardModalMode("LIST");
-
-      fetchAllData();
+      await fetchAllData();
     } catch (error) {
       console.error("Error adding card:", error);
-      Alert.alert("Error", "Failed to add card. Please try again.");
+      Alert.alert("Error", "Failed to add card.");
     } finally {
       setSubmittingCard(false);
     }
@@ -388,7 +578,6 @@ export default function OverviewScreen() {
 
   const handleDeleteCard = async () => {
     if (!selectedCardForAction) return;
-
     const cardToDeleteId = selectedCardForAction.id;
 
     Alert.alert(
@@ -403,23 +592,16 @@ export default function OverviewScreen() {
             setSubmittingCard(true);
             try {
               await api.delete(`/api/v1/cards/${cardToDeleteId}`);
-
               setUserCards((prevCards) =>
                 prevCards.filter((card) => card.id !== cardToDeleteId),
               );
-
               setSelectedCardForAction(null);
               setCardModalMode("LIST");
-              fetchAllData();
+              await fetchAllData();
             } catch (error: any) {
-              console.error(
-                "Error deleting card stacktrace:",
-                error?.response?.data || error,
-              );
               Alert.alert(
                 t("error", "Error"),
-                error?.response?.data?.message ||
-                  "Failed to delete card. Ensure no active expenses require this card.",
+                error?.response?.data?.message || "Failed to delete card.",
               );
             } finally {
               setSubmittingCard(false);
@@ -430,118 +612,13 @@ export default function OverviewScreen() {
     );
   };
 
-  const handleAddIncome = async () => {
-    const normalizedValue = incomeValue.replace(",", ".");
-    const deposit = parseFloat(normalizedValue);
-
-    if (
-      !incomeSource.trim() ||
-      !incomeValue.trim() ||
-      isNaN(deposit) ||
-      deposit <= 0
-    ) {
-      Alert.alert(
-        "Validation Error",
-        "Please enter a valid description and deposit amount.",
-      );
-      return;
-    }
-
-    setSubmittingIncome(true);
-
-    try {
-      await api.post("/api/v1/incomes", {
-        description: incomeSource.trim(),
-        amount: deposit,
-      });
-
-      setIncomeSource("");
-      setIncomeValue("");
-      setModalIncomeVisible(false);
-      fetchAllData();
-    } catch (error) {
-      console.error("Error creating income record:", error);
-      Alert.alert("Error", "Failed to save income deposit.");
-    } finally {
-      setSubmittingIncome(false);
-    }
-  };
-
-  const handleAddExpense = async () => {
-    const numericValue = parseFlexibleNumber(value);
-
-    if (!description.trim() || !value.trim() || isNaN(numericValue)) {
-      Alert.alert(
-        "Validation Error",
-        "Please enter a valid description and amount.",
-      );
-      return;
-    }
-
-    if (paymentType === "CARD" && (!selectedCardId || userCards.length === 0)) {
-      Alert.alert(
-        "Validation Error",
-        "Please select a card to pay with this expense.",
-      );
-      return;
-    }
-
-    setSubmitting(true);
-
-    const year = expenseDate.getFullYear();
-    const month = String(expenseDate.getMonth() + 1).padStart(2, "0");
-    const day = String(expenseDate.getDate()).padStart(2, "0");
-    const time = expenseDate.toTimeString().split(" ")[0];
-    const formattedDueDate = `${year}-${month}-${day}T${time}`;
-
-    const newExpense: Omit<SpringBootExpense, "id"> = {
-      description: description.trim(),
-      value: numericValue,
-      category: category
-        .toUpperCase()
-        .trim()
-        .replace(/\s+/g, "_") as SpringBootExpense["category"],
-      dueDate: formattedDueDate,
-      isPaid: isPaid,
-      paidAt: isPaid ? formattedDueDate : null,
-      paymentType: paymentType,
-      cardId: paymentType === "CARD" ? selectedCardId : null,
-      recurrencePeriod: recurrencePeriod,
-    };
-
-    try {
-      await api.post("/api/v1/expenses", newExpense);
-
-      setDescription("");
-      setValue("");
-      setCategory("Food");
-      setExpenseDate(new Date());
-      setIsPaid(true);
-      setPaymentType("CASH");
-      setRecurrencePeriod("NONE");
-      setModalExpensesVisible(false);
-
-      fetchAllData();
-    } catch (error) {
-      console.error("Error creating expense:", error);
-      Alert.alert(
-        "Error",
-        "Failed to save expense. Verify backend validation.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const formatCategoryLabel = (cat: string) => {
     if (!cat) return "";
     const key = cat.toLowerCase().trim().replace(/\s+/g, "_");
-
     const fallback = cat
       .replace(/_/g, " ")
       .toLowerCase()
-      .replace(/\b\w/g, (char) => char.toUpperCase());
-
+      .replace(/\b\w/g, (c) => c.toUpperCase());
     return t(key, { defaultValue: fallback });
   };
 
@@ -585,7 +662,6 @@ export default function OverviewScreen() {
         return colors.amber;
       case "travel":
         return colors.deepSage;
-      case "others":
       default:
         return colors.neutral;
     }
@@ -620,7 +696,6 @@ export default function OverviewScreen() {
         <View style={styles.header}>
           <Text style={styles.monthText}>{t("overview", "OVERVIEW")}</Text>
 
-          {/* Greeting Row with Card Manager Button */}
           <View style={styles.userGreetingRow}>
             <Text style={styles.greetingText}>
               {t("hello", "Hello")}
@@ -645,6 +720,7 @@ export default function OverviewScreen() {
             {t("takeCareFinances", "Take good care of your finances!")}
           </Text>
 
+          {/* Balance Card */}
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>
               {t("totalBalance", "TOTAL BALANCE")}
@@ -666,6 +742,7 @@ export default function OverviewScreen() {
             )}
           </View>
 
+          {/* Income & Expenses Dual Cards */}
           <View style={styles.dualCardRow}>
             <TouchableOpacity
               style={[styles.miniCard, styles.flex1, { marginRight: 8 }]}
@@ -680,7 +757,7 @@ export default function OverviewScreen() {
 
               <Text style={styles.miniCardValue}>
                 $
-                {monthlyIncome.toLocaleString(i18n.language, {
+                {effectiveIncome.toLocaleString(i18n.language, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -699,7 +776,7 @@ export default function OverviewScreen() {
               </View>
               <Text style={styles.miniCardValue}>
                 $
-                {totalExpenses.toLocaleString(i18n.language, {
+                {effectiveExpenses.toLocaleString(i18n.language, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -752,7 +829,9 @@ export default function OverviewScreen() {
             </Text>
             {budgetItems.map((item) => {
               const sharePercentage =
-                totalExpenses > 0 ? (item.spent / totalExpenses) * 100 : 0;
+                effectiveExpenses > 0
+                  ? (item.spent / effectiveExpenses) * 100
+                  : 0;
 
               return (
                 <View key={item.id} style={styles.budgetItem}>
@@ -763,7 +842,7 @@ export default function OverviewScreen() {
                       })}
                     </Text>
                     <Text style={styles.budgetAmounts}>
-                      ${item.spent.toFixed(2).replace(".", ",")}{" "}
+                      ${formatCurrency(item.spent)}
                       <Text style={styles.budgetLimit}>
                         ({sharePercentage.toFixed(0)}%)
                       </Text>
@@ -823,8 +902,8 @@ export default function OverviewScreen() {
                   ]}
                 >
                   {tx.type === "INCOME"
-                    ? `+$${tx.amount.toFixed(2).replace(".", ",")}`
-                    : `-$${tx.amount.toFixed(2).replace(".", ",")}`}
+                    ? `+$${formatCurrency(tx.amount)}`
+                    : `-$${formatCurrency(tx.amount)}`}
                 </Text>
               </View>
             ))}
@@ -834,7 +913,7 @@ export default function OverviewScreen() {
 
       {/* --- CARD MANAGEMENT MODAL --- */}
       <Modal
-        statusBarTranslucent={true}
+        statusBarTranslucent
         visible={modalCardVisible}
         animationType="slide"
         transparent
@@ -849,8 +928,8 @@ export default function OverviewScreen() {
           <KeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            enableOnAndroid={true}
-            enableAutomaticScroll={true}
+            enableOnAndroid
+            enableAutomaticScroll
             extraScrollHeight={50}
             contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
           >
@@ -858,7 +937,6 @@ export default function OverviewScreen() {
               style={styles.modalContent}
               onPress={() => Keyboard.dismiss()}
             >
-              {/* 1. LIST MODE */}
               {cardModalMode === "LIST" && (
                 <>
                   <View style={styles.modalHeaderRow}>
@@ -931,7 +1009,6 @@ export default function OverviewScreen() {
                 </>
               )}
 
-              {/* 2. CARD DETAILS MODE */}
               {cardModalMode === "DETAILS" && selectedCardForAction && (
                 <>
                   <View style={styles.modalHeaderRow}>
@@ -993,7 +1070,6 @@ export default function OverviewScreen() {
                 </>
               )}
 
-              {/* 3. EDIT OR CREATE FORM MODE */}
               {(cardModalMode === "FORM" || cardModalMode === "EDIT") && (
                 <>
                   <View style={styles.modalHeaderRow}>
@@ -1098,7 +1174,7 @@ export default function OverviewScreen() {
 
       {/* --- ADD INCOME MODAL --- */}
       <Modal
-        statusBarTranslucent={true}
+        statusBarTranslucent
         visible={modalIncomeVisible}
         animationType="slide"
         transparent
@@ -1113,8 +1189,8 @@ export default function OverviewScreen() {
           <KeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            enableOnAndroid={true}
-            enableAutomaticScroll={true}
+            enableOnAndroid
+            enableAutomaticScroll
             extraScrollHeight={60}
             contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
           >
@@ -1185,7 +1261,7 @@ export default function OverviewScreen() {
 
       {/* --- ADD EXPENSE MODAL --- */}
       <Modal
-        statusBarTranslucent={true}
+        statusBarTranslucent
         visible={modalExpensesVisible}
         animationType="slide"
         transparent
@@ -1200,8 +1276,8 @@ export default function OverviewScreen() {
           <KeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            enableOnAndroid={true}
-            enableAutomaticScroll={true}
+            enableOnAndroid
+            enableAutomaticScroll
             extraScrollHeight={30}
             contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
           >
@@ -1300,11 +1376,7 @@ export default function OverviewScreen() {
                           }),
                         )}
                         {isDisabled
-                          ? ` ${String(
-                              t("noCardsAvailable", {
-                                defaultValue: "(No Cards Available)",
-                              }),
-                            )}`
+                          ? ` ${String(t("noCardsAvailable", { defaultValue: "(No Cards Available)" }))}`
                           : ""}
                       </Text>
                     </TouchableOpacity>
@@ -1349,6 +1421,7 @@ export default function OverviewScreen() {
                   </View>
                 </>
               )}
+
               <Text style={styles.inputLabel}>{t("date", "Date")}</Text>
               <TouchableOpacity
                 style={styles.datePickerButton}
@@ -1412,6 +1485,7 @@ export default function OverviewScreen() {
                     maximumDate={new Date(2100, 11, 31)}
                   />
                 ))}
+
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.cancelButton]}
@@ -1709,8 +1783,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   categoryChip: {
-    flexBasis: "48%", // Fits 2 columns per row
-    flexGrow: 1, // Distributes remaining horizontal space equally
+    flexBasis: "48%",
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
@@ -1721,12 +1795,6 @@ const styles = StyleSheet.create({
   categoryChipSelected: { backgroundColor: colors.primaryTeal || "#008080" },
   categoryChipText: { fontSize: 12, color: colors.textDark, fontWeight: "600" },
   categoryChipTextSelected: { color: "#FFFFFF" },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-  },
   modalActions: {
     flexDirection: "row",
     gap: 12,

@@ -111,19 +111,33 @@ const formatWithCapitalMonth = (
   locale: string,
   options: Intl.DateTimeFormatOptions,
 ): string => {
+  const safeLocale = (locale || "en").replace("_", "-");
+
   try {
-    const formatter = new Intl.DateTimeFormat(locale, options);
-    const parts = formatter.formatToParts(date);
-    return parts
-      .map((part) => {
-        if (part.type === "month" && part.value) {
-          return part.value.charAt(0).toUpperCase() + part.value.slice(1);
+    const formatted = new Intl.DateTimeFormat(safeLocale, options).format(date);
+    const lowercasePrepositions = new Set([
+      "de",
+      "del",
+      "e",
+      "y",
+      "do",
+      "da",
+      "dos",
+      "das",
+    ]);
+
+    return formatted
+      .split(" ")
+      .map((word) => {
+        const cleanLower = word.toLowerCase();
+        if (lowercasePrepositions.has(cleanLower)) {
+          return cleanLower;
         }
-        return part.value;
+        return word.charAt(0).toUpperCase() + word.slice(1);
       })
-      .join("");
+      .join(" ");
   } catch {
-    return date.toLocaleDateString(locale, options);
+    return date.toLocaleDateString();
   }
 };
 
@@ -192,13 +206,18 @@ export default function TransactionsScreen() {
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const fetchData = async () => {
     try {
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth() + 1;
       const [expensesRes, incomesRes, userRes, cardsRes] =
         await Promise.allSettled([
-          api.get<ExpenseItem[]>("/api/v1/expenses"),
-          api.get<IncomeItem[]>("/api/v1/incomes"),
+          api.get<ExpenseItem[]>("/api/v1/expenses", {
+            params: { year, month },
+          }),
+          api.get<IncomeItem[]>("/api/v1/incomes", { params: { year, month } }),
           api.get<UserProfile>("/api/v1/users/me"),
           api.get<UserCard[]>("/api/v1/cards"),
         ]);
@@ -214,47 +233,59 @@ export default function TransactionsScreen() {
 
       const parsedExpenses: Transaction[] = (
         Array.isArray(expensesData) ? expensesData : []
-      ).map((item) => {
-        const numericValue = item.value ?? item.amount;
-        const rawDateStr = item.dueDate || item.paidAt || item.date || "";
-        const raw = parseRawDate(rawDateStr);
-        const cat = item.category || "General";
-        const payment = extractStringValue(
+      ).map((item) => ({
+        id: `exp-${item.id}`,
+        title: item.description || item.title || "Expense",
+        amount: Math.abs(parseAmount(item.value ?? item.amount)),
+        category: item.category || "General",
+        rawDate: parseRawDate(item.dueDate || item.paidAt || item.date || ""),
+        type: "EXPENSE",
+        icon: getCategoryIcon(item.category || "General", "EXPENSE"),
+        paymentMethod: extractStringValue(
           item.paymentMethod || item.card || item.paymentType,
           "Cash",
-        );
+        ),
+      }));
 
-        return {
-          id: `exp-${item.id}`,
-          title: item.description || item.title || "Expense",
-          amount: Math.abs(parseAmount(numericValue)),
-          category: cat,
-          rawDate: raw,
-          type: "EXPENSE",
-          icon: getCategoryIcon(cat, "EXPENSE"),
-          paymentMethod: payment,
-        };
-      });
+      const userMonthlyIncome =
+        userRes.status === "fulfilled" && userRes.value.data?.monthlyIncome
+          ? parseAmount(userRes.value.data.monthlyIncome)
+          : 0;
 
-      const parsedIncomes: Transaction[] = (
+      setMonthlyIncome(userMonthlyIncome);
+
+      let parsedIncomes: Transaction[] = (
         Array.isArray(incomesData) ? incomesData : []
-      ).map((item) => {
-        const numericValue = item.value ?? item.amount;
-        const rawDateStr = item.createdAt || item.date || "";
-        const raw = parseRawDate(rawDateStr);
-        const cat = item.category || "Income";
-
-        return {
+      )
+        .map((item) => ({
           id: `inc-${item.id}`,
           title:
             item.description || item.title || item.source || "Income Deposit",
-          amount: Math.abs(parseAmount(numericValue)),
-          category: cat,
-          rawDate: raw,
-          type: "INCOME",
-          icon: getCategoryIcon(cat, "INCOME"),
-        };
-      });
+          amount: Math.abs(parseAmount(item.value ?? item.amount)),
+          category: item.category || "Income",
+          rawDate: parseRawDate(item.createdAt || item.date || ""),
+          type: "INCOME" as const,
+          icon: getCategoryIcon(item.category || "Income", "INCOME"),
+        }))
+        .filter(
+          (item) =>
+            item.rawDate.getFullYear() === year &&
+            item.rawDate.getMonth() === month - 1,
+        );
+
+      if (parsedIncomes.length === 0 && userMonthlyIncome > 0) {
+        parsedIncomes = [
+          {
+            id: `inc-default-${year}-${month}`,
+            title: t("monthlyBudget", "Monthly Income"),
+            amount: userMonthlyIncome,
+            category: "Income",
+            rawDate: new Date(year, month - 1, 1),
+            type: "INCOME" as const,
+            icon: getCategoryIcon("Income", "INCOME"),
+          },
+        ];
+      }
 
       const combined = [...parsedExpenses, ...parsedIncomes].sort(
         (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
@@ -278,12 +309,18 @@ export default function TransactionsScreen() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedDate]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
   }, []);
+
+  const changeMonth = (offset: number) => {
+    setSelectedDate(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1),
+    );
+  };
 
   const { totalIn, totalOut, netBalance } = useMemo(() => {
     let inSum = 0;
@@ -565,6 +602,29 @@ export default function TransactionsScreen() {
           {t("records", "records")}
         </Text>
 
+        <View style={styles.monthSelectorRow}>
+          <TouchableOpacity
+            onPress={() => changeMonth(-1)}
+            style={styles.monthNavButton}
+          >
+            <Text style={styles.monthNavText}>{"‹"}</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.headerSubtitle}>
+            {formatWithCapitalMonth(selectedDate, i18n.language, {
+              month: "long",
+              year: "numeric",
+            })}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => changeMonth(1)}
+            style={styles.monthNavButton}
+          >
+            <Text style={styles.monthNavText}>{"›"}</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{t("in", "IN")}</Text>
@@ -691,6 +751,13 @@ export default function TransactionsScreen() {
         data={filteredTransactions}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader()}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {t("noTransactionsRegistered", "No transactions registered.")}
+            </Text>
+          </View>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -720,10 +787,13 @@ export default function TransactionsScreen() {
               </View>
 
               <View style={styles.cardDetails}>
+                {/* Line 1: Description */}
                 <Text style={styles.itemTitle} numberOfLines={1}>
                   {item.title}
                 </Text>
-                <View style={styles.tagRow}>
+
+                {/* Line 2: Category */}
+                <View style={styles.lineRow}>
                   <View style={styles.categoryBadge}>
                     <Text
                       style={[
@@ -734,18 +804,33 @@ export default function TransactionsScreen() {
                       {translateCategory(item.category)}
                     </Text>
                   </View>
-
-                  {!isIncome && (
-                    <View style={styles.paymentBadge}>
-                      <Text style={styles.paymentBadgeText}>
-                        {getPaymentIcon(paymentMethodName)}{" "}
-                        {translatePaymentMethod(paymentMethodName)}
-                      </Text>
-                    </View>
-                  )}
-
-                  <Text style={styles.dateText}>{formattedDate}</Text>
                 </View>
+
+                {/* Line 3: Payment Method / Deposit */}
+                <View style={styles.lineRow}>
+                  <View
+                    style={[
+                      styles.paymentBadge,
+                      isIncome && styles.incomeBadge,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.paymentBadgeText,
+                        isIncome && styles.incomeBadgeText,
+                      ]}
+                    >
+                      {isIncome
+                        ? `💰 ${t("income_transaction", "Deposit")}`
+                        : `${getPaymentIcon(paymentMethodName)} ${translatePaymentMethod(
+                            paymentMethodName,
+                          )}`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Line 4: Date */}
+                <Text style={styles.dateText}>{formattedDate}</Text>
               </View>
 
               <Text
@@ -835,6 +920,24 @@ export default function TransactionsScreen() {
                           </Text>
                         </View>
                       )}
+
+                      {/* Date Row */}
+                      <View style={styles.modalDetailRow}>
+                        <Text style={styles.modalDetailLabel}>
+                          {t("date", "Date")}:
+                        </Text>
+                        <Text style={styles.modalDetailValue}>
+                          {formatWithCapitalMonth(
+                            selectedTransaction.rawDate,
+                            i18n.language,
+                            {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            },
+                          )}
+                        </Text>
+                      </View>
 
                       <View style={styles.modalActions}>
                         <TouchableOpacity
@@ -1124,6 +1227,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EAE6DF",
+  },
+  cardDetails: {
+    flex: 1,
+    gap: 4, // Creates vertical separation between each line
+  },
+  lineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  incomeBadge: {
+    backgroundColor: "#E2F2EE",
+  },
   summaryCard: {
     flex: 1,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
@@ -1169,17 +1294,6 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: "#FFFFFF",
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    marginHorizontal: 20,
-    marginBottom: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#EAE6DF",
-  },
   iconContainer: {
     width: 48,
     height: 48,
@@ -1191,9 +1305,6 @@ const styles = StyleSheet.create({
   },
   iconEmoji: {
     fontSize: 22,
-  },
-  cardDetails: {
-    flex: 1,
   },
   itemTitle: {
     fontSize: 16,
@@ -1381,5 +1492,33 @@ const styles = StyleSheet.create({
   },
   categoryChipTextSelected: {
     color: "#FFFFFF",
+  },
+  monthSelectorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  monthNavButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 12,
+  },
+  monthNavText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#8E8E93",
+    fontWeight: "500",
   },
 });
