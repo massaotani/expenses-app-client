@@ -564,8 +564,8 @@ export default function TransactionsScreen() {
             <Text style={styles.summaryValue}>
               +$
               {totalIn.toLocaleString(i18n.language, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })}
             </Text>
           </View>
@@ -575,8 +575,8 @@ export default function TransactionsScreen() {
             <Text style={styles.summaryValue}>
               -$
               {totalOut.toLocaleString(i18n.language, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })}
             </Text>
           </View>
@@ -586,8 +586,8 @@ export default function TransactionsScreen() {
             <Text style={styles.summaryValue}>
               {netBalance >= 0 ? "+" : "-"}$
               {Math.abs(netBalance).toLocaleString(i18n.language, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })}
             </Text>
           </View>

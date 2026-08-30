@@ -444,7 +444,7 @@ export default function OverviewScreen() {
   const handleAddExpense = async () => {
     const numericValue = parseFlexibleNumber(value);
 
-    if (!description.trim() || !value.trim() || isNaN(Number(value))) {
+    if (!description.trim() || !value.trim() || isNaN(numericValue)) {
       Alert.alert(
         "Validation Error",
         "Please enter a valid description and amount.",
