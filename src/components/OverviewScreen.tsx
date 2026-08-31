@@ -190,10 +190,14 @@ export default function OverviewScreen() {
 
       const monthlyTotal = expenses
         .filter((exp) => {
-          const expDate = exp.dueDate ? new Date(exp.dueDate) : new Date();
+          if (!exp.dueDate) return false;
+          const expDate = parseLocalDateTime(exp.dueDate);
           return expDate.getMonth() === month && expDate.getFullYear() === year;
         })
-        .reduce((sum, exp) => sum + exp.value, 0);
+        .reduce(
+          (sum, exp) => sum + parseAmount(exp.value ?? (exp as any).amount),
+          0,
+        );
 
       const rawLabel = d.toLocaleDateString(i18n.language, { month: "short" });
       const capitalizedLabel =
@@ -211,27 +215,35 @@ export default function OverviewScreen() {
     if (!dateInput) return new Date();
     if (dateInput instanceof Date) return dateInput;
 
-    let formattedInput = dateInput;
-    if (
-      typeof dateInput === "string" &&
-      dateInput.includes("T") &&
-      !dateInput.endsWith("Z") &&
-      !dateInput.includes("+") &&
-      !/\-\d{2}:\d{2}$/.test(dateInput)
-    ) {
-      formattedInput = `${dateInput}Z`;
+    const str = String(dateInput);
+    const [datePart, timePart] = str.split("T");
+    const dateParts = datePart.split("-").map(Number);
+
+    if (dateParts.length === 3 && !dateParts.some(isNaN)) {
+      let hours = 0,
+        minutes = 0,
+        seconds = 0;
+
+      if (timePart) {
+        const cleanTime = timePart.split(".")[0].replace("Z", "");
+        const timeParts = cleanTime.split(":").map(Number);
+        hours = timeParts[0] || 0;
+        minutes = timeParts[1] || 0;
+        seconds = timeParts[2] || 0;
+      }
+
+      return new Date(
+        dateParts[0],
+        dateParts[1] - 1,
+        dateParts[2],
+        hours,
+        minutes,
+        seconds,
+      );
     }
 
-    const parsed = new Date(formattedInput);
-    if (!isNaN(parsed.getTime())) return parsed;
-
-    const [datePart] = dateInput.split("T");
-    const parts = datePart.split("-").map(Number);
-    if (parts.length === 3 && !parts.some(isNaN)) {
-      return new Date(parts[0], parts[1] - 1, parts[2]);
-    }
-
-    return new Date();
+    const parsed = new Date(dateInput);
+    return !isNaN(parsed.getTime()) ? parsed : new Date();
   };
 
   const formatDateDDMMYYYY = (date: Date) => {
@@ -322,24 +334,57 @@ export default function OverviewScreen() {
     }
   };
 
+  const parseAmount = (val: any): number => {
+    if (typeof val === "number") return isNaN(val) ? 0 : val;
+    if (typeof val === "string") {
+      const parsed = parseFloat(val.replace(",", "."));
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
+
   const processFigmaData = (
     expenses: SpringBootExpense[],
     incomesList: SpringBootIncome[],
   ) => {
-    const totalExp = expenses.reduce((sum, item) => sum + (item.value || 0), 0);
-    setTotalExpenses(totalExp);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
-    const totalDep = incomesList.reduce(
-      (sum, item) => sum + (item.value ?? item.amount ?? 0),
-      0,
-    );
-    setTotalDeposits(totalDep);
-
+    // Populate Spending Trend data
     setTrendData(processMonthlyTrend(expenses));
 
-    const budgetMap = expenses.reduce(
+    // Filter and sum income deposits for the current month
+    const currentMonthIncomes = incomesList.filter((item) => {
+      if (!item.createdAt) return true;
+      const d = parseLocalDateTime(item.createdAt);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+
+    const calculatedDeposits = currentMonthIncomes.reduce(
+      (sum, item) => sum + parseAmount(item.value ?? item.amount),
+      0,
+    );
+    setTotalDeposits(calculatedDeposits);
+
+    // Filter and sum expenses for the current month
+    const currentMonthExpenses = expenses.filter((item) => {
+      if (!item.dueDate) return true;
+      const d = parseLocalDateTime(item.dueDate);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+
+    const totalExp = currentMonthExpenses.reduce(
+      (sum, item) => sum + parseAmount(item.value ?? (item as any).amount),
+      0,
+    );
+    setTotalExpenses(totalExp);
+
+    // Update budget map calculation safely
+    const budgetMap = currentMonthExpenses.reduce(
       (acc, item) => {
-        acc[item.category] = (acc[item.category] || 0) + item.value;
+        const itemVal = parseAmount(item.value ?? (item as any).amount);
+        acc[item.category] = (acc[item.category] || 0) + itemVal;
         return acc;
       },
       {} as Record<string, number>,
@@ -354,7 +399,8 @@ export default function OverviewScreen() {
     }));
     setBudgetItems(groupedBudgets);
 
-    const formattedExpenses = expenses.map((item) => {
+    // Format Recents exclusively using current month's items
+    const formattedExpenses = currentMonthExpenses.map((item) => {
       const parsedDate = parseLocalDateTime(item.dueDate);
       return {
         id: `exp-${item.id || Math.random()}`,
@@ -368,12 +414,12 @@ export default function OverviewScreen() {
               day: "numeric",
             })
           : t("today", "Today"),
-        amount: item.value,
+        amount: parseAmount(item.value ?? (item as any).amount),
         emoji: getCategoryEmoji(item.category),
       };
     });
 
-    const formattedIncomes = incomesList.map((item) => {
+    const formattedIncomes = currentMonthIncomes.map((item) => {
       const parsedDate = parseLocalDateTime(item.createdAt);
       return {
         id: `inc-${item.id || Math.random()}`,
@@ -387,13 +433,17 @@ export default function OverviewScreen() {
               day: "numeric",
             })
           : t("today", "Today"),
-        amount: item.value ?? item.amount ?? 0,
+        amount: parseAmount(item.value ?? item.amount),
         emoji: "💰",
       };
     });
 
     const combined = [...formattedExpenses, ...formattedIncomes].sort(
-      (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
+      (a, b) => {
+        const timeDiff = b.rawDate.getTime() - a.rawDate.getTime();
+        if (timeDiff !== 0) return timeDiff;
+        return String(b.id).localeCompare(String(a.id));
+      },
     );
 
     setRecentTransactions(combined.slice(0, 5));

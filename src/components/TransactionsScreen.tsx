@@ -323,18 +323,29 @@ export default function TransactionsScreen() {
   };
 
   const { totalIn, totalOut, netBalance } = useMemo(() => {
-    let inSum = 0;
+    let depositsSum = 0;
     let outSum = 0;
+
     allTransactions.forEach((t) => {
-      if (t.type === "INCOME") inSum += t.amount;
-      else outSum += t.amount;
+      if (t.type === "INCOME") {
+        // Exclude the fallback income item if present to prevent double-counting
+        if (!t.id.startsWith("inc-default-")) {
+          depositsSum += t.amount;
+        }
+      } else {
+        outSum += t.amount;
+      }
     });
+
+    // IN = Base Monthly Income + Sum of Monthly Deposits
+    const inSum = monthlyIncome + depositsSum;
+
     return {
       totalIn: inSum,
       totalOut: outSum,
       netBalance: inSum - outSum,
     };
-  }, [allTransactions]);
+  }, [allTransactions, monthlyIncome]);
 
   const filterCategories = useMemo(() => {
     const categoriesSet = new Set<string>();
