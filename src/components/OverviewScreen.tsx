@@ -156,11 +156,22 @@ export default function OverviewScreen() {
     { value: number; label: string }[]
   >([]);
 
-  const effectiveIncome =
-    monthlyBalance?.income ?? monthlyIncome + totalDeposits;
-  const effectiveExpenses = monthlyBalance?.totalExpenses ?? totalExpenses;
-  const totalBalance =
-    monthlyBalance?.savings ?? effectiveIncome - effectiveExpenses;
+  const now = new Date();
+  const isCurrentMonthBalance =
+    monthlyBalance?.year === now.getFullYear() &&
+    monthlyBalance?.month === now.getMonth() + 1;
+
+  const effectiveIncome = isCurrentMonthBalance
+    ? monthlyBalance.income
+    : monthlyIncome + totalDeposits;
+
+  const effectiveExpenses = isCurrentMonthBalance
+    ? monthlyBalance.totalExpenses
+    : totalExpenses;
+
+  const totalBalance = isCurrentMonthBalance
+    ? monthlyBalance.savings
+    : effectiveIncome - effectiveExpenses;
 
   useEffect(() => {
     if (token) {
@@ -263,19 +274,11 @@ export default function OverviewScreen() {
 
   const fetchAllData = async () => {
     try {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-
       const [expensesRes, userRes, incomesRes, cardsRes, balanceRes] =
         await Promise.allSettled([
-          api.get<SpringBootExpense[]>("/api/v1/expenses", {
-            params: { year, month },
-          }),
+          api.get<SpringBootExpense[]>("/api/v1/expenses"),
           api.get<UserProfile>("/api/v1/users/me"),
-          api.get<SpringBootIncome[]>("/api/v1/incomes", {
-            params: { year, month },
-          }),
+          api.get<SpringBootIncome[]>("/api/v1/incomes"),
           api.get<UserCard[]>("/api/v1/cards"),
           api.get<MonthlyBalance>("/api/v1/monthly-balances/current"),
         ]);
