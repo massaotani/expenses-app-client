@@ -3,8 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerChangeEvent,
 } from "@react-native-community/datetimepicker";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -173,11 +173,13 @@ export default function OverviewScreen() {
     ? monthlyBalance.savings
     : effectiveIncome - effectiveExpenses;
 
-  useEffect(() => {
-    if (token) {
-      fetchAllData();
-    }
-  }, [token]);
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        fetchAllData();
+      }
+    }, [token]),
+  );
 
   useEffect(() => {
     processFigmaData(rawExpenses, rawIncomes);

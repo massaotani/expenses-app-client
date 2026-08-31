@@ -172,6 +172,7 @@ const getCategoryIcon = (
 };
 
 const parseRawDate = (dateString: string): Date => {
+  if (!dateString) return new Date();
   const date = new Date(dateString);
   return isNaN(date.getTime()) ? new Date() : date;
 };
@@ -185,6 +186,30 @@ const formatDate = (
   return formatWithCapitalMonth(date, locale, {
     month: "short",
     day: "numeric",
+  });
+};
+
+const toLocalISOString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
+const formatCurrencyValue = (val: number, language: string): string => {
+  const lang = (language || "en").toLowerCase();
+
+  // Use European format (1.000,00) for Portuguese and Spanish
+  const isCommaDecimal = lang.startsWith("pt") || lang.startsWith("es");
+  const locale = isCommaDecimal ? "pt-BR" : "en-US";
+
+  return val.toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 };
 
@@ -496,9 +521,9 @@ export default function TransactionsScreen() {
     }
 
     const rawDateObj = new Date(selectedTransaction.rawDate);
-    const isoDate = !isNaN(rawDateObj.getTime())
-      ? rawDateObj.toISOString()
-      : new Date().toISOString();
+    const formattedDate = !isNaN(rawDateObj.getTime())
+      ? toLocalISOString(rawDateObj)
+      : toLocalISOString(new Date());
 
     let finalPaymentMethod = "Cash";
     let cardIdPayload: string | null = null;
@@ -519,14 +544,14 @@ export default function TransactionsScreen() {
           description: editDescription,
           value: parsedAmount,
           amount: parsedAmount,
-          date: isoDate,
+          date: formattedDate,
         });
       } else {
         await api.put(`/api/v1/expenses/${rawId}`, {
           description: editDescription,
           value: parsedAmount,
           category: editCategory.toUpperCase().trim().replace(/\s+/g, "_"),
-          dueDate: isoDate,
+          dueDate: formattedDate,
           paymentType: paymentType,
           cardId: cardIdPayload,
           recurrencePeriod: "NONE",
@@ -637,36 +662,28 @@ export default function TransactionsScreen() {
         </View>
 
         <View style={styles.summaryRow}>
+          {/* IN Summary */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{t("in", "IN")}</Text>
             <Text style={styles.summaryValue}>
-              +$
-              {totalIn.toLocaleString(i18n.language, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              +${formatCurrencyValue(totalIn, i18n.language)}
             </Text>
           </View>
 
+          {/* OUT Summary */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{t("out", "OUT")}</Text>
             <Text style={styles.summaryValue}>
-              -$
-              {totalOut.toLocaleString(i18n.language, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              -${formatCurrencyValue(totalOut, i18n.language)}
             </Text>
           </View>
 
+          {/* NET Summary */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{t("net", "NET")}</Text>
             <Text style={styles.summaryValue}>
               {netBalance >= 0 ? "+" : "-"}$
-              {Math.abs(netBalance).toLocaleString(i18n.language, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrencyValue(Math.abs(netBalance), i18n.language)}
             </Text>
           </View>
         </View>
@@ -845,8 +862,8 @@ export default function TransactionsScreen() {
                 ]}
               >
                 {isIncome
-                  ? `+${item.amount.toFixed(2).replace(".", ",")}`
-                  : `-${item.amount.toFixed(2).replace(".", ",")}`}
+                  ? `+${formatCurrencyValue(item.amount, i18n.language)}`
+                  : `-${formatCurrencyValue(item.amount, i18n.language)}`}
               </Text>
             </TouchableOpacity>
           );
@@ -889,9 +906,10 @@ export default function TransactionsScreen() {
                       </Text>
                       <Text style={styles.modalAmount}>
                         $
-                        {selectedTransaction.amount
-                          .toFixed(2)
-                          .replace(".", ",")}
+                        {formatCurrencyValue(
+                          selectedTransaction.amount,
+                          i18n.language,
+                        )}
                       </Text>
 
                       <View style={styles.modalDetailRow}>

@@ -1,5 +1,6 @@
 import api from "@/services/api";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -166,10 +167,11 @@ export default function AnalyticsScreen() {
       setRefreshing(false);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, []),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
