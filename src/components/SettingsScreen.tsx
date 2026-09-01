@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FFFFFF",
     fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   profileCard: {
     flexDirection: "row",
@@ -420,8 +420,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.screenBackground || "#F3EFEA",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 40,
+    paddingTop: 16,
+    paddingBottom: 80,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     minHeight: 600,
@@ -463,6 +463,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    paddingBottom: 60,
   },
   modalTitle: {
     fontSize: 20,

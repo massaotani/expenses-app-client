@@ -1,15 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { ColorValue, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../constants/theme";
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            // Dynamically increase height and bottom padding when the Android navigation bar is visible
+            height: 55 + insets.bottom,
+            paddingBottom: insets.bottom,
+          },
+        ],
         tabBarActiveTintColor: colors.primaryTeal || "#008080",
         tabBarInactiveTintColor: colors.textMuted || "#999999",
       }}
@@ -118,7 +128,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 75,
     position: "absolute",
     borderTopWidth: 0,
     elevation: 10,

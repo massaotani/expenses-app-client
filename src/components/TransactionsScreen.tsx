@@ -298,19 +298,19 @@ export default function TransactionsScreen() {
             item.rawDate.getMonth() === month - 1,
         );
 
-      if (parsedIncomes.length === 0 && userMonthlyIncome > 0) {
-        parsedIncomes = [
-          {
-            id: `inc-default-${year}-${month}`,
-            title: t("monthlyBudget", "Monthly Income"),
-            amount: userMonthlyIncome,
-            category: "Income",
-            rawDate: new Date(year, month - 1, 1),
-            type: "INCOME" as const,
-            icon: getCategoryIcon("Income", "INCOME"),
-          },
-        ];
-      }
+      // if (parsedIncomes.length === 0 && userMonthlyIncome > 0) {
+      //   parsedIncomes = [
+      //     {
+      //       id: `inc-default-${year}-${month}`,
+      //       title: t("monthlyBudget", "Monthly Income"),
+      //       amount: userMonthlyIncome,
+      //       category: "Income",
+      //       rawDate: new Date(year, month - 1, 1),
+      //       type: "INCOME" as const,
+      //       icon: getCategoryIcon("Income", "INCOME"),
+      //     },
+      //   ];
+      // }
 
       const combined = [...parsedExpenses, ...parsedIncomes].sort(
         (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
@@ -374,12 +374,20 @@ export default function TransactionsScreen() {
 
   const filterCategories = useMemo(() => {
     const categoriesSet = new Set<string>();
+    let hasIncome = false;
+
     allTransactions.forEach((t) => {
-      if (t.type === "EXPENSE" && t.category) {
+      if (t.type === "INCOME") {
+        hasIncome = true;
+      } else if (t.type === "EXPENSE" && t.category) {
         categoriesSet.add(String(t.category));
       }
     });
-    return ["All", "Income", ...Array.from(categoriesSet)];
+    return [
+      "All",
+      ...(hasIncome ? ["Income"] : []),
+      ...Array.from(categoriesSet),
+    ];
   }, [allTransactions]);
 
   const filterCards = useMemo(() => {
@@ -633,10 +641,6 @@ export default function TransactionsScreen() {
         <Text style={styles.headerTitle}>
           {t("transactions", "Transactions")}
         </Text>
-        <Text style={styles.headerSubtitle}>
-          {formattedHeaderDate} • {allTransactions.length}{" "}
-          {t("records", "records")}
-        </Text>
 
         <View style={styles.monthSelectorRow}>
           <TouchableOpacity
@@ -645,13 +649,17 @@ export default function TransactionsScreen() {
           >
             <Text style={styles.monthNavText}>{"‹"}</Text>
           </TouchableOpacity>
-
-          <Text style={styles.headerSubtitle}>
-            {formatWithCapitalMonth(selectedDate, i18n.language, {
-              month: "long",
-              year: "numeric",
-            })}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={styles.headerSubtitle}>
+              {formatWithCapitalMonth(selectedDate, i18n.language, {
+                month: "long",
+                year: "numeric",
+              })}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              • {allTransactions.length} {t("records", "records")}
+            </Text>
+          </View>
 
           <TouchableOpacity
             onPress={() => changeMonth(1)}
@@ -1218,7 +1226,7 @@ const styles = StyleSheet.create({
   listContent: {
     backgroundColor: "#F4F1EA",
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: 60,
   },
   headerWrapper: {
     backgroundColor: "#F4F1EA",
@@ -1235,6 +1243,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "700",
     color: "#FFFFFF",
+    marginBottom: 20,
   },
   headerSubtitle: {
     fontSize: 14,

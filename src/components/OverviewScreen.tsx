@@ -520,13 +520,40 @@ export default function OverviewScreen() {
     setSubmitting(true);
 
     const now = new Date();
+    const selectedYear = expenseDate.getFullYear();
+    const selectedMonth = expenseDate.getMonth();
+
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let hours = now.getHours();
+    let minutes = now.getMinutes();
+    let seconds = now.getSeconds();
+
+    // Determine if selected date is in a past or future month relative to current month/year
+    const selectedMonthKey = selectedYear * 12 + selectedMonth;
+    const currentMonthKey = currentYear * 12 + currentMonth;
+
+    if (selectedMonthKey > currentMonthKey) {
+      // Future month -> 00:00:00
+      hours = 0;
+      minutes = 0;
+      seconds = 0;
+    } else if (selectedMonthKey < currentMonthKey) {
+      // Past month -> 23:59:59
+      hours = 23;
+      minutes = 59;
+      seconds = 59;
+    }
+    // If selectedMonthKey === currentMonthKey (August), it keeps real timestamp (now.getHours(), etc.)
+
     const fullLocalDateTime = new Date(
-      expenseDate.getFullYear(),
-      expenseDate.getMonth(),
+      selectedYear,
+      selectedMonth,
       expenseDate.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      now.getSeconds(),
+      hours,
+      minutes,
+      seconds,
     );
 
     const formattedDueDate = toLocalISOString(fullLocalDateTime);
@@ -1322,7 +1349,7 @@ export default function OverviewScreen() {
             enableOnAndroid
             enableAutomaticScroll
             extraScrollHeight={30}
-            style={{ maxHeight: "70%", width: "100%" }}
+            style={{ width: "100%", maxHeight: "85%" }}
             contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
           >
             <Pressable
@@ -1660,7 +1687,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.screenBackground,
     paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 80,
+    paddingBottom: 60,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
