@@ -1,4 +1,4 @@
-import api, { setOnUnauthenticated } from "@/services/api";
+import api, { setOnTokenRefreshed, setOnUnauthenticated } from "@/services/api";
 import "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { Slot, useRouter, useSegments } from "expo-router";
@@ -78,6 +78,10 @@ export default function RootLayout() {
     // Catch 401 session expirations from api.ts
     setOnUnauthenticated(() => {
       signOut();
+    });
+
+    setOnTokenRefreshed((newToken) => {
+      setToken(newToken);
     });
 
     const checkToken = async () => {

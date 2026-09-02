@@ -2,7 +2,6 @@ import { deleteItem, getItem, setItem } from "@/utils/storage";
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 import { Platform } from "react-native";
 
-// 1. Read EXPO_PUBLIC_API_URL from .env with fallback for local testing
 const DEV_FALLBACK =
   Platform.OS === "android" ? "http://10.0.2.2:8080" : "http://localhost:8080";
 
@@ -14,8 +13,13 @@ export const setOnUnauthenticated = (callback: () => void) => {
   onUnauthenticatedCallback = callback;
 };
 
-// 2. Render instances spin down after inactivity; 45,000ms prevents
-// premature client timeouts during initial cold start wake-ups.
+// 1. ADD DECLARATION AND SETTER HERE:
+let onTokenRefreshedCallback: ((newToken: string) => void) | null = null;
+
+export const setOnTokenRefreshed = (callback: (newToken: string) => void) => {
+  onTokenRefreshedCallback = callback;
+};
+
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
@@ -45,13 +49,13 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
-// 3. Request Interceptor: Attach token if missing from headers
+// Request Interceptor: Ensure token presence before sending
 api.interceptors.request.use(
   async (config) => {
-    if (!config.headers.Authorization) {
+    if (!config.headers.has("Authorization")) {
       const token = await getItem("userToken");
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        config.headers.set("Authorization", `Bearer ${token}`);
       }
     }
     return config;
@@ -59,7 +63,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// 4. Response Interceptor: Manage 401 & token refreshes
+// Response Interceptor
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -67,20 +71,25 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // Ignore 401 handling for /auth routes (login, register, refresh)
-    const isAuthEndpoint = originalRequest.url?.includes("/api/v1/auth/");
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !isAuthEndpoint
-    ) {
+    const isLoginOrRegister =
+      originalRequest.url?.includes("/api/v1/auth/login") ||
+      originalRequest.url?.includes("/api/v1/auth/register") ||
+      originalRequest.url?.includes("/api/v1/auth/refresh");
+
+    const isAuthError =
+      error.response?.status === 401 || error.response?.status === 403;
+
+    if (isAuthError && !originalRequest._retry && !isLoginOrRegister) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then((newToken) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            originalRequest.headers.set("Authorization", `Bearer ${newToken}`);
             return api(originalRequest);
           })
           .catch((err) => Promise.reject(err));
@@ -93,32 +102,41 @@ api.interceptors.response.use(
         const storedRefreshToken = await getItem("refreshToken");
 
         if (!storedRefreshToken) {
-          throw new Error("No refresh token found");
+          throw new Error("No refresh token found in storage");
         }
 
         const response = await refreshApi.post("/api/v1/auth/refresh", {
           refreshToken: storedRefreshToken,
         });
 
-        const accessToken = response.data.accessToken || response.data.token;
+        const accessToken = response.data.token || response.data.accessToken;
         const newRefreshToken = response.data.refreshToken;
 
         if (!accessToken) {
-          throw new Error("Invalid token received from refresh endpoint");
+          throw new Error(
+            "Invalid access token returned from refresh endpoint",
+          );
         }
 
-        await setItem("userToken", accessToken);
         if (newRefreshToken) {
           await setItem("refreshToken", newRefreshToken);
         }
 
-        api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        await setItem("userToken", accessToken);
+
+        api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+        originalRequest.headers.set("Authorization", `Bearer ${accessToken}`);
+
+        // 2. ADD TRIGGER HERE (Right after updating headers and before processing the queue):
+        if (onTokenRefreshedCallback) {
+          onTokenRefreshedCallback(accessToken);
+        }
 
         processQueue(null, accessToken);
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         processQueue(refreshError, null);
+
         await deleteItem("userToken");
         await deleteItem("refreshToken");
         delete api.defaults.headers.common["Authorization"];
