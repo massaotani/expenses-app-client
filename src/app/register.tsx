@@ -2,6 +2,7 @@ import { useAuth } from "@/app/_layout";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +19,7 @@ import { colors_sign_register } from "../constants/theme";
 import api from "../services/api";
 
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { signIn } = useAuth();
   const insets = useSafeAreaInsets();
@@ -37,33 +39,25 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert("Missing Information", "Please fill in all required fields.");
+      Alert.alert(t("missingInformation"), t("fillAllFields"));
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert(
-        "Weak Password",
-        "Password must be at least 8 characters long.",
-      );
+      Alert.alert(t("weakPassword"), t("weakPasswordDesc"));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(
-        "Password Mismatch",
-        "Passwords do not match. Please verify and try again.",
-      );
+      Alert.alert(t("passwordMismatch"), t("passwordsDoNotMatch"));
       return;
     }
 
     if (!agreeTerms) {
-      Alert.alert(
-        "Terms Required",
-        "Please agree to the Terms of Service to proceed.",
-      );
+      Alert.alert(t("termsRequired"), t("agreeTermsToProceed"));
       return;
     }
+
     const cleanIncome = monthlyIncome.replace(",", ".");
     const parsedIncome = isNaN(parseFloat(cleanIncome))
       ? 0
@@ -71,6 +65,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     setErrorMessage("");
+
     try {
       const response = await api.post("/api/v1/auth/register", {
         name: fullName.trim(),
@@ -123,10 +118,8 @@ export default function RegisterScreen() {
         translucent
       />
 
-      {/* Fixed Unscrollable Header */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerCircle} />
-
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -137,26 +130,19 @@ export default function RegisterScreen() {
             size={16}
             color={colors_sign_register.textLight}
           />
-          <Text style={styles.backButtonText}>Back</Text>
+          <Text style={styles.backButtonText}>{t("back")}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Create your{"\n"}account.</Text>
-        <Text style={styles.headerSubtitle}>
-          Start tracking your expenses today.
-        </Text>
+        <Text style={styles.headerTitle}>{t("createYourAccount")}</Text>
+        <Text style={styles.headerSubtitle}>{t("startTrackingExpenses")}</Text>
       </View>
 
-      {/* Scrollable Form Body */}
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.scrollContainer,
           { paddingBottom: insets.bottom + 40 },
         ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        enableOnAndroid={true}
-        extraScrollHeight={20}
       >
         <View style={styles.form}>
           {errorMessage !== "" && (
@@ -172,24 +158,24 @@ export default function RegisterScreen() {
           )}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>FULL NAME</Text>
+            <Text style={styles.label}>{t("fullName")}</Text>
             <TextInput
               style={styles.input}
               value={fullName}
               onChangeText={setFullName}
-              placeholder="e.g. Massao Tani"
+              placeholder={t("fullNamePlaceholder")}
               placeholderTextColor={colors_sign_register.textMuted}
               editable={!loading}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>EMAIL</Text>
+            <Text style={styles.label}>{t("emailLabel")}</Text>
             <TextInput
               style={styles.input}
               value={email}
               onChangeText={setEmail}
-              placeholder="e.g. massao@gmail.com"
+              placeholder={t("emailPlaceholder")}
               placeholderTextColor={colors_sign_register.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -198,17 +184,16 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>MONTHLY INCOME (SALARY / WAGE)</Text>
+            <Text style={styles.label}>{t("monthlyIncomeLabel")}</Text>
             <TextInput
               style={styles.input}
               value={monthlyIncome}
-              onChangeText={(text) => {
-                const normalized = text
-                  .replace(/\./g, ",")
-                  .replace(/(,\d{2})\d+$/, "$1");
-                setMonthlyIncome(normalized);
-              }}
-              placeholder="e.g. 3000,00"
+              onChangeText={(text) =>
+                setMonthlyIncome(
+                  text.replace(/\./g, ",").replace(/(,\d{2})\d+$/, "$1"),
+                )
+              }
+              placeholder={t("incomePlaceholder")}
               placeholderTextColor={colors_sign_register.textMuted}
               keyboardType="decimal-pad"
               editable={!loading}
@@ -216,13 +201,13 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASSWORD</Text>
+            <Text style={styles.label}>{t("passwordLabel")}</Text>
             <View style={styles.passwordContainer}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Min. 8 characters"
+                placeholder={t("passwordPlaceholder")}
                 placeholderTextColor={colors_sign_register.textMuted}
                 secureTextEntry={!showPassword}
                 editable={!loading}
@@ -233,20 +218,20 @@ export default function RegisterScreen() {
                 disabled={loading}
               >
                 <Text style={styles.showText}>
-                  {showPassword ? "hide" : "show"}
+                  {showPassword ? t("hide") : t("show")}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>CONFIRM PASSWORD</Text>
+            <Text style={styles.label}>{t("confirmPasswordLabel")}</Text>
             <View style={styles.passwordContainer}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                placeholder="Repeat your password"
+                placeholder={t("confirmPasswordPlaceholder")}
                 placeholderTextColor={colors_sign_register.textMuted}
                 secureTextEntry={!showConfirmPassword}
                 editable={!loading}
@@ -257,7 +242,7 @@ export default function RegisterScreen() {
                 disabled={loading}
               >
                 <Text style={styles.showText}>
-                  {showConfirmPassword ? "hide" : "show"}
+                  {showConfirmPassword ? t("hide") : t("show")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -281,9 +266,10 @@ export default function RegisterScreen() {
               )}
             </View>
             <Text style={styles.checkboxText}>
-              I agree to the{" "}
-              <Text style={styles.linkText}>Terms of Service</Text> and{" "}
-              <Text style={styles.linkText}>Privacy Policy</Text>
+              {t("agreeTo")}
+              <Text style={styles.linkText}>{t("termsOfService")}</Text>
+              {t("and")}
+              <Text style={styles.linkText}>{t("privacyPolicy")}</Text>
             </Text>
           </TouchableOpacity>
 
@@ -308,15 +294,15 @@ export default function RegisterScreen() {
                     : styles.createButtonTextDisabled,
                 ]}
               >
-                Create Account
+                {t("createAccount")}
               </Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>{t("alreadyHaveAccount")}</Text>
             <TouchableOpacity onPress={() => router.back()} disabled={loading}>
-              <Text style={styles.signinText}>Sign in</Text>
+              <Text style={styles.signinText}>{t("signIn")}</Text>
             </TouchableOpacity>
           </View>
         </View>

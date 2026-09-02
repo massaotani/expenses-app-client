@@ -761,107 +761,103 @@ export default function OverviewScreen() {
         backgroundColor={colors.headerBackground}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primaryTeal}
-          />
-        }
-      >
-        <View style={styles.header}>
-          <Text style={styles.monthText}>{t("overview", "OVERVIEW")}</Text>
+      <View style={styles.header}>
+        <Text style={styles.monthText}>{t("overview", "OVERVIEW")}</Text>
 
-          <View style={styles.userGreetingRow}>
-            <Text style={styles.greetingText}>
-              {t("hello", "Hello")}
-              {userName ? `, ${userName}` : ""}.
-            </Text>
-            <TouchableOpacity
-              style={styles.cardIconButton}
-              onPress={() => {
-                setCardModalMode("LIST");
-                setModalCardVisible(true);
-              }}
-            >
-              <Ionicons
-                name="card-outline"
-                size={20}
-                color={colors.textLight}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.subtitleText}>
-            {t("takeCareFinances", "Take good care of your finances!")}
+        <View style={styles.userGreetingRow}>
+          <Text style={styles.greetingText}>
+            {t("hello", "Hello")}
+            {userName ? `, ${userName}` : ""}.
           </Text>
+          <TouchableOpacity
+            style={styles.cardIconButton}
+            onPress={() => {
+              setCardModalMode("LIST");
+              setModalCardVisible(true);
+            }}
+          >
+            <Ionicons name="card-outline" size={20} color={colors.textLight} />
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>
-              {t("totalBalance", "TOTAL BALANCE")}
+        <Text style={styles.subtitleText}>
+          {t("takeCareFinances", "Take good care of your finances!")}
+        </Text>
+
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>
+            {t("totalBalance", "TOTAL BALANCE")}
+          </Text>
+          <Text style={styles.balanceAmount}>
+            $
+            {totalBalance.toLocaleString(i18n.language, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+          {investmentPot > 0 && (
+            <Text style={styles.balanceTrend}>
+              {t("investmentPot", "Investment Pot")}: $
+              {investmentPot.toLocaleString(i18n.language, {
+                minimumFractionDigits: 2,
+              })}
             </Text>
-            <Text style={styles.balanceAmount}>
+          )}
+        </View>
+
+        <View style={styles.dualCardRow}>
+          <TouchableOpacity
+            style={[styles.miniCard, styles.flex1, { marginRight: 8 }]}
+            onPress={() => setModalIncomeVisible(true)}
+          >
+            <View style={styles.rowContainer}>
+              <Text style={styles.miniCardLabel}>{t("income", "INCOME")}</Text>
+              <Text style={styles.miniCardAdd}>+</Text>
+            </View>
+
+            <Text style={styles.miniCardValue}>
               $
-              {totalBalance.toLocaleString(i18n.language, {
+              {effectiveIncome.toLocaleString(i18n.language, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </Text>
-            {investmentPot > 0 && (
-              <Text style={styles.balanceTrend}>
-                {t("investmentPot", "Investment Pot")}: $
-                {investmentPot.toLocaleString(i18n.language, {
-                  minimumFractionDigits: 2,
-                })}
-              </Text>
-            )}
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.dualCardRow}>
-            <TouchableOpacity
-              style={[styles.miniCard, styles.flex1, { marginRight: 8 }]}
-              onPress={() => setModalIncomeVisible(true)}
-            >
-              <View style={styles.rowContainer}>
-                <Text style={styles.miniCardLabel}>
-                  {t("income", "INCOME")}
-                </Text>
-                <Text style={styles.miniCardAdd}>+</Text>
-              </View>
-
-              <Text style={styles.miniCardValue}>
-                $
-                {effectiveIncome.toLocaleString(i18n.language, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+          <TouchableOpacity
+            style={[styles.miniCard, styles.flex1, { marginLeft: 8 }]}
+            onPress={() => setModalExpensesVisible(true)}
+          >
+            <View style={styles.rowContainer}>
+              <Text style={styles.miniCardLabel}>
+                {t("expenses", "EXPENSES")}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.miniCard, styles.flex1, { marginLeft: 8 }]}
-              onPress={() => setModalExpensesVisible(true)}
-            >
-              <View style={styles.rowContainer}>
-                <Text style={styles.miniCardLabel}>
-                  {t("expenses", "EXPENSES")}
-                </Text>
-                <Text style={styles.miniCardAdd}>+</Text>
-              </View>
-              <Text style={styles.miniCardValue}>
-                $
-                {effectiveExpenses.toLocaleString(i18n.language, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={styles.miniCardAdd}>+</Text>
+            </View>
+            <Text style={styles.miniCardValue}>
+              $
+              {effectiveExpenses.toLocaleString(i18n.language, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </Text>
+          </TouchableOpacity>
         </View>
+      </View>
 
-        <View style={styles.body}>
+      <View style={styles.body}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primaryTeal}
+            />
+          }
+        >
           <View style={styles.sectionCard}>
             <Text style={styles.cardTitle}>
               {t("spendingTrend", "Spending Trend")}
@@ -980,8 +976,8 @@ export default function OverviewScreen() {
               </View>
             ))}
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       <Modal
         statusBarTranslucent
@@ -1684,12 +1680,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   body: {
+    flex: 1, // Ensures body takes all available space below header
     backgroundColor: colors.screenBackground,
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 60,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    overflow: "hidden", // Clips content cleanly inside rounded corners
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 60, // Padding at the end of the scrollable content
   },
   incomeText: { color: colors.depositText },
   sectionCard: {

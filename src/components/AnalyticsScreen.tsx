@@ -85,17 +85,17 @@ const COLORS = {
   textDark: "#1C1C1E",
   textMuted: "#8E8E93",
   categoryColors: {
-    Housing: "#284E4C", // primaryTeal
-    Food: "#C86D51", // primaryOrange
-    "Fixed Expenses": "#96652C", // deepOchre
-    Fixed_Expenses: "#96652C", // deepOchre (alias)
-    Transportation: "#729B96", // sageTeal
-    Entertainment: "#D9A05B", // goldenOchre
-    Healthcare: "#E29C82", // softOrange
-    Clothing: "#B86B53", // terracotta accent
-    PET: "#E8A855", // warm amber accent
-    Travel: "#486E68", // deep sage accent
-    Others: "#9A8B85", // neutral taupe
+    Housing: "#284E4C",
+    Food: "#C86D51",
+    "Fixed Expenses": "#96652C",
+    Fixed_Expenses: "#96652C",
+    Transportation: "#729B96",
+    Entertainment: "#D9A05B",
+    Healthcare: "#E29C82",
+    Clothing: "#B86B53",
+    PET: "#E8A855",
+    Travel: "#486E68",
+    Others: "#9A8B85",
   } as Record<string, string>,
 };
 
@@ -167,6 +167,7 @@ export default function AnalyticsScreen() {
       setRefreshing(false);
     }
   };
+
   useFocusEffect(
     useCallback(() => {
       fetchData();
@@ -291,12 +292,6 @@ export default function AnalyticsScreen() {
     return { totals, sortedEntries, totalSpending };
   }, [expenses, selectedDate]);
 
-  const changeMonth = (offset: number) => {
-    setSelectedDate(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1),
-    );
-  };
-
   const paymentTypeBreakdown = useMemo(() => {
     let cashSum = 0;
     let cardSum = 0;
@@ -394,469 +389,475 @@ export default function AnalyticsScreen() {
   const CIRCUMFERENCE = 2 * Math.PI * 35;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.tealDark} />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#FFFFFF"
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>{t("analytics", "Analytics")}</Text>
-          <Text style={styles.headerSubtitle}>
-            {t("spendingInsights", "Spending insights")} ·{" "}
-            {(() => {
-              const rawDate = new Date().toLocaleDateString(
-                i18n.language || "en",
-                {
-                  month: "long",
-                  year: "numeric",
-                },
-              );
-              return rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
-            })()}
-          </Text>
-        </View>
 
-        <View style={styles.cardsWrapper}>
-          {/* 1. Income vs. Expenses Bar Chart */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {t("incomeVsExpenses", "Income vs. Expenses")}
-            </Text>
-            <Text style={styles.cardSubtitle}>
-              {t("last6Months", "Last 6 months")}
-            </Text>
+      {/* Fixed Header */}
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>{t("analytics", "Analytics")}</Text>
+        <Text style={styles.headerSubtitle}>
+          {t("spendingInsights", "Spending insights")} ·{" "}
+          {(() => {
+            const rawDate = new Date().toLocaleDateString(
+              i18n.language || "en",
+              {
+                month: "long",
+                year: "numeric",
+              },
+            );
+            return rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
+          })()}
+        </Text>
+      </View>
 
-            <View style={styles.chartWrapper}>
-              <Svg height={200} width={chartWidth}>
-                {barGridSteps.map((val) => {
-                  const y = 160 - (val / maxBarValue) * 140;
-                  return (
-                    <React.Fragment key={val}>
-                      <Line
-                        x1={40}
-                        y1={y}
-                        x2={chartWidth}
-                        y2={y}
-                        stroke="#EBE8E1"
-                        strokeWidth={1}
-                        strokeDasharray="3,3"
-                      />
-                      <SvgText
-                        x={32}
-                        y={y + 4}
-                        fill={COLORS.textMuted}
-                        fontSize={10}
-                        textAnchor="end"
-                      >
-                        {val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}
-                      </SvgText>
-                    </React.Fragment>
-                  );
-                })}
+      {/* Scrollable Body Container with Cream Background */}
+      <View style={styles.bodyContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.tealDark}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.cardsWrapper}>
+            {/* 1. Income vs. Expenses Bar Chart */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                {t("incomeVsExpenses", "Income vs. Expenses")}
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                {t("last6Months", "Last 6 months")}
+              </Text>
 
-                {monthlyData.map((d, index) => {
-                  const groupX = 48 + index * ((chartWidth - 58) / 6);
-                  const incomeH = (d.income / maxBarValue) * 140;
-                  const expenseH = (d.expenses / maxBarValue) * 140;
-
-                  return (
-                    <React.Fragment key={d.month}>
-                      <Rect
-                        x={groupX}
-                        y={160 - incomeH}
-                        width={6}
-                        height={Math.max(incomeH, 2)}
-                        fill={COLORS.tealDark}
-                        rx={3}
-                      />
-                      <Rect
-                        x={groupX + 8}
-                        y={160 - expenseH}
-                        width={6}
-                        height={Math.max(expenseH, 2)}
-                        fill={COLORS.expenseOrange}
-                        rx={3}
-                      />
-                      <SvgText
-                        x={groupX + 7}
-                        y={180}
-                        fill={COLORS.textMuted}
-                        fontSize={11}
-                        textAnchor="middle"
-                      >
-                        {d.month}
-                      </SvgText>
-                    </React.Fragment>
-                  );
-                })}
-              </Svg>
-
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendBox,
-                      { backgroundColor: COLORS.expenseOrange },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>
-                    {t("expenses", "Expenses")}
-                  </Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendBox,
-                      { backgroundColor: COLORS.tealDark },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>{t("income", "Income")}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* 2. Cash vs. Card Breakdown */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {t("paymentMethodBreakdown", "Payment Method Breakdown")}
-            </Text>
-            <Text style={styles.cardSubtitle}>
-              {t("cardVsCash", "Card vs. Cash")}
-            </Text>
-
-            <View style={styles.stackedBarContainer}>
-              <View
-                style={[
-                  styles.stackedSegment,
-                  {
-                    width: `${paymentTypeBreakdown.cardPct}%`,
-                    backgroundColor: COLORS.cardColor,
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.stackedSegment,
-                  {
-                    width: `${paymentTypeBreakdown.cashPct}%`,
-                    backgroundColor: COLORS.cashColor,
-                  },
-                ]}
-              />
-            </View>
-
-            <View style={styles.paymentMetricRow}>
-              <View style={styles.paymentMetricBox}>
-                <View style={styles.paymentHeader}>
-                  <View
-                    style={[
-                      styles.legendBox,
-                      { backgroundColor: COLORS.cardColor },
-                    ]}
-                  />
-                  <Text style={styles.paymentTypeLabel}>
-                    {t("cardExpenses", "Card Expenses")}
-                  </Text>
-                </View>
-                <Text style={styles.paymentValueText}>
-                  ${formatAmount(paymentTypeBreakdown.card)}
-                </Text>
-                <Text style={styles.paymentPercentageText}>
-                  {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
-                </Text>
-              </View>
-
-              <View style={styles.paymentMetricBox}>
-                <View style={styles.paymentHeader}>
-                  <View
-                    style={[
-                      styles.legendBox,
-                      { backgroundColor: COLORS.cashColor },
-                    ]}
-                  />
-                  <Text style={styles.paymentTypeLabel}>
-                    {t("cashExpenses", "Cash Expenses")}
-                  </Text>
-                </View>
-                <Text style={styles.paymentValueText}>
-                  ${formatAmount(paymentTypeBreakdown.cash)}
-                </Text>
-                <Text style={styles.paymentPercentageText}>
-                  {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
-                </Text>
-              </View>
-            </View>
-
-            {/* Sub-breakdown per Card */}
-            {cardUsageBreakdown.cardsList.length > 0 && (
-              <View style={styles.cardBreakdownContainer}>
-                <Text style={styles.cardBreakdownTitle}>
-                  {t("cardsUsage", "Card Breakdown")}
-                </Text>
-                {cardUsageBreakdown.cardsList.map(
-                  ({ card, totalSpent, percentage }) => (
-                    <View key={card.id} style={styles.cardUsageRow}>
-                      <View style={styles.cardUsageHeader}>
-                        <View style={styles.cardNameContainer}>
-                          <Text style={styles.cardIcon}>💳</Text>
-                          <Text style={styles.cardNameText}>{card.name}</Text>
-                          <View style={styles.cardTypeBadge}>
-                            <Text style={styles.cardTypeBadgeText}>
-                              {String(
-                                t(card.cardType.toLowerCase(), {
-                                  defaultValue: card.cardType,
-                                }),
-                              )}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.cardSpentText}>
-                          ${formatAmount(totalSpent)}
-                        </Text>
-                      </View>
-                      <View style={styles.cardProgressBarTrack}>
-                        <View
-                          style={[
-                            styles.cardProgressBarFill,
-                            { width: `${percentage}%` },
-                          ]}
+              <View style={styles.chartWrapper}>
+                <Svg height={200} width={chartWidth}>
+                  {barGridSteps.map((val) => {
+                    const y = 160 - (val / maxBarValue) * 140;
+                    return (
+                      <React.Fragment key={val}>
+                        <Line
+                          x1={40}
+                          y1={y}
+                          x2={chartWidth}
+                          y2={y}
+                          stroke="#EBE8E1"
+                          strokeWidth={1}
+                          strokeDasharray="3,3"
                         />
-                      </View>
-                    </View>
-                  ),
-                )}
-              </View>
-            )}
-          </View>
+                        <SvgText
+                          x={32}
+                          y={y + 4}
+                          fill={COLORS.textMuted}
+                          fontSize={10}
+                          textAnchor="end"
+                        >
+                          {val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}
+                        </SvgText>
+                      </React.Fragment>
+                    );
+                  })}
 
-          {/* 3. Spending by Category */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {t("spendingByCategory", "Spending by Category")}
-            </Text>
-            <Text style={styles.cardSubtitle}>
-              {t("total", "Total")}: $
-              {formatAmount(categorySpending.totalSpending)}
-            </Text>
+                  {monthlyData.map((d, index) => {
+                    const groupX = 48 + index * ((chartWidth - 58) / 6);
+                    const incomeH = (d.income / maxBarValue) * 140;
+                    const expenseH = (d.expenses / maxBarValue) * 140;
 
-            <View style={styles.donutWrapper}>
-              <Svg height={180} width={180} viewBox="0 0 100 100">
-                {categorySpending.totalSpending === 0 ? (
-                  <>
-                    <Circle
-                      cx={50}
-                      cy={50}
-                      r={35}
-                      fill="transparent"
-                      stroke="#EAE6DF"
-                      strokeWidth={12}
-                    />
-                    <SvgText
-                      x={50}
-                      y={54}
-                      fill={COLORS.textMuted}
-                      fontSize={11}
-                      fontWeight="600"
-                      textAnchor="middle"
-                    >
-                      {t("noExpenses", "No Expenses")}
-                    </SvgText>
-                  </>
-                ) : (
-                  (() => {
-                    let cumulativeAngle = 0;
-                    return categorySpending.sortedEntries.map((item) => {
-                      const strokeDasharray = `${(item.amount / categorySpending.totalSpending) * CIRCUMFERENCE} ${CIRCUMFERENCE}`;
-                      const strokeDashoffset = -cumulativeAngle;
-                      cumulativeAngle +=
-                        (item.amount / categorySpending.totalSpending) *
-                        CIRCUMFERENCE;
-
-                      return (
-                        <Circle
-                          key={item.category}
-                          cx={50}
-                          cy={50}
-                          r={35}
-                          fill="transparent"
-                          stroke={item.color}
-                          strokeWidth={14}
-                          strokeDasharray={strokeDasharray}
-                          strokeDashoffset={strokeDashoffset}
-                          transform="rotate(-90 50 50)"
+                    return (
+                      <React.Fragment key={d.month}>
+                        <Rect
+                          x={groupX}
+                          y={160 - incomeH}
+                          width={6}
+                          height={Math.max(incomeH, 2)}
+                          fill={COLORS.tealDark}
+                          rx={3}
                         />
-                      );
-                    });
-                  })()
-                )}
-              </Svg>
-            </View>
+                        <Rect
+                          x={groupX + 8}
+                          y={160 - expenseH}
+                          width={6}
+                          height={Math.max(expenseH, 2)}
+                          fill={COLORS.expenseOrange}
+                          rx={3}
+                        />
+                        <SvgText
+                          x={groupX + 7}
+                          y={180}
+                          fill={COLORS.textMuted}
+                          fontSize={11}
+                          textAnchor="middle"
+                        >
+                          {d.month}
+                        </SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+                </Svg>
 
-            <View style={styles.categoryListContainer}>
-              {categorySpending.sortedEntries.map((item) => (
-                <View key={item.category} style={styles.categoryRow}>
-                  <View style={styles.categoryLeft}>
+                <View style={styles.legendRow}>
+                  <View style={styles.legendItem}>
                     <View
                       style={[
-                        styles.chipIndicator,
-                        { backgroundColor: item.color },
+                        styles.legendBox,
+                        { backgroundColor: COLORS.expenseOrange },
                       ]}
                     />
-                    <Text style={styles.categoryName}>
-                      {String(
-                        t(item.category.toLowerCase(), {
-                          defaultValue: item.category,
-                        }),
-                      )}
+                    <Text style={styles.legendText}>
+                      {t("expenses", "Expenses")}
                     </Text>
                   </View>
-                  <Text style={styles.categoryValue}>
-                    ${formatAmount(item.amount)}{" "}
-                    <Text style={styles.categoryPercentage}>
-                      ({item.percentage}%)
+                  <View style={styles.legendItem}>
+                    <View
+                      style={[
+                        styles.legendBox,
+                        { backgroundColor: COLORS.tealDark },
+                      ]}
+                    />
+                    <Text style={styles.legendText}>
+                      {t("income", "Income")}
                     </Text>
-                  </Text>
+                  </View>
                 </View>
-              ))}
+              </View>
             </View>
-          </View>
 
-          {/* 4. Net Savings Trend Line Chart */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {t("netSavingsTrend", "Net Savings Trend")}
-            </Text>
-            <Text style={styles.cardSubtitle}>
-              {t("income", "Income")} – {t("expenses", "Expenses")} (
-              {currentMonthSummary.month})
-            </Text>
+            {/* 2. Cash vs. Card Breakdown */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                {t("paymentMethodBreakdown", "Payment Method Breakdown")}
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                {t("cardVsCash", "Card vs. Cash")}
+              </Text>
 
-            <View style={styles.netMetricRow}>
-              <View style={styles.netMetricBox}>
-                <Text style={styles.netMetricLabel}>
-                  {t("income", "Income")}
-                </Text>
-                <Text style={styles.netIncomeText}>
-                  ${formatAmount(currentMonthSummary.income)}
-                </Text>
-              </View>
-
-              <View style={styles.netMetricBox}>
-                <Text style={styles.netMetricLabel}>
-                  {t("expenses", "Expenses")}
-                </Text>
-                <Text style={styles.netExpenseText}>
-                  ${formatAmount(currentMonthSummary.expenses)}
-                </Text>
-              </View>
-
-              <View style={styles.netMetricBox}>
-                <Text style={styles.netMetricLabel}>
-                  {t("netSavings", "Net Savings")}
-                </Text>
-                <Text
+              <View style={styles.stackedBarContainer}>
+                <View
                   style={[
-                    styles.netValueText,
+                    styles.stackedSegment,
                     {
-                      color:
-                        currentMonthSummary.net >= 0
-                          ? COLORS.tealDark
-                          : COLORS.expenseOrange,
+                      width: `${paymentTypeBreakdown.cardPct}%`,
+                      backgroundColor: COLORS.cardColor,
                     },
                   ]}
-                >
-                  ${formatAmount(currentMonthSummary.net)}
-                </Text>
+                />
+                <View
+                  style={[
+                    styles.stackedSegment,
+                    {
+                      width: `${paymentTypeBreakdown.cashPct}%`,
+                      backgroundColor: COLORS.cashColor,
+                    },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.paymentMetricRow}>
+                <View style={styles.paymentMetricBox}>
+                  <View style={styles.paymentHeader}>
+                    <View
+                      style={[
+                        styles.legendBox,
+                        { backgroundColor: COLORS.cardColor },
+                      ]}
+                    />
+                    <Text style={styles.paymentTypeLabel}>
+                      {t("cardExpenses", "Card Expenses")}
+                    </Text>
+                  </View>
+                  <Text style={styles.paymentValueText}>
+                    ${formatAmount(paymentTypeBreakdown.card)}
+                  </Text>
+                  <Text style={styles.paymentPercentageText}>
+                    {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
+                  </Text>
+                </View>
+
+                <View style={styles.paymentMetricBox}>
+                  <View style={styles.paymentHeader}>
+                    <View
+                      style={[
+                        styles.legendBox,
+                        { backgroundColor: COLORS.cashColor },
+                      ]}
+                    />
+                    <Text style={styles.paymentTypeLabel}>
+                      {t("cashExpenses", "Cash Expenses")}
+                    </Text>
+                  </View>
+                  <Text style={styles.paymentValueText}>
+                    ${formatAmount(paymentTypeBreakdown.cash)}
+                  </Text>
+                  <Text style={styles.paymentPercentageText}>
+                    {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
+                  </Text>
+                </View>
+              </View>
+
+              {cardUsageBreakdown.cardsList.length > 0 && (
+                <View style={styles.cardBreakdownContainer}>
+                  <Text style={styles.cardBreakdownTitle}>
+                    {t("cardsUsage", "Card Breakdown")}
+                  </Text>
+                  {cardUsageBreakdown.cardsList.map(
+                    ({ card, totalSpent, percentage }) => (
+                      <View key={card.id} style={styles.cardUsageRow}>
+                        <View style={styles.cardUsageHeader}>
+                          <View style={styles.cardNameContainer}>
+                            <Text style={styles.cardIcon}>💳</Text>
+                            <Text style={styles.cardNameText}>{card.name}</Text>
+                            <View style={styles.cardTypeBadge}>
+                              <Text style={styles.cardTypeBadgeText}>
+                                {String(
+                                  t(card.cardType.toLowerCase(), {
+                                    defaultValue: card.cardType,
+                                  }),
+                                )}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.cardSpentText}>
+                            ${formatAmount(totalSpent)}
+                          </Text>
+                        </View>
+                        <View style={styles.cardProgressBarTrack}>
+                          <View
+                            style={[
+                              styles.cardProgressBarFill,
+                              { width: `${percentage}%` },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                    ),
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* 3. Spending by Category */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                {t("spendingByCategory", "Spending by Category")}
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                {t("total", "Total")}: $
+                {formatAmount(categorySpending.totalSpending)}
+              </Text>
+
+              <View style={styles.donutWrapper}>
+                <Svg height={180} width={180} viewBox="0 0 100 100">
+                  {categorySpending.totalSpending === 0 ? (
+                    <>
+                      <Circle
+                        cx={50}
+                        cy={50}
+                        r={35}
+                        fill="transparent"
+                        stroke="#EAE6DF"
+                        strokeWidth={12}
+                      />
+                      <SvgText
+                        x={50}
+                        y={54}
+                        fill={COLORS.textMuted}
+                        fontSize={11}
+                        fontWeight="600"
+                        textAnchor="middle"
+                      >
+                        {t("noExpenses", "No Expenses")}
+                      </SvgText>
+                    </>
+                  ) : (
+                    (() => {
+                      let cumulativeAngle = 0;
+                      return categorySpending.sortedEntries.map((item) => {
+                        const strokeDasharray = `${(item.amount / categorySpending.totalSpending) * CIRCUMFERENCE} ${CIRCUMFERENCE}`;
+                        const strokeDashoffset = -cumulativeAngle;
+                        cumulativeAngle +=
+                          (item.amount / categorySpending.totalSpending) *
+                          CIRCUMFERENCE;
+
+                        return (
+                          <Circle
+                            key={item.category}
+                            cx={50}
+                            cy={50}
+                            r={35}
+                            fill="transparent"
+                            stroke={item.color}
+                            strokeWidth={14}
+                            strokeDasharray={strokeDasharray}
+                            strokeDashoffset={strokeDashoffset}
+                            transform="rotate(-90 50 50)"
+                          />
+                        );
+                      });
+                    })()
+                  )}
+                </Svg>
+              </View>
+
+              <View style={styles.categoryListContainer}>
+                {categorySpending.sortedEntries.map((item) => (
+                  <View key={item.category} style={styles.categoryRow}>
+                    <View style={styles.categoryLeft}>
+                      <View
+                        style={[
+                          styles.chipIndicator,
+                          { backgroundColor: item.color },
+                        ]}
+                      />
+                      <Text style={styles.categoryName}>
+                        {String(
+                          t(item.category.toLowerCase(), {
+                            defaultValue: item.category,
+                          }),
+                        )}
+                      </Text>
+                    </View>
+                    <Text style={styles.categoryValue}>
+                      ${formatAmount(item.amount)}{" "}
+                      <Text style={styles.categoryPercentage}>
+                        ({item.percentage}%)
+                      </Text>
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
 
-            <View style={styles.chartWrapper}>
-              <Svg height={180} width={chartWidth}>
-                {netGridSteps.map((val) => {
-                  const y = 140 - ((val - minNetValue) / netRange) * 110;
-                  return (
-                    <React.Fragment key={val}>
-                      <Line
-                        x1={35}
-                        y1={y}
-                        x2={chartWidth}
-                        y2={y}
-                        stroke="#EBE8E1"
-                        strokeWidth={1}
-                        strokeDasharray="3,3"
-                      />
-                      <SvgText
-                        x={28}
-                        y={y + 4}
-                        fill={COLORS.textMuted}
-                        fontSize={10}
-                        textAnchor="end"
-                      >
-                        {Math.abs(val) >= 1000
-                          ? `${(val / 1000).toFixed(1)}k`
-                          : val}
-                      </SvgText>
-                    </React.Fragment>
-                  );
-                })}
+            {/* 4. Net Savings Trend Line Chart */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                {t("netSavingsTrend", "Net Savings Trend")}
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                {t("income", "Income")} – {t("expenses", "Expenses")} (
+                {currentMonthSummary.month})
+              </Text>
 
-                {(() => {
-                  const points = monthlyData.map((d, i) => {
-                    const x = 48 + i * ((chartWidth - 58) / 6) + 3;
-                    const y = 140 - ((d.net - minNetValue) / netRange) * 110;
-                    return { x, y, month: d.month };
-                  });
+              <View style={styles.netMetricRow}>
+                <View style={styles.netMetricBox}>
+                  <Text style={styles.netMetricLabel}>
+                    {t("income", "Income")}
+                  </Text>
+                  <Text style={styles.netIncomeText}>
+                    ${formatAmount(currentMonthSummary.income)}
+                  </Text>
+                </View>
 
-                  const pathD = points.reduce(
-                    (acc, p, i) =>
-                      i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`,
-                    "",
-                  );
+                <View style={styles.netMetricBox}>
+                  <Text style={styles.netMetricLabel}>
+                    {t("expenses", "Expenses")}
+                  </Text>
+                  <Text style={styles.netExpenseText}>
+                    ${formatAmount(currentMonthSummary.expenses)}
+                  </Text>
+                </View>
 
-                  return (
-                    <React.Fragment>
-                      <Path
-                        d={pathD}
-                        fill="none"
-                        stroke={COLORS.tealDark}
-                        strokeWidth={2.5}
-                      />
-                      {points.map((p, i) => (
-                        <React.Fragment key={i}>
-                          <Circle
-                            cx={p.x}
-                            cy={p.y}
-                            r={4}
-                            fill={COLORS.tealDark}
-                          />
-                          <SvgText
-                            x={p.x}
-                            y={160}
-                            fill={COLORS.textMuted}
-                            fontSize={11}
-                            textAnchor="middle"
-                          >
-                            {p.month}
-                          </SvgText>
-                        </React.Fragment>
-                      ))}
-                    </React.Fragment>
-                  );
-                })()}
-              </Svg>
+                <View style={styles.netMetricBox}>
+                  <Text style={styles.netMetricLabel}>
+                    {t("netSavings", "Net Savings")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.netValueText,
+                      {
+                        color:
+                          currentMonthSummary.net >= 0
+                            ? COLORS.tealDark
+                            : COLORS.expenseOrange,
+                      },
+                    ]}
+                  >
+                    ${formatAmount(currentMonthSummary.net)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.chartWrapper}>
+                <Svg height={180} width={chartWidth}>
+                  {netGridSteps.map((val) => {
+                    const y = 140 - ((val - minNetValue) / netRange) * 110;
+                    return (
+                      <React.Fragment key={val}>
+                        <Line
+                          x1={35}
+                          y1={y}
+                          x2={chartWidth}
+                          y2={y}
+                          stroke="#EBE8E1"
+                          strokeWidth={1}
+                          strokeDasharray="3,3"
+                        />
+                        <SvgText
+                          x={28}
+                          y={y + 4}
+                          fill={COLORS.textMuted}
+                          fontSize={10}
+                          textAnchor="end"
+                        >
+                          {Math.abs(val) >= 1000
+                            ? `${(val / 1000).toFixed(1)}k`
+                            : val}
+                        </SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {(() => {
+                    const points = monthlyData.map((d, i) => {
+                      const x = 48 + i * ((chartWidth - 58) / 6) + 3;
+                      const y = 140 - ((d.net - minNetValue) / netRange) * 110;
+                      return { x, y, month: d.month };
+                    });
+
+                    const pathD = points.reduce(
+                      (acc, p, i) =>
+                        i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`,
+                      "",
+                    );
+
+                    return (
+                      <React.Fragment>
+                        <Path
+                          d={pathD}
+                          fill="none"
+                          stroke={COLORS.tealDark}
+                          strokeWidth={2.5}
+                        />
+                        {points.map((p, i) => (
+                          <React.Fragment key={i}>
+                            <Circle
+                              cx={p.x}
+                              cy={p.y}
+                              r={4}
+                              fill={COLORS.tealDark}
+                            />
+                            <SvgText
+                              x={p.x}
+                              y={160}
+                              fill={COLORS.textMuted}
+                              fontSize={11}
+                              textAnchor="middle"
+                            >
+                              {p.month}
+                            </SvgText>
+                          </React.Fragment>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })()}
+                </Svg>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -864,7 +865,14 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.tealDark,
+    backgroundColor: COLORS.tealDark, // Keeps top status bar area green
+  },
+  bodyContainer: {
+    flex: 1,
+    backgroundColor: COLORS.backgroundCream, // Cream background for body and overscrolls
+    paddingBottom: 40,
+    marginTop: -20,
+    paddingTop: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -873,7 +881,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundCream,
   },
   scrollContent: {
-    backgroundColor: COLORS.backgroundCream,
     flexGrow: 1,
     paddingBottom: 40,
   },
@@ -884,6 +891,8 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
+    zIndex: 10,
+    overflow: "hidden",
   },
   headerTitle: {
     fontSize: 32,

@@ -2,6 +2,7 @@ import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +21,7 @@ import { colors_sign_register } from "../constants/theme";
 import { useAuth } from "./_layout";
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { signIn } = useAuth();
   const insets = useSafeAreaInsets();
@@ -33,7 +35,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert("Missing Information", "Please fill in all fields.");
+      Alert.alert(t("missingInformation"), t("fillAllFields"));
       return;
     }
 
@@ -90,17 +92,11 @@ export default function LoginScreen() {
             styles.scrollContainer,
             { paddingBottom: insets.bottom + 24 },
           ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          enableOnAndroid={true}
-          extraScrollHeight={20}
         >
           <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
             <View style={styles.headerCircle} />
-            <Text style={styles.headerTitle}>Welcome.{"\n"}</Text>
-            <Text style={styles.headerSubtitle}>
-              Sign in to your Ledger account
-            </Text>
+            <Text style={styles.headerTitle}>{t("welcome")}</Text>
+            <Text style={styles.headerSubtitle}>{t("signInToAccount")}</Text>
           </View>
 
           <View style={styles.form}>
@@ -117,11 +113,12 @@ export default function LoginScreen() {
             )}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>EMAIL</Text>
+              <Text style={styles.label}>{t("emailLabel")}</Text>
               <TextInput
                 style={styles.input}
                 value={email}
-                placeholder="e.g. youremail@mail.com"
+                placeholder={t("emailPlaceholder")}
+                placeholderTextColor={colors_sign_register.textMuted}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -130,13 +127,14 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>PASSWORD</Text>
+              <Text style={styles.label}>{t("passwordLabel")}</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Password"
+                  placeholder={t("loginPasswordPlaceholder")}
+                  placeholderTextColor={colors_sign_register.textMuted}
                   secureTextEntry={!showPassword}
                   editable={!loading}
                 />
@@ -145,14 +143,14 @@ export default function LoginScreen() {
                   disabled={loading}
                 >
                   <Text style={styles.showText}>
-                    {showPassword ? "hide" : "show"}
+                    {showPassword ? t("hide") : t("show")}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             <TouchableOpacity style={styles.forgotContainer} disabled={loading}>
-              <Text style={styles.forgotText}>Forgot password?</Text>
+              <Text style={styles.forgotText}>{t("forgotPassword")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -163,13 +161,13 @@ export default function LoginScreen() {
               {loading ? (
                 <ActivityIndicator color={colors_sign_register.textLight} />
               ) : (
-                <Text style={styles.signInButtonText}>Sign In</Text>
+                <Text style={styles.signInButtonText}>{t("signIn")}</Text>
               )}
             </TouchableOpacity>
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
+              <Text style={styles.dividerText}>{t("orContinueWith")}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -196,12 +194,12 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Text style={styles.footerText}>{t("dontHaveAccount")}</Text>
               <TouchableOpacity
                 onPress={() => router.push("/register")}
                 disabled={loading}
               >
-                <Text style={styles.signupText}>Sign up</Text>
+                <Text style={styles.signupText}>{t("signUp")}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -470,12 +470,12 @@ export default function TransactionsScreen() {
     [t, translateCategory],
   );
 
-  const formattedHeaderDate = useMemo(() => {
-    return formatWithCapitalMonth(new Date(), i18n.language, {
-      month: "long",
-      year: "numeric",
-    });
-  }, [i18n.language]);
+  // const formattedHeaderDate = useMemo(() => {
+  //   return formatWithCapitalMonth(new Date(), i18n.language, {
+  //     month: "long",
+  //     year: "numeric",
+  //   });
+  // }, [i18n.language]);
 
   const handleCardPress = (item: Transaction) => {
     setSelectedTransaction(item);
@@ -696,7 +696,11 @@ export default function TransactionsScreen() {
           </View>
         </View>
       </View>
+    </View>
+  );
 
+  const renderFiltersOnly = () => (
+    <View style={styles.headerWrapper}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -779,104 +783,111 @@ export default function TransactionsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <StatusBar barStyle="light-content" backgroundColor="#204B4C" />
-      <FlatList
-        data={filteredTransactions}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader()}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {t("noTransactionsRegistered", "No transactions registered.")}
-            </Text>
-          </View>
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#FFFFFF"
-          />
-        }
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => {
-          const isIncome = item.type === "INCOME";
-          const paymentMethodName = item.paymentMethod || "Cash";
-          const formattedDate = formatDate(
-            item.rawDate,
-            i18n.language,
-            t("recent", "Recent"),
-          );
 
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              activeOpacity={0.7}
-              onPress={() => handleCardPress(item)}
-            >
-              <View style={styles.iconContainer}>
-                <Text style={styles.iconEmoji}>{item.icon}</Text>
-              </View>
+      {/* 1. Fixed Header Container (Stays in place) */}
+      {renderHeader()}
 
-              <View style={styles.cardDetails}>
-                <Text style={styles.itemTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-
-                <View style={styles.lineRow}>
-                  <View style={styles.categoryBadge}>
-                    <Text
-                      style={[
-                        styles.categoryBadgeText,
-                        isIncome && styles.incomeBadgeText,
-                      ]}
-                    >
-                      {translateCategory(item.category)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.lineRow}>
-                  <View
-                    style={[
-                      styles.paymentBadge,
-                      isIncome && styles.incomeBadge,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.paymentBadgeText,
-                        isIncome && styles.incomeBadgeText,
-                      ]}
-                    >
-                      {isIncome
-                        ? `💰 ${t("income_transaction", "Deposit")}`
-                        : `${getPaymentIcon(paymentMethodName)} ${translatePaymentMethod(
-                            paymentMethodName,
-                          )}`}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.dateText}>{formattedDate}</Text>
-              </View>
-
-              <Text
-                style={[
-                  styles.amountText,
-                  isIncome ? styles.incomeAmount : styles.expenseAmount,
-                ]}
-              >
-                {isIncome
-                  ? `+${formatCurrencyValue(item.amount, i18n.language)}`
-                  : `-${formatCurrencyValue(item.amount, i18n.language)}`}
+      {/* 2. Scrollable Body Container */}
+      <View style={{ flex: 1, backgroundColor: "#F4F1EA", paddingBottom: 30 }}>
+        <FlatList
+          data={filteredTransactions}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderFiltersOnly}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {t("noTransactionsRegistered", "No transactions registered.")}
               </Text>
-            </TouchableOpacity>
-          );
-        }}
-      />
+            </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primaryTeal}
+            />
+          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => {
+            const isIncome = item.type === "INCOME";
+            const paymentMethodName = item.paymentMethod || "Cash";
+            const formattedDate = formatDate(
+              item.rawDate,
+              i18n.language,
+              t("recent", "Recent"),
+            );
+
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                activeOpacity={0.7}
+                onPress={() => handleCardPress(item)}
+              >
+                <View style={styles.iconContainer}>
+                  <Text style={styles.iconEmoji}>{item.icon}</Text>
+                </View>
+
+                <View style={styles.cardDetails}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+
+                  <View style={styles.lineRow}>
+                    <View style={styles.categoryBadge}>
+                      <Text
+                        style={[
+                          styles.categoryBadgeText,
+                          isIncome && styles.incomeBadgeText,
+                        ]}
+                      >
+                        {translateCategory(item.category)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.lineRow}>
+                    <View
+                      style={[
+                        styles.paymentBadge,
+                        isIncome && styles.incomeBadge,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.paymentBadgeText,
+                          isIncome && styles.incomeBadgeText,
+                        ]}
+                      >
+                        {isIncome
+                          ? `💰 ${t("income_transaction", "Deposit")}`
+                          : `${getPaymentIcon(paymentMethodName)} ${translatePaymentMethod(
+                              paymentMethodName,
+                            )}`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.dateText}>{formattedDate}</Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.amountText,
+                    isIncome ? styles.incomeAmount : styles.expenseAmount,
+                  ]}
+                >
+                  {isIncome
+                    ? `+${formatCurrencyValue(item.amount, i18n.language)}`
+                    : `-${formatCurrencyValue(item.amount, i18n.language)}`}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
 
       <Modal
         statusBarTranslucent
