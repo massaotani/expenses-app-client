@@ -1,11 +1,13 @@
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { ColorValue, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors } from "../../constants/theme";
+import { useAppTheme } from "../../constants/theme";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useAppTheme();
 
   return (
     <Tabs
@@ -15,13 +17,15 @@ export default function TabLayout() {
         tabBarStyle: [
           styles.tabBar,
           {
-            // Dynamically increase height and bottom padding when the Android navigation bar is visible
-            height: 55 + insets.bottom,
+            backgroundColor: colors.cardBackground,
+            height: verticalScale(40) + insets.bottom,
             paddingBottom: insets.bottom,
+            shadowColor: isDark ? "#000000" : "#000000",
+            borderTopColor: colors.divider,
           },
         ],
-        tabBarActiveTintColor: colors.primaryTeal || "#008080",
-        tabBarInactiveTintColor: colors.textMuted || "#999999",
+        tabBarActiveTintColor: colors.primaryTeal,
+        tabBarInactiveTintColor: colors.textMuted || colors.textSecondary,
       }}
     >
       <Tabs.Screen
@@ -104,15 +108,17 @@ const CustomTabIcon = ({
 
   return (
     <View style={styles.iconContainer}>
-      <Ionicons name={iconName} size={22} color={color} />
-      <Text
-        style={[
-          styles.tabLabel,
-          { color, fontWeight: focused ? "600" : "400" },
-        ]}
-      >
-        {label}
-      </Text>
+      <Ionicons name={iconName} size={moderateScale(22)} color={color} />
+      {label ? (
+        <Text
+          style={[
+            styles.tabLabel,
+            { color, fontWeight: focused ? "600" : "400" },
+          ]}
+        >
+          {label}
+        </Text>
+      ) : null}
       <View
         style={[
           styles.activeDot,
@@ -125,28 +131,26 @@ const CustomTabIcon = ({
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
     position: "absolute",
     borderTopWidth: 0,
     elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.1,
+    shadowRadius: scale(10),
+    shadowOffset: { width: 0, height: verticalScale(-5) },
   },
   iconContainer: {
     alignItems: "center",
     justifyContent: "center",
-    top: 15,
+    top: verticalScale(15),
   },
   tabLabel: {
-    fontSize: 6,
+    fontSize: moderateScale(6),
   },
   activeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
+    width: scale(5),
+    height: scale(5),
+    borderRadius: scale(3),
   },
 });

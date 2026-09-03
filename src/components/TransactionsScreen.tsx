@@ -1,26 +1,27 @@
-import { colors } from "@/constants/theme";
+import { colors, useAppTheme } from "@/constants/theme";
 import api from "@/services/api";
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { parseFlexibleNumber } from "@/utils/storage";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  BottomSheetTextInput,
+} from "@gorhom/bottom-sheet";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Keyboard,
-  Modal,
-  Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface ExpenseItem {
@@ -70,6 +71,132 @@ interface UserCard {
   name: string;
   cardType: "CREDIT" | "DEBIT" | string;
 }
+
+interface FilterListHeaderProps {
+  filterCategories: string[];
+  filterCards: string[];
+  selectedFilter: string;
+  selectedCardFilter: string;
+  setSelectedFilter: (value: string) => void;
+  setSelectedCardFilter: (value: string) => void;
+  isDark: boolean;
+  appColors: any;
+  getFilterLabel: (filter: string) => string;
+  translatePaymentMethod: (method: string) => string;
+  getPaymentIcon: (method?: string) => string;
+}
+
+const FilterListHeader = memo(
+  ({
+    filterCategories,
+    filterCards,
+    selectedFilter,
+    selectedCardFilter,
+    setSelectedFilter,
+    setSelectedCardFilter,
+    isDark,
+    appColors,
+    getFilterLabel,
+    translatePaymentMethod,
+    getPaymentIcon,
+  }: FilterListHeaderProps) => {
+    return (
+      <View
+        style={[
+          styles.headerWrapper,
+          { backgroundColor: appColors.screenBackground },
+        ]}
+      >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.filterListContainer,
+            { backgroundColor: appColors.screenBackground },
+          ]}
+        >
+          {filterCategories.map((item) => {
+            const isActive =
+              selectedFilter.toLowerCase() === String(item).toLowerCase();
+            return (
+              <TouchableOpacity
+                key={String(item)}
+                style={[
+                  styles.filterChip,
+                  isDark && { backgroundColor: appColors.cardBackground },
+                  isActive && [
+                    styles.filterChipActive,
+                    { backgroundColor: appColors.primaryTeal },
+                  ],
+                ]}
+                onPress={() => setSelectedFilter(String(item))}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isDark && { color: appColors.textSecondary },
+                    isActive && styles.filterChipTextActive,
+                  ]}
+                >
+                  {getFilterLabel(String(item))}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {filterCards.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.filterListContainer,
+              { paddingTop: 0, backgroundColor: appColors.screenBackground },
+            ]}
+          >
+            {filterCards.map((card) => {
+              const cardStr = String(card || "Cash");
+              const isActive =
+                selectedCardFilter.toLowerCase() === cardStr.toLowerCase();
+              const icon =
+                cardStr === "All Payment Methods"
+                  ? "🏷️"
+                  : getPaymentIcon(cardStr);
+
+              return (
+                <TouchableOpacity
+                  key={cardStr}
+                  style={[
+                    styles.filterChip,
+                    styles.cardFilterChip,
+                    isDark && { backgroundColor: appColors.cardBackground },
+                    isActive && [
+                      styles.filterChipActive,
+                      { backgroundColor: appColors.primaryTeal },
+                    ],
+                  ]}
+                  onPress={() => setSelectedCardFilter(cardStr)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      isDark && { color: appColors.textSecondary },
+                      isActive && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {icon} {translatePaymentMethod(cardStr)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+    );
+  },
+);
 
 const CATEGORIES = [
   "Food",
@@ -214,6 +341,7 @@ const formatCurrencyValue = (val: number, language: string): string => {
 };
 
 export default function TransactionsScreen() {
+  const { colors: appColors, isDark } = useAppTheme();
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -236,6 +364,28 @@ export default function TransactionsScreen() {
   const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  const editSheetRef = useRef<BottomSheetModal>(null);
+
+  useEffect(() => {
+    if (modalVisible) {
+      editSheetRef.current?.present();
+    } else {
+      editSheetRef.current?.dismiss();
+    }
+  }, [modalVisible]);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        pressBehavior="close"
+      />
+    ),
+    [],
+  );
 
   const fetchData = async () => {
     try {
@@ -298,20 +448,6 @@ export default function TransactionsScreen() {
             item.rawDate.getMonth() === month - 1,
         );
 
-      // if (parsedIncomes.length === 0 && userMonthlyIncome > 0) {
-      //   parsedIncomes = [
-      //     {
-      //       id: `inc-default-${year}-${month}`,
-      //       title: t("monthlyBudget", "Monthly Income"),
-      //       amount: userMonthlyIncome,
-      //       category: "Income",
-      //       rawDate: new Date(year, month - 1, 1),
-      //       type: "INCOME" as const,
-      //       icon: getCategoryIcon("Income", "INCOME"),
-      //     },
-      //   ];
-      // }
-
       const combined = [...parsedExpenses, ...parsedIncomes].sort(
         (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
       );
@@ -353,7 +489,6 @@ export default function TransactionsScreen() {
 
     allTransactions.forEach((t) => {
       if (t.type === "INCOME") {
-        // Exclude the fallback income item if present to prevent double-counting
         if (!t.id.startsWith("inc-default-")) {
           depositsSum += t.amount;
         }
@@ -362,7 +497,6 @@ export default function TransactionsScreen() {
       }
     });
 
-    // IN = Base Monthly Income + Sum of Monthly Deposits
     const inSum = monthlyIncome + depositsSum;
 
     return {
@@ -470,23 +604,18 @@ export default function TransactionsScreen() {
     [t, translateCategory],
   );
 
-  // const formattedHeaderDate = useMemo(() => {
-  //   return formatWithCapitalMonth(new Date(), i18n.language, {
-  //     month: "long",
-  //     year: "numeric",
-  //   });
-  // }, [i18n.language]);
-
   const handleCardPress = (item: Transaction) => {
     setSelectedTransaction(item);
     setIsEditing(false);
-    setModalVisible(true);
+    editSheetRef.current?.present();
   };
 
   const handleStartEdit = () => {
     if (!selectedTransaction) return;
     setEditDescription(selectedTransaction.title);
-    setEditAmount(selectedTransaction.amount.toString());
+    setEditAmount(
+      formatAmountForInput(selectedTransaction.amount, i18n.language),
+    );
     setEditCategory(selectedTransaction.category);
 
     const currentMethod = (selectedTransaction.paymentMethod || "Cash").trim();
@@ -508,6 +637,19 @@ export default function TransactionsScreen() {
     }
 
     setIsEditing(true);
+  };
+
+  const formatAmountForInput = (val: number, language: string): string => {
+    const lang = (language || "en").toLowerCase();
+    const isCommaDecimal = lang.startsWith("pt") || lang.startsWith("es");
+
+    // Ensure 2 decimal places fixed formatting
+    const fixedVal = val.toFixed(2);
+
+    if (isCommaDecimal) {
+      return fixedVal.replace(".", ",");
+    }
+    return fixedVal;
   };
 
   const handleSaveEdit = async () => {
@@ -582,7 +724,7 @@ export default function TransactionsScreen() {
       );
 
       setIsEditing(false);
-      setModalVisible(false);
+      editSheetRef.current?.dismiss();
     } catch (error: any) {
       console.error(
         "Failed to update transaction:",
@@ -621,7 +763,7 @@ export default function TransactionsScreen() {
               setAllTransactions((prev) =>
                 prev.filter((item) => item.id !== selectedTransaction.id),
               );
-              setModalVisible(false);
+              editSheetRef.current?.dismiss();
             } catch (error) {
               console.error("Failed to delete transaction:", error);
               Alert.alert(
@@ -636,8 +778,18 @@ export default function TransactionsScreen() {
   };
 
   const renderHeader = () => (
-    <View style={styles.headerWrapper}>
-      <View style={styles.greenHeaderContainer}>
+    <View
+      style={[
+        styles.headerWrapper,
+        { backgroundColor: appColors.screenBackground },
+      ]}
+    >
+      <View
+        style={[
+          styles.greenHeaderContainer,
+          { backgroundColor: appColors.headerBackground },
+        ]}
+      >
         <Text style={styles.headerTitle}>
           {t("transactions", "Transactions")}
         </Text>
@@ -673,7 +825,12 @@ export default function TransactionsScreen() {
           {/* IN Summary */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{t("in", "IN")}</Text>
-            <Text style={styles.summaryValue}>
+            <Text
+              style={styles.summaryValue}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               +${formatCurrencyValue(totalIn, i18n.language)}
             </Text>
           </View>
@@ -681,7 +838,12 @@ export default function TransactionsScreen() {
           {/* OUT Summary */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{t("out", "OUT")}</Text>
-            <Text style={styles.summaryValue}>
+            <Text
+              style={styles.summaryValue}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               -${formatCurrencyValue(totalOut, i18n.language)}
             </Text>
           </View>
@@ -689,7 +851,12 @@ export default function TransactionsScreen() {
           {/* NET Summary */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>{t("net", "NET")}</Text>
-            <Text style={styles.summaryValue}>
+            <Text
+              style={styles.summaryValue}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               {netBalance >= 0 ? "+" : "-"}$
               {formatCurrencyValue(Math.abs(netBalance), i18n.language)}
             </Text>
@@ -699,102 +866,157 @@ export default function TransactionsScreen() {
     </View>
   );
 
-  const renderFiltersOnly = () => (
-    <View style={styles.headerWrapper}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterListContainer}
-      >
-        {filterCategories.map((item) => {
-          const isActive =
-            selectedFilter.toLowerCase() === String(item).toLowerCase();
-          return (
-            <TouchableOpacity
-              key={String(item)}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
-              onPress={() => setSelectedFilter(String(item))}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  isActive && styles.filterChipTextActive,
-                ]}
-              >
-                {getFilterLabel(String(item))}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+  // const renderFiltersOnly = () => (
+  //   <View
+  //     style={[
+  //       styles.headerWrapper,
+  //       { backgroundColor: appColors.screenBackground },
+  //     ]}
+  //   >
+  //     <ScrollView
+  //       horizontal
+  //       showsHorizontalScrollIndicator={false}
+  //       contentContainerStyle={[
+  //         styles.filterListContainer,
+  //         { backgroundColor: appColors.screenBackground },
+  //       ]}
+  //     >
+  //       {filterCategories.map((item) => {
+  //         const isActive =
+  //           selectedFilter.toLowerCase() === String(item).toLowerCase();
+  //         return (
+  //           <TouchableOpacity
+  //             key={String(item)}
+  //             style={[
+  //               styles.filterChip,
+  //               isDark && { backgroundColor: appColors.cardBackground },
+  //               isActive && [
+  //                 styles.filterChipActive,
+  //                 { backgroundColor: appColors.primaryTeal },
+  //               ],
+  //             ]}
+  //             onPress={() => setSelectedFilter(String(item))}
+  //             activeOpacity={0.7}
+  //           >
+  //             <Text
+  //               style={[
+  //                 styles.filterChipText,
+  //                 isDark && { color: appColors.textSecondary },
+  //                 isActive && styles.filterChipTextActive,
+  //               ]}
+  //             >
+  //               {getFilterLabel(String(item))}
+  //             </Text>
+  //           </TouchableOpacity>
+  //         );
+  //       })}
+  //     </ScrollView>
 
-      {filterCards.length > 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.filterListContainer,
-            { paddingTop: 0 },
-          ]}
-        >
-          {filterCards.map((card) => {
-            const cardStr = String(card || "Cash");
-            const isActive =
-              selectedCardFilter.toLowerCase() === cardStr.toLowerCase();
-            const icon =
-              cardStr === "All Payment Methods"
-                ? "🏷️"
-                : getPaymentIcon(cardStr);
+  //     {filterCards.length > 1 && (
+  //       <ScrollView
+  //         horizontal
+  //         showsHorizontalScrollIndicator={false}
+  //         contentContainerStyle={[
+  //           styles.filterListContainer,
+  //           { paddingTop: 0, backgroundColor: appColors.screenBackground },
+  //         ]}
+  //       >
+  //         {filterCards.map((card) => {
+  //           const cardStr = String(card || "Cash");
+  //           const isActive =
+  //             selectedCardFilter.toLowerCase() === cardStr.toLowerCase();
+  //           const icon =
+  //             cardStr === "All Payment Methods"
+  //               ? "🏷️"
+  //               : getPaymentIcon(cardStr);
 
-            return (
-              <TouchableOpacity
-                key={cardStr}
-                style={[
-                  styles.filterChip,
-                  styles.cardFilterChip,
-                  isActive && styles.filterChipActive,
-                ]}
-                onPress={() => setSelectedCardFilter(cardStr)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    isActive && styles.filterChipTextActive,
-                  ]}
-                >
-                  {icon} {translatePaymentMethod(cardStr)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
-    </View>
-  );
+  //           return (
+  //             <TouchableOpacity
+  //               key={cardStr}
+  //               style={[
+  //                 styles.filterChip,
+  //                 styles.cardFilterChip,
+  //                 isDark && { backgroundColor: appColors.cardBackground },
+  //                 isActive && [
+  //                   styles.filterChipActive,
+  //                   { backgroundColor: appColors.primaryTeal },
+  //                 ],
+  //               ]}
+  //               onPress={() => setSelectedCardFilter(cardStr)}
+  //               activeOpacity={0.7}
+  //             >
+  //               <Text
+  //                 style={[
+  //                   styles.filterChipText,
+  //                   isDark && { color: appColors.textSecondary },
+  //                   isActive && styles.filterChipTextActive,
+  //                 ]}
+  //               >
+  //                 {icon} {translatePaymentMethod(cardStr)}
+  //               </Text>
+  //             </TouchableOpacity>
+  //           );
+  //         })}
+  //       </ScrollView>
+  //     )}
+  //   </View>
+  // );
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#204B4C" />
+      <SafeAreaView
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: appColors.screenBackground },
+        ]}
+      >
+        <ActivityIndicator size="large" color={appColors.primaryTeal} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="light-content" backgroundColor="#204B4C" />
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: appColors.headerBackground },
+      ]}
+      edges={["top", "left", "right"]}
+    >
+      <StatusBar
+        barStyle={appColors.statusBarStyle}
+        backgroundColor={appColors.headerBackground}
+      />
 
       {/* 1. Fixed Header Container (Stays in place) */}
       {renderHeader()}
 
       {/* 2. Scrollable Body Container */}
-      <View style={{ flex: 1, backgroundColor: "#F4F1EA", paddingBottom: 30 }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: appColors.screenBackground,
+          paddingBottom: 30,
+        }}
+      >
         <FlatList
           data={filteredTransactions}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={renderFiltersOnly}
+          ListHeaderComponent={
+            <FilterListHeader
+              filterCategories={filterCategories}
+              filterCards={filterCards}
+              selectedFilter={selectedFilter}
+              selectedCardFilter={selectedCardFilter}
+              setSelectedFilter={setSelectedFilter}
+              setSelectedCardFilter={setSelectedCardFilter}
+              isDark={isDark}
+              appColors={appColors}
+              getFilterLabel={getFilterLabel}
+              translatePaymentMethod={translatePaymentMethod}
+              getPaymentIcon={getPaymentIcon}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
@@ -806,10 +1028,13 @@ export default function TransactionsScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={colors.primaryTeal}
+              tintColor={appColors.primaryTeal}
             />
           }
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { backgroundColor: appColors.screenBackground },
+          ]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const isIncome = item.type === "INCOME";
@@ -822,25 +1047,47 @@ export default function TransactionsScreen() {
 
             return (
               <TouchableOpacity
-                style={styles.card}
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: appColors.cardBackground,
+                    borderColor: appColors.divider,
+                  },
+                ]}
                 activeOpacity={0.7}
                 onPress={() => handleCardPress(item)}
               >
-                <View style={styles.iconContainer}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: appColors.iconBoxBg },
+                  ]}
+                >
                   <Text style={styles.iconEmoji}>{item.icon}</Text>
                 </View>
 
                 <View style={styles.cardDetails}>
-                  <Text style={styles.itemTitle} numberOfLines={1}>
+                  <Text
+                    style={[styles.itemTitle, { color: appColors.textPrimary }]}
+                    numberOfLines={1}
+                  >
                     {item.title}
                   </Text>
 
                   <View style={styles.lineRow}>
-                    <View style={styles.categoryBadge}>
+                    <View
+                      style={[
+                        styles.categoryBadge,
+                        isDark && { backgroundColor: appColors.primaryTeal },
+                      ]}
+                    >
                       <Text
                         style={[
                           styles.categoryBadgeText,
+                          isDark && { color: appColors.textPrimary },
                           isIncome && styles.incomeBadgeText,
+                          isDark &&
+                            isIncome && { color: appColors.textPrimary },
                         ]}
                       >
                         {translateCategory(item.category)}
@@ -853,12 +1100,16 @@ export default function TransactionsScreen() {
                       style={[
                         styles.paymentBadge,
                         isIncome && styles.incomeBadge,
+                        isDark && { backgroundColor: appColors.textMuted },
                       ]}
                     >
                       <Text
                         style={[
                           styles.paymentBadgeText,
+                          isDark && { color: appColors.textPrimary },
                           isIncome && styles.incomeBadgeText,
+                          isDark &&
+                            isIncome && { color: appColors.textPrimary },
                         ]}
                       >
                         {isIncome
@@ -889,340 +1140,616 @@ export default function TransactionsScreen() {
         />
       </View>
 
-      <Modal
-        statusBarTranslucent
-        animationType="slide"
-        transparent
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+      <BottomSheetModal
+        ref={editSheetRef}
+        enableDynamicSizing
+        enablePanDownToClose
+        keyboardBehavior="interactive"
+        android_keyboardInputMode="adjustPan"
+        keyboardBlurBehavior="restore"
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: appColors.cardBackground }}
+        onDismiss={() => {
+          setModalVisible(false);
+          setIsEditing(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => {
-              Keyboard.dismiss();
-              setModalVisible(false);
-            }}
-          />
-          <View style={styles.modalContent}>
-            <KeyboardAwareScrollView
-              enableOnAndroid={true}
-              extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              style={styles.modalScrollView}
-              contentContainerStyle={[
-                styles.modalScrollViewContent,
-                { paddingBottom: 10 },
-              ]}
-            >
-              {selectedTransaction && (
+        <BottomSheetScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 24,
+          }}
+        >
+          {selectedTransaction && (
+            <>
+              {!isEditing ? (
                 <>
-                  {!isEditing ? (
-                    <>
-                      <Text style={styles.modalTitle}>
-                        {selectedTransaction.title}
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { color: appColors.textPrimary },
+                    ]}
+                  >
+                    {selectedTransaction.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.modalAmount,
+                      { color: appColors.primaryTeal },
+                    ]}
+                  >
+                    $
+                    {formatCurrencyValue(
+                      selectedTransaction.amount,
+                      i18n.language,
+                    )}
+                  </Text>
+
+                  <View style={styles.modalDetailRow}>
+                    <Text style={styles.modalDetailLabel}>
+                      {t("category", "Category")}:
+                    </Text>
+                    <Text
+                      style={[
+                        styles.modalDetailValue,
+                        { color: appColors.textPrimary },
+                      ]}
+                    >
+                      {translateCategory(selectedTransaction.category)}
+                    </Text>
+                  </View>
+
+                  {selectedTransaction.type === "EXPENSE" && (
+                    <View style={styles.modalDetailRow}>
+                      <Text style={styles.modalDetailLabel}>
+                        {t("paymentMethod", "Payment Method")}:
                       </Text>
-                      <Text style={styles.modalAmount}>
-                        $
-                        {formatCurrencyValue(
-                          selectedTransaction.amount,
-                          i18n.language,
+                      <Text
+                        style={[
+                          styles.modalDetailValue,
+                          { color: appColors.textPrimary },
+                        ]}
+                      >
+                        {getPaymentIcon(
+                          selectedTransaction.paymentMethod || "Cash",
+                        )}{" "}
+                        {translatePaymentMethod(
+                          selectedTransaction.paymentMethod || "Cash",
                         )}
                       </Text>
+                    </View>
+                  )}
 
-                      <View style={styles.modalDetailRow}>
-                        <Text style={styles.modalDetailLabel}>
-                          {t("category", "Category")}:
-                        </Text>
-                        <Text style={styles.modalDetailValue}>
-                          {translateCategory(selectedTransaction.category)}
-                        </Text>
-                      </View>
-
-                      {selectedTransaction.type === "EXPENSE" && (
-                        <View style={styles.modalDetailRow}>
-                          <Text style={styles.modalDetailLabel}>
-                            {t("paymentMethod", "Payment Method")}:
-                          </Text>
-                          <Text style={styles.modalDetailValue}>
-                            {getPaymentIcon(
-                              selectedTransaction.paymentMethod || "Cash",
-                            )}{" "}
-                            {translatePaymentMethod(
-                              selectedTransaction.paymentMethod || "Cash",
-                            )}
-                          </Text>
-                        </View>
+                  <View style={styles.modalDetailRow}>
+                    <Text style={styles.modalDetailLabel}>
+                      {t("date", "Date")}:
+                    </Text>
+                    <Text
+                      style={[
+                        styles.modalDetailValue,
+                        { color: appColors.textPrimary },
+                      ]}
+                    >
+                      {formatWithCapitalMonth(
+                        selectedTransaction.rawDate,
+                        i18n.language,
+                        {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        },
                       )}
+                    </Text>
+                  </View>
 
-                      <View style={styles.modalDetailRow}>
-                        <Text style={styles.modalDetailLabel}>
-                          {t("date", "Date")}:
-                        </Text>
-                        <Text style={styles.modalDetailValue}>
-                          {formatWithCapitalMonth(
-                            selectedTransaction.rawDate,
-                            i18n.language,
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            },
-                          )}
-                        </Text>
-                      </View>
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn,
+                        styles.editBtn,
+                        { backgroundColor: appColors.primaryTeal },
+                      ]}
+                      onPress={handleStartEdit}
+                    >
+                      <Text style={styles.btnText}>{t("edit", "Edit")}</Text>
+                    </TouchableOpacity>
 
-                      <View style={styles.modalActions}>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.editBtn]}
-                          onPress={handleStartEdit}
-                        >
-                          <Text style={styles.btnText}>
-                            {t("edit", "Edit")}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.deleteBtn]}
-                          onPress={handleDelete}
-                        >
-                          <Text style={styles.btnText}>
-                            {t("delete", "Delete")}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.closeBtn}
-                        onPress={() => {
-                          Keyboard.dismiss();
-                          setModalVisible(false);
-                        }}
-                      >
-                        <Text style={styles.closeBtnText}>
-                          {t("close", "Close")}
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.modalTitle}>
-                        {t("edit", "Edit")}{" "}
-                        {selectedTransaction.type === "INCOME"
-                          ? t("income_transaction", "Deposit")
-                          : t("expense", "Expense")}
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.deleteBtn]}
+                      onPress={handleDelete}
+                    >
+                      <Text style={styles.btnText}>
+                        {t("delete", "Delete")}
                       </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { color: appColors.textPrimary },
+                    ]}
+                  >
+                    {t("edit", "Edit")}{" "}
+                    {selectedTransaction.type === "INCOME"
+                      ? t("income_transaction", "Deposit")
+                      : t("expense", "Expense")}
+                  </Text>
 
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>
+                      {t("description", "Description")}
+                    </Text>
+                    <BottomSheetTextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: appColors.screenBackground,
+                          color: appColors.textPrimary,
+                        },
+                      ]}
+                      value={editDescription}
+                      onChangeText={setEditDescription}
+                      placeholder={t("description", "Description")}
+                      placeholderTextColor={
+                        appColors.textMuted || appColors.textSecondary
+                      }
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>
+                      {t("amount", "Amount")}
+                    </Text>
+                    <BottomSheetTextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: appColors.screenBackground,
+                          color: appColors.textPrimary,
+                        },
+                      ]}
+                      value={editAmount}
+                      onChangeText={(text) => {
+                        const lang = (i18n.language || "en").toLowerCase();
+                        const isCommaDecimal =
+                          lang.startsWith("pt") || lang.startsWith("es");
+
+                        let normalized = text;
+                        if (isCommaDecimal) {
+                          normalized = text
+                            .replace(/\./g, ",")
+                            .replace(/(,\d{2})\d+$/, "$1");
+                        } else {
+                          normalized = text
+                            .replace(/,/g, ".")
+                            .replace(/(\.\d{2})\d+$/, "$1");
+                        }
+
+                        setEditAmount(normalized);
+                      }}
+                      keyboardType="decimal-pad"
+                      placeholder={
+                        i18n.language.startsWith("pt") ||
+                        i18n.language.startsWith("es")
+                          ? "0,00"
+                          : "0.00"
+                      }
+                      placeholderTextColor={
+                        appColors.textMuted || appColors.textSecondary
+                      }
+                    />
+                  </View>
+
+                  {selectedTransaction.type === "EXPENSE" && (
+                    <>
                       <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>
-                          {t("description", "Description")}
+                        <Text
+                          style={[
+                            styles.inputLabel,
+                            isDark && { color: appColors.textSecondary },
+                          ]}
+                        >
+                          {t("category", "Category")}
                         </Text>
-                        <TextInput
-                          style={styles.input}
-                          value={editDescription}
-                          onChangeText={setEditDescription}
-                          placeholder={t("description", "Description")}
-                        />
-                      </View>
-
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>
-                          {t("amount", "Amount")}
-                        </Text>
-                        <TextInput
-                          style={styles.input}
-                          value={editAmount}
-                          onChangeText={(text) => {
-                            const normalized = text
-                              .replace(/,/g, ".")
-                              .replace(/(\.\d{2})\d+$/, "$1");
-                            setEditAmount(normalized);
-                          }}
-                          keyboardType="decimal-pad"
-                          placeholder="0.00"
-                        />
-                      </View>
-
-                      {selectedTransaction.type === "EXPENSE" && (
-                        <>
-                          <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>
-                              {t("category", "Category")}
-                            </Text>
-                            <View style={styles.categoryContainer}>
-                              {CATEGORIES.map((cat) => {
-                                const isSelected =
-                                  editCategory.toLowerCase() ===
-                                  cat.toLowerCase();
-                                return (
-                                  <TouchableOpacity
-                                    key={cat}
-                                    style={[
-                                      styles.categoryChip,
-                                      isSelected && styles.categoryChipSelected,
-                                    ]}
-                                    onPress={() => setEditCategory(cat)}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.categoryChipText,
-                                        isSelected &&
-                                          styles.categoryChipTextSelected,
-                                      ]}
-                                    >
-                                      {String(
-                                        t(
-                                          cat
-                                            .toLowerCase()
-                                            .replace(/\s+/g, "_"),
-                                          {
-                                            defaultValue: cat,
-                                          },
-                                        ),
-                                      )}
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          </View>
-
-                          <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>
-                              {t("paymentMethod", "Payment Method")}
-                            </Text>
-                            <View style={styles.categoryContainer}>
-                              {(["CASH", "CARD"] as const).map((type) => {
-                                const isDisabled =
-                                  type === "CARD" && userCards.length === 0;
-
-                                return (
-                                  <TouchableOpacity
-                                    key={type}
-                                    disabled={isDisabled}
-                                    style={[
-                                      styles.categoryChip,
-                                      paymentType === type &&
-                                        styles.categoryChipSelected,
-                                      isDisabled && { opacity: 0.4 },
-                                    ]}
-                                    onPress={() => {
-                                      setPaymentType(type);
-                                      if (
-                                        type === "CARD" &&
-                                        userCards.length > 0 &&
-                                        !selectedCardId
-                                      ) {
-                                        setSelectedCardId(userCards[0].id);
-                                      }
-                                    }}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.categoryChipText,
-                                        paymentType === type &&
-                                          styles.categoryChipTextSelected,
-                                      ]}
-                                    >
-                                      {String(
-                                        t(type.toLowerCase(), {
-                                          defaultValue:
-                                            type === "CASH" ? "Cash" : "Card",
-                                        }),
-                                      )}
-                                      {isDisabled
-                                        ? ` ${String(
-                                            t("noCardsAvailable", {
-                                              defaultValue:
-                                                "(No Cards Available)",
-                                            }),
-                                          )}`
-                                        : ""}
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-
-                            {paymentType === "CARD" && userCards.length > 0 && (
-                              <>
-                                <Text
-                                  style={[styles.inputLabel, { marginTop: 12 }]}
+                        <View style={styles.categoryContainer}>
+                          <View style={styles.categoryColumn}>
+                            {CATEGORIES.slice(
+                              0,
+                              Math.ceil(CATEGORIES.length / 2),
+                            ).map((cat) => {
+                              const isSelected =
+                                editCategory.toLowerCase() ===
+                                cat.toLowerCase();
+                              return (
+                                <TouchableOpacity
+                                  key={cat}
+                                  style={[
+                                    styles.categoryChip,
+                                    isDark && {
+                                      backgroundColor: appColors.iconBoxBg,
+                                    },
+                                    isSelected && [
+                                      styles.categoryChipSelected,
+                                      {
+                                        backgroundColor: appColors.primaryTeal,
+                                      },
+                                    ],
+                                  ]}
+                                  onPress={() => setEditCategory(cat)}
+                                  activeOpacity={0.7}
                                 >
-                                  {t("selectCard", "Select Card")}
-                                </Text>
-                                <View style={styles.categoryContainer}>
-                                  {userCards.map((card) => (
-                                    <TouchableOpacity
-                                      key={card.id}
-                                      style={[
-                                        styles.categoryChip,
-                                        selectedCardId === card.id &&
-                                          styles.categoryChipSelected,
-                                      ]}
-                                      onPress={() => setSelectedCardId(card.id)}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.categoryChipText,
-                                          selectedCardId === card.id &&
-                                            styles.categoryChipTextSelected,
-                                        ]}
-                                      >
-                                        💳 {card.name} (
-                                        {String(
-                                          t(card.cardType.toLowerCase(), {
-                                            defaultValue:
-                                              card.cardType === "CREDIT"
-                                                ? "Credit"
-                                                : "Debit",
-                                          }),
-                                        )}
-                                        )
-                                      </Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </View>
-                              </>
-                            )}
+                                  <Text
+                                    style={[
+                                      styles.categoryChipText,
+                                      isDark && {
+                                        color: appColors.textPrimary,
+                                      },
+                                      isSelected &&
+                                        styles.categoryChipTextSelected,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {String(
+                                      t(
+                                        cat.toLowerCase().replace(/\s+/g, "_"),
+                                        {
+                                          defaultValue: cat,
+                                        },
+                                      ),
+                                    )}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
                           </View>
-                        </>
-                      )}
 
-                      <View style={styles.modalActions}>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.cancelBtn]}
-                          onPress={() => setIsEditing(false)}
-                        >
-                          <Text style={styles.cancelBtnText}>
-                            {t("cancel", "Cancel")}
-                          </Text>
-                        </TouchableOpacity>
+                          <View style={styles.categoryColumn}>
+                            {CATEGORIES.slice(
+                              Math.ceil(CATEGORIES.length / 2),
+                            ).map((cat) => {
+                              const isSelected =
+                                editCategory.toLowerCase() ===
+                                cat.toLowerCase();
+                              return (
+                                <TouchableOpacity
+                                  key={cat}
+                                  style={[
+                                    styles.categoryChip,
+                                    isDark && {
+                                      backgroundColor: appColors.iconBoxBg,
+                                    },
+                                    isSelected && [
+                                      styles.categoryChipSelected,
+                                      {
+                                        backgroundColor: appColors.primaryTeal,
+                                      },
+                                    ],
+                                  ]}
+                                  onPress={() => setEditCategory(cat)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.categoryChipText,
+                                      isDark && {
+                                        color: appColors.textPrimary,
+                                      },
+                                      isSelected &&
+                                        styles.categoryChipTextSelected,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {String(
+                                      t(
+                                        cat.toLowerCase().replace(/\s+/g, "_"),
+                                        {
+                                          defaultValue: cat,
+                                        },
+                                      ),
+                                    )}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      </View>
 
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.editBtn]}
-                          onPress={handleSaveEdit}
+                      <View style={styles.inputGroup}>
+                        <Text
+                          style={[
+                            styles.inputLabel,
+                            isDark && { color: appColors.textSecondary },
+                          ]}
                         >
-                          <Text style={styles.btnText}>
-                            {t("saveExpense", "Save")}
-                          </Text>
-                        </TouchableOpacity>
+                          {t("paymentMethod", "Payment Method")}
+                        </Text>
+                        <View style={styles.categoryContainer}>
+                          <View style={styles.categoryColumn}>
+                            {(() => {
+                              const type = "CASH";
+                              const isSelected = paymentType === type;
+                              return (
+                                <TouchableOpacity
+                                  key={type}
+                                  style={[
+                                    styles.categoryChip,
+                                    isDark && {
+                                      backgroundColor: appColors.iconBoxBg,
+                                    },
+                                    isSelected && [
+                                      styles.categoryChipSelected,
+                                      {
+                                        backgroundColor: appColors.primaryTeal,
+                                      },
+                                    ],
+                                  ]}
+                                  onPress={() => {
+                                    setPaymentType(type);
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.categoryChipText,
+                                      isDark && {
+                                        color: appColors.textPrimary,
+                                      },
+                                      isSelected &&
+                                        styles.categoryChipTextSelected,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {String(
+                                      t(type.toLowerCase(), {
+                                        defaultValue: "Cash",
+                                      }),
+                                    )}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })()}
+                          </View>
+
+                          <View style={styles.categoryColumn}>
+                            {(() => {
+                              const type = "CARD";
+                              const isDisabled = userCards.length === 0;
+                              const isSelected = paymentType === type;
+
+                              return (
+                                <TouchableOpacity
+                                  key={type}
+                                  disabled={isDisabled}
+                                  style={[
+                                    styles.categoryChip,
+                                    isDark && {
+                                      backgroundColor: appColors.iconBoxBg,
+                                    },
+                                    isSelected && [
+                                      styles.categoryChipSelected,
+                                      {
+                                        backgroundColor: appColors.primaryTeal,
+                                      },
+                                    ],
+                                    isDisabled && { opacity: 0.4 },
+                                  ]}
+                                  onPress={() => {
+                                    setPaymentType(type);
+                                    if (
+                                      userCards.length > 0 &&
+                                      !selectedCardId
+                                    ) {
+                                      setSelectedCardId(userCards[0].id);
+                                    }
+                                  }}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.categoryChipText,
+                                      isDark && {
+                                        color: appColors.textPrimary,
+                                      },
+                                      isSelected &&
+                                        styles.categoryChipTextSelected,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {String(
+                                      t(type.toLowerCase(), {
+                                        defaultValue: "Card",
+                                      }),
+                                    )}
+                                    {isDisabled
+                                      ? ` ${String(
+                                          t("noCardsAvailable", {
+                                            defaultValue:
+                                              "(No Cards Available)",
+                                          }),
+                                        )}`
+                                      : ""}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })()}
+                          </View>
+                        </View>
+
+                        {paymentType === "CARD" && userCards.length > 0 && (
+                          <>
+                            <Text
+                              style={[
+                                styles.inputLabel,
+                                { marginTop: 12 },
+                                isDark && {
+                                  color: appColors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {t("selectCard", "Select Card")}
+                            </Text>
+                            <View style={styles.categoryContainer}>
+                              <View style={styles.categoryColumn}>
+                                {userCards
+                                  .slice(0, Math.ceil(userCards.length / 2))
+                                  .map((card) => {
+                                    const isSelected =
+                                      selectedCardId === card.id;
+
+                                    return (
+                                      <TouchableOpacity
+                                        key={card.id}
+                                        style={[
+                                          styles.categoryChip,
+                                          isDark && {
+                                            backgroundColor:
+                                              appColors.iconBoxBg,
+                                          },
+                                          isSelected && [
+                                            styles.categoryChipSelected,
+                                            {
+                                              backgroundColor:
+                                                appColors.primaryTeal,
+                                            },
+                                          ],
+                                        ]}
+                                        onPress={() =>
+                                          setSelectedCardId(card.id)
+                                        }
+                                      >
+                                        <Text
+                                          style={[
+                                            styles.categoryChipText,
+                                            isDark && {
+                                              color: appColors.textPrimary,
+                                            },
+                                            isSelected &&
+                                              styles.categoryChipTextSelected,
+                                          ]}
+                                          numberOfLines={1}
+                                        >
+                                          💳 {card.name} (
+                                          {String(
+                                            t(card.cardType.toLowerCase(), {
+                                              defaultValue:
+                                                card.cardType === "CREDIT"
+                                                  ? "Credit"
+                                                  : "Debit",
+                                            }),
+                                          )}
+                                          )
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                              </View>
+
+                              <View style={styles.categoryColumn}>
+                                {userCards
+                                  .slice(Math.ceil(userCards.length / 2))
+                                  .map((card) => {
+                                    const isSelected =
+                                      selectedCardId === card.id;
+
+                                    return (
+                                      <TouchableOpacity
+                                        key={card.id}
+                                        style={[
+                                          styles.categoryChip,
+                                          isDark && {
+                                            backgroundColor:
+                                              appColors.iconBoxBg,
+                                          },
+                                          isSelected && [
+                                            styles.categoryChipSelected,
+                                            {
+                                              backgroundColor:
+                                                appColors.primaryTeal,
+                                            },
+                                          ],
+                                        ]}
+                                        onPress={() =>
+                                          setSelectedCardId(card.id)
+                                        }
+                                      >
+                                        <Text
+                                          style={[
+                                            styles.categoryChipText,
+                                            isDark && {
+                                              color: appColors.textPrimary,
+                                            },
+                                            isSelected &&
+                                              styles.categoryChipTextSelected,
+                                          ]}
+                                          numberOfLines={1}
+                                        >
+                                          💳 {card.name} (
+                                          {String(
+                                            t(card.cardType.toLowerCase(), {
+                                              defaultValue:
+                                                card.cardType === "CREDIT"
+                                                  ? "Credit"
+                                                  : "Debit",
+                                            }),
+                                          )}
+                                          )
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                              </View>
+                            </View>
+                          </>
+                        )}
                       </View>
                     </>
                   )}
+
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn,
+                        styles.cancelBtn,
+                        { backgroundColor: appColors.iconBoxBg },
+                      ]}
+                      onPress={() => setIsEditing(false)}
+                    >
+                      <Text
+                        style={[
+                          styles.cancelBtnText,
+                          { color: appColors.textPrimary },
+                        ]}
+                      >
+                        {t("cancel", "Cancel")}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn,
+                        styles.editBtn,
+                        { backgroundColor: appColors.primaryTeal },
+                      ]}
+                      onPress={handleSaveEdit}
+                    >
+                      <Text style={styles.btnText}>
+                        {t("saveExpense", "Save")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               )}
-            </KeyboardAwareScrollView>
-            <View style={styles.bottomExtension} />
-          </View>
-        </View>
-      </Modal>
+            </>
+          )}
+        </BottomSheetScrollView>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1237,41 +1764,41 @@ const styles = StyleSheet.create({
   listContent: {
     backgroundColor: "#F4F1EA",
     flexGrow: 1,
-    paddingBottom: 60,
+    paddingBottom: verticalScale(60),
   },
   headerWrapper: {
     backgroundColor: "#F4F1EA",
   },
   greenHeaderContainer: {
     backgroundColor: "#204B4C",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(15),
+    borderBottomLeftRadius: scale(32),
+    borderBottomRightRadius: scale(32),
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: "700",
     color: "#FFFFFF",
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "rgba(255, 255, 255, 0.7)",
-    marginTop: 4,
-    marginBottom: 20,
+    marginTop: verticalScale(4),
+    marginBottom: verticalScale(20),
   },
   summaryRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: scale(10),
   },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    marginHorizontal: 20,
-    marginBottom: 12,
-    padding: 16,
+    borderRadius: scale(20),
+    marginHorizontal: scale(20),
+    marginBottom: verticalScale(12),
+    padding: scale(16),
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
@@ -1279,7 +1806,7 @@ const styles = StyleSheet.create({
   },
   cardDetails: {
     flex: 1,
-    gap: 4,
+    gap: verticalScale(4),
   },
   lineRow: {
     flexDirection: "row",
@@ -1291,33 +1818,33 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    borderRadius: scale(16),
+    paddingVertical: verticalScale(14),
+    paddingHorizontal: scale(12),
   },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: "700",
     color: "rgba(255, 255, 255, 0.6)",
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: scale(0.5),
+    marginBottom: verticalScale(4),
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: "700",
     color: "#FFFFFF",
   },
   filterListContainer: {
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    gap: scale(8),
+    paddingHorizontal: scale(20),
+    paddingVertical: verticalScale(12),
     backgroundColor: "#F4F1EA",
   },
   filterChip: {
     backgroundColor: "#EBE6DD",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: scale(18),
+    paddingVertical: verticalScale(10),
+    borderRadius: scale(20),
   },
   cardFilterChip: {
     backgroundColor: "#E0DDD5",
@@ -1326,7 +1853,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1C3637",
   },
   filterChipText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "600",
     color: "#4A4A4A",
   },
@@ -1334,42 +1861,42 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: scale(48),
+    height: scale(48),
+    borderRadius: scale(14),
     backgroundColor: "#F2EFE9",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: scale(14),
   },
   iconEmoji: {
-    fontSize: 22,
+    fontSize: moderateScale(22),
   },
   itemTitle: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: "700",
     color: "#1C1C1E",
-    marginBottom: 6,
+    marginBottom: verticalScale(6),
   },
   categoryBadge: {
     backgroundColor: "#EFECE6",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(3),
+    borderRadius: scale(8),
   },
   categoryBadgeText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: "600",
     color: "#6E6B64",
   },
   paymentBadge: {
     backgroundColor: "#E2ECE9",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(3),
+    borderRadius: scale(8),
   },
   paymentBadgeText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: "600",
     color: "#204B4C",
   },
@@ -1377,12 +1904,12 @@ const styles = StyleSheet.create({
     color: "#1E6B5C",
   },
   dateText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: "#8E8E93",
     fontWeight: "500",
   },
   amountText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: "700",
   },
   expenseAmount: {
@@ -1391,93 +1918,68 @@ const styles = StyleSheet.create({
   incomeAmount: {
     color: colors.depositText,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: Platform.OS === "ios" ? 34 : 24,
-    maxHeight: "85%",
-    width: "100%",
-  },
-  bottomExtension: {
-    position: "absolute",
-    bottom: -1000,
-    left: 0,
-    right: 0,
-    height: 1000,
-    backgroundColor: "#FFFFFF",
-  },
-  modalScrollView: {
-    flexShrink: 1,
-    width: "100%",
-  },
   modalScrollViewContent: {
     alignItems: "center",
-    paddingBottom: 16,
+    paddingBottom: verticalScale(16),
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: "700",
     color: "#1C1C1E",
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
+    textAlign: "center",
   },
   modalAmount: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: "700",
     color: "#204B4C",
-    marginVertical: 12,
+    marginVertical: verticalScale(12),
+    textAlign: "center",
   },
   modalDetailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
-    paddingVertical: 8,
+    paddingVertical: verticalScale(8),
   },
   modalDetailLabel: {
     color: "#8E8E93",
-    fontSize: 14,
+    fontSize: moderateScale(14),
   },
   modalDetailValue: {
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "#1C1C1E",
   },
   inputGroup: {
     width: "100%",
-    marginTop: 12,
+    marginTop: verticalScale(12),
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: "600",
     color: "#6E6B64",
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   input: {
     backgroundColor: "#F4F1EA",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 16,
+    borderRadius: scale(12),
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(10),
+    fontSize: moderateScale(16),
     color: "#1C1C1E",
   },
   modalActions: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 20,
-    paddingBottom: 20,
+    gap: scale(12),
+    marginTop: verticalScale(20),
+    paddingBottom: verticalScale(20),
     width: "100%",
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: verticalScale(12),
+    borderRadius: scale(12),
     alignItems: "center",
   },
   editBtn: {
@@ -1492,36 +1994,36 @@ const styles = StyleSheet.create({
   btnText: {
     color: "#FFFFFF",
     fontWeight: "700",
+    fontSize: moderateScale(14),
   },
   cancelBtnText: {
     color: "#4A4A4A",
     fontWeight: "700",
-  },
-  closeBtn: {
-    marginTop: 16,
-    paddingVertical: 8,
-  },
-  closeBtnText: {
-    color: "#8E8E93",
-    fontWeight: "600",
+    fontSize: moderateScale(14),
   },
   categoryContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginTop: 6,
+    gap: scale(10),
+    marginTop: verticalScale(6),
+  },
+  categoryColumn: {
+    flex: 1,
+    gap: verticalScale(8),
   },
   categoryChip: {
     backgroundColor: "#EBE6DD",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(10),
+    borderRadius: scale(12),
+    alignItems: "center",
+    justifyContent: "center",
   },
   categoryChipSelected: {
     backgroundColor: "#204B4C",
   },
   categoryChipText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: "600",
     color: "#4A4A4A",
   },
@@ -1532,27 +2034,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 6,
-    marginBottom: 16,
+    marginTop: verticalScale(6),
+    marginBottom: verticalScale(16),
   },
   monthNavButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(4),
     backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 12,
+    borderRadius: scale(12),
   },
   monthNavText: {
     color: "#FFFFFF",
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: "bold",
   },
   emptyContainer: {
-    paddingVertical: 40,
+    paddingVertical: verticalScale(40),
     alignItems: "center",
     justifyContent: "center",
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     color: "#8E8E93",
     fontWeight: "500",
   },

@@ -1,9 +1,12 @@
+import { ThemeProvider } from "@/constants/theme";
 import api, { setOnTokenRefreshed, setOnUnauthenticated } from "@/services/api";
 import "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { colors_sign_register } from "../constants/theme";
 
 type AuthContextType = {
@@ -65,17 +68,13 @@ export default function RootLayout() {
   };
 
   const signIn = async (accessToken: string, refreshToken: string) => {
-    // 1. Immediately update in-memory header to prevent 401 race condition
     api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-    // 2. Persist to SecureStore
     await setItem("userToken", accessToken);
     await setItem("refreshToken", refreshToken);
-    // 3. Trigger global React re-render
     setToken(accessToken);
   };
 
   useEffect(() => {
-    // Catch 401 session expirations from api.ts
     setOnUnauthenticated(() => {
       signOut();
     });
@@ -103,13 +102,22 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, isLoading, signIn, signOut }}>
-      <InitialLayout />
-    </AuthContext.Provider>
+    <GestureHandlerRootView style={styles.container}>
+      <ThemeProvider>
+        <AuthContext.Provider value={{ token, isLoading, signIn, signOut }}>
+          <BottomSheetModalProvider>
+            <InitialLayout />
+          </BottomSheetModalProvider>
+        </AuthContext.Provider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

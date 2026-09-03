@@ -8,20 +8,29 @@ const LANGUAGE_KEY = "@user_language";
 
 // Get device language without any native module packages
 const getDeviceLanguage = (): string => {
-  const appLocale =
-    Platform.OS === "ios"
-      ? NativeModules.SettingsManager?.settings?.AppleLocale ||
-        NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
-      : NativeModules.I18nManager?.localeIdentifier;
+  let appLocale: string | undefined;
+
+  if (Platform.OS === "ios") {
+    const settings = NativeModules.SettingsManager?.settings;
+    // iOS 13+ uses AppleLanguages array primary entry
+    appLocale = settings?.AppleLanguages?.[0] || settings?.AppleLocale;
+  } else {
+    appLocale = NativeModules.I18nManager?.localeIdentifier;
+  }
 
   if (!appLocale) return "en";
 
-  const langCode = appLocale.split(/[-_]/)[0].toLowerCase();
+  // Standardize formats like "en_US", "ja-JP", "es-ES" -> "en", "ja", "es"
+  const cleanLocale = appLocale.replace("_", "-");
+  const langCode = cleanLocale.split("-")[0].toLowerCase();
 
-  // Handle Chinese locale variants (e.g. zh-CN, zh-TW)
-  if (langCode === "zh") return "zh";
+  // Match supported languages in your resources map, fallback to "en"
+  const supportedLanguages = Object.keys(resources);
+  if (supportedLanguages.includes(langCode)) {
+    return langCode;
+  }
 
-  return langCode;
+  return "en";
 };
 
 const languageDetector = {

@@ -1,3 +1,4 @@
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,7 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../app/_layout";
-import { colors } from "../constants/theme";
+import { useAppTheme } from "../constants/theme";
 import api from "../services/api";
 
 export interface UserProfile {
@@ -39,12 +40,11 @@ const LANGUAGES = [
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
   const { signOut, token } = useAuth();
-  const [darkMode, setDarkMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const [modalLanguageVisible, setModalLanguageVisible] = useState(false);
-
+  const { colors, isDark, setDarkMode } = useAppTheme();
   useEffect(() => {
     if (token) {
       fetchUserProfile();
@@ -127,14 +127,19 @@ export default function SettingsScreen() {
     LANGUAGES.find((l) => l.code === activeLangCode)?.label || "English";
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.headerBackground }]}
+      edges={["top"]}
+    >
       <StatusBar
-        barStyle="light-content"
-        backgroundColor={colors.headerBackground || "#1E4D4F"}
+        barStyle={colors.statusBarStyle}
+        backgroundColor={colors.headerBackground}
       />
 
       {/* FIXED HEADER SECTION */}
-      <View style={styles.header}>
+      <View
+        style={[styles.header, { backgroundColor: colors.headerBackground }]}
+      >
         <Text style={styles.headerTitle}>{t("settings", "Settings")}</Text>
 
         <View style={styles.profileCard}>
@@ -156,78 +161,153 @@ export default function SettingsScreen() {
       </View>
 
       {/* SCROLLABLE BODY CONTAINER */}
-      <View style={styles.bodyContainer}>
+      <View
+        style={[
+          styles.bodyContainer,
+          { backgroundColor: colors.screenBackground },
+        ]}
+      >
         <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.body}>
+          <View
+            style={[styles.body, { backgroundColor: colors.screenBackground }]}
+          >
             {loading ? (
               <ActivityIndicator
                 size="large"
-                color={colors.primaryTeal || "#1E4D4F"}
+                color={colors.primaryTeal}
                 style={{ marginTop: 40 }}
               />
             ) : (
               <>
                 {/* ACCOUNT SECTION */}
-                <Text style={styles.sectionTitle}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textSecondary }]}
+                >
                   {t("account", "ACCOUNT")}
                 </Text>
-                <View style={styles.card}>
+                <View
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.cardBackground },
+                  ]}
+                >
                   <TouchableOpacity style={styles.row}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="person" size={18} color="#4A5568" />
+                    <View
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: colors.iconBoxBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name="person"
+                        size={18}
+                        color={colors.textPrimary}
+                      />
                     </View>
-                    <Text style={styles.rowLabel}>
+                    <Text
+                      style={[styles.rowLabel, { color: colors.textPrimary }]}
+                    >
                       {t("personalInfo", "Personal Info")}
                     </Text>
                     <Ionicons
                       name="chevron-forward"
                       size={18}
-                      color="#A0AEC0"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
 
-                  <View style={styles.divider} />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: colors.divider },
+                    ]}
+                  />
 
                   <TouchableOpacity style={styles.row}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="lock-closed" size={18} color="#4A5568" />
+                    <View
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: colors.iconBoxBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name="lock-closed"
+                        size={18}
+                        color={colors.textPrimary}
+                      />
                     </View>
-                    <Text style={styles.rowLabel}>
+                    <Text
+                      style={[styles.rowLabel, { color: colors.textPrimary }]}
+                    >
                       {t("changePassword", "Change Password")}
                     </Text>
                     <Ionicons
                       name="chevron-forward"
                       size={18}
-                      color="#A0AEC0"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
 
-                  <View style={styles.divider} />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: colors.divider },
+                    ]}
+                  />
 
                   <TouchableOpacity style={styles.row}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="card" size={18} color="#4A5568" />
+                    <View
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: colors.iconBoxBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name="card"
+                        size={18}
+                        color={colors.textPrimary}
+                      />
                     </View>
-                    <Text style={styles.rowLabel}>
+                    <Text
+                      style={[styles.rowLabel, { color: colors.textPrimary }]}
+                    >
                       {t("paymentMethods", "Payment Methods")}
                     </Text>
                     <Ionicons
                       name="chevron-forward"
                       size={18}
-                      color="#A0AEC0"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
 
-                  <View style={styles.divider} />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: colors.divider },
+                    ]}
+                  />
 
                   <TouchableOpacity style={styles.row}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="stats-chart" size={18} color="#4A5568" />
+                    <View
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: colors.iconBoxBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name="stats-chart"
+                        size={18}
+                        color={colors.textPrimary}
+                      />
                     </View>
-                    <Text style={styles.rowLabel}>
+                    <Text
+                      style={[styles.rowLabel, { color: colors.textPrimary }]}
+                    >
                       {t("monthlyBudget", "Monthly Budget")}
                     </Text>
-                    <Text style={styles.rowValue}>
+                    <Text
+                      style={[styles.rowValue, { color: colors.textSecondary }]}
+                    >
                       $
                       {monthlyBudget.toLocaleString("en-US", {
                         minimumFractionDigits: 0,
@@ -237,68 +317,100 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* PREFERENCES SECTION */}
-                <Text style={styles.sectionTitle}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textSecondary }]}
+                >
                   {t("preferences", "PREFERENCES")}
                 </Text>
-                <View style={styles.card}>
+                <View
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.cardBackground },
+                  ]}
+                >
                   <View style={styles.row}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="moon" size={18} color="#4A5568" />
+                    <View
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: colors.iconBoxBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name="moon"
+                        size={18}
+                        color={colors.textPrimary}
+                      />
                     </View>
-                    <Text style={styles.rowLabel}>
+                    <Text
+                      style={[styles.rowLabel, { color: colors.textPrimary }]}
+                    >
                       {t("darkMode", "Dark Mode")}
                     </Text>
                     <Switch
-                      value={darkMode}
-                      onValueChange={setDarkMode}
+                      value={isDark}
+                      onValueChange={(val) => setDarkMode(val)}
                       trackColor={{
-                        false: "#E2E8F0",
-                        true: colors.primaryTeal || "#1E4D4F",
+                        false: colors.divider,
+                        true: colors.primaryTeal,
                       }}
                       thumbColor="#FFFFFF"
                     />
                   </View>
 
-                  <View style={styles.divider} />
-
-                  <TouchableOpacity style={styles.row}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="wallet" size={18} color="#4A5568" />
-                    </View>
-                    <Text style={styles.rowLabel}>
-                      {t("currency", "Currency")}
-                    </Text>
-                    <Text style={styles.rowValue}>USD $</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.divider} />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: colors.divider },
+                    ]}
+                  />
 
                   <TouchableOpacity
                     style={styles.row}
                     onPress={() => setModalLanguageVisible(true)}
                   >
-                    <View style={styles.iconBox}>
+                    <View
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: colors.iconBoxBg },
+                      ]}
+                    >
                       <Ionicons
                         name="globe-outline"
                         size={18}
-                        color="#4A5568"
+                        color={colors.textPrimary}
                       />
                     </View>
-                    <Text style={styles.rowLabel}>
+                    <Text
+                      style={[styles.rowLabel, { color: colors.textPrimary }]}
+                    >
                       {t("language", "Language")}
                     </Text>
-                    <Text style={styles.rowValue}>{currentLanguageLabel}</Text>
+                    <Text
+                      style={[styles.rowValue, { color: colors.textSecondary }]}
+                    >
+                      {currentLanguageLabel}
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* ACCOUNT ACTIONS */}
-                <Text style={styles.sectionTitle}>
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textSecondary }]}
+                >
                   {t("accountActions", "ACCOUNT ACTIONS")}
                 </Text>
-                <View style={styles.card}>
+                <View
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.cardBackground },
+                  ]}
+                >
                   <TouchableOpacity style={styles.row} onPress={handleSignOut}>
                     <View
-                      style={[styles.iconBox, { backgroundColor: "#FFF5F5" }]}
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: isDark ? "#3A1E1E" : "#FFF5F5" },
+                      ]}
                     >
                       <Ionicons
                         name="log-out-outline"
@@ -312,18 +424,26 @@ export default function SettingsScreen() {
                     <Ionicons
                       name="chevron-forward"
                       size={18}
-                      color="#A0AEC0"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
 
-                  <View style={styles.divider} />
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: colors.divider },
+                    ]}
+                  />
 
                   <TouchableOpacity
                     style={styles.row}
                     onPress={handleDeleteAccount}
                   >
                     <View
-                      style={[styles.iconBox, { backgroundColor: "#FFF5F5" }]}
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: isDark ? "#3A1E1E" : "#FFF5F5" },
+                      ]}
                     >
                       <Ionicons
                         name="trash-outline"
@@ -337,7 +457,7 @@ export default function SettingsScreen() {
                     <Ionicons
                       name="chevron-forward"
                       size={18}
-                      color="#A0AEC0"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -350,8 +470,13 @@ export default function SettingsScreen() {
       {/* LANGUAGE SELECTION MODAL */}
       <Modal visible={modalLanguageVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.cardBackground },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
               {t("selectLanguage", "Select Language")}
             </Text>
 
@@ -363,14 +488,23 @@ export default function SettingsScreen() {
                     key={lang.code}
                     style={[
                       styles.languageOption,
-                      isSelected && styles.languageOptionSelected,
+                      { backgroundColor: colors.iconBoxBg },
+                      isSelected && {
+                        backgroundColor: isDark ? "#1E3838" : "#E6F0F0",
+                        borderWidth: 1,
+                        borderColor: colors.primaryTeal,
+                      },
                     ]}
                     onPress={() => handleLanguageSelect(lang.code)}
                   >
                     <Text
                       style={[
                         styles.languageOptionText,
-                        isSelected && styles.languageOptionTextSelected,
+                        { color: colors.textPrimary },
+                        isSelected && {
+                          color: colors.primaryTeal,
+                          fontWeight: "bold",
+                        },
                       ]}
                     >
                       {lang.label}
@@ -379,7 +513,7 @@ export default function SettingsScreen() {
                       <Ionicons
                         name="checkmark-circle"
                         size={20}
-                        color={colors.primaryTeal || "#1E4D4F"}
+                        color={colors.primaryTeal}
                       />
                     )}
                   </TouchableOpacity>
@@ -388,10 +522,15 @@ export default function SettingsScreen() {
             </View>
 
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={[
+                styles.cancelButton,
+                { backgroundColor: colors.iconBoxBg },
+              ]}
               onPress={() => setModalLanguageVisible(false)}
             >
-              <Text style={styles.cancelButtonText}>
+              <Text
+                style={[styles.cancelButtonText, { color: colors.textPrimary }]}
+              >
                 {t("cancel", "Cancel")}
               </Text>
             </TouchableOpacity>
@@ -405,149 +544,150 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.headerBackground || "#1E4D4F", // Green top area for status bar
   },
   bodyContainer: {
     flex: 1,
-    backgroundColor: colors.screenBackground || "#F3EFEA", // Screen body background matching overscroll
-    paddingBottom: 40,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    paddingBottom: verticalScale(40),
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
     overflow: "hidden",
   },
   header: {
-    backgroundColor: colors.headerBackground || "#1E4D4F",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 28,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(28),
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: "bold",
     color: "#FFFFFF",
     fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   profileCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: scale(20),
+    padding: scale(16),
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: scale(48),
+    height: scale(48),
+    borderRadius: scale(24),
     backgroundColor: "#E09B67",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: scale(14),
   },
-  avatarText: { color: "#FFFFFF", fontSize: 20, fontWeight: "bold" },
+  avatarText: {
+    color: "#FFFFFF",
+    fontSize: moderateScale(20),
+    fontWeight: "bold",
+  },
   profileInfo: { flex: 1 },
-  profileName: { color: "#FFFFFF", fontSize: 17, fontWeight: "bold" },
+  profileName: {
+    color: "#FFFFFF",
+    fontSize: moderateScale(17),
+    fontWeight: "bold",
+  },
   profileEmail: {
     color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: moderateScale(13),
+    marginTop: verticalScale(2),
   },
   editButton: {
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(8),
+    borderRadius: scale(14),
   },
-  editButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
+  editButtonText: {
+    color: "#FFFFFF",
+    fontSize: moderateScale(13),
+    fontWeight: "600",
+  },
   body: {
     flex: 1,
-    backgroundColor: colors.screenBackground || "#F3EFEA",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 80,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    minHeight: 600,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(80),
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
+    minHeight: verticalScale(600),
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: "700",
-    color: "#8C857B",
-    letterSpacing: 1.2,
-    marginTop: 20,
-    marginBottom: 10,
-    marginLeft: 4,
+    letterSpacing: scale(1.2),
+    marginTop: verticalScale(20),
+    marginBottom: verticalScale(10),
+    marginLeft: scale(4),
   },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 20, paddingHorizontal: 16 },
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: 14 },
+  card: {
+    borderRadius: scale(20),
+    paddingHorizontal: scale(16),
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: verticalScale(14),
+  },
   iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#F5F0EB",
+    width: scale(38),
+    height: scale(38),
+    borderRadius: scale(12),
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: scale(14),
   },
-  rowLabel: { flex: 1, fontSize: 16, fontWeight: "600", color: "#2D3748" },
+  rowLabel: {
+    flex: 1,
+    fontSize: moderateScale(16),
+    fontWeight: "600",
+  },
   rowValue: {
-    fontSize: 15,
-    color: "#718096",
+    fontSize: moderateScale(15),
     fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
   },
-  divider: { height: 1, backgroundColor: "#F0ECE6", marginLeft: 52 },
+  divider: { height: 1, marginLeft: scale(52) },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
-    padding: 24,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 60,
+    padding: scale(24),
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
+    paddingBottom: verticalScale(60),
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: "bold",
-    color: "#2D3748",
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   languageOption: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: "#F5F0EB",
-    marginBottom: 8,
-  },
-  languageOptionSelected: {
-    backgroundColor: "#E6F0F0",
-    borderWidth: 1,
-    borderColor: colors.primaryTeal || "#1E4D4F",
+    paddingVertical: verticalScale(14),
+    paddingHorizontal: scale(16),
+    borderRadius: scale(12),
+    marginBottom: verticalScale(8),
   },
   languageOptionText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: "600",
-    color: "#2D3748",
-  },
-  languageOptionTextSelected: {
-    color: colors.primaryTeal || "#1E4D4F",
-    fontWeight: "bold",
   },
   cancelButton: {
-    backgroundColor: "#F5F0EB",
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: verticalScale(14),
+    borderRadius: scale(12),
     alignItems: "center",
-    marginTop: 8,
+    marginTop: verticalScale(8),
   },
   cancelButtonText: {
-    color: "#2D3748",
     fontWeight: "600",
-    fontSize: 15,
+    fontSize: moderateScale(15),
   },
 });

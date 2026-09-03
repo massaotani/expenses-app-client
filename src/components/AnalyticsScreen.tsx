@@ -1,4 +1,6 @@
+import { useAppTheme } from "@/constants/theme";
 import api from "@/services/api";
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -111,15 +113,35 @@ const FALLBACK_PALETTE = [
   "#A26B6B",
 ];
 
-const getCategoryColor = (cat: string, index: number): string => {
-  const normalizedKey = Object.keys(COLORS.categoryColors).find(
-    (k) => k.toLowerCase() === cat.trim().toLowerCase(),
-  );
-  if (normalizedKey) return COLORS.categoryColors[normalizedKey];
-  return FALLBACK_PALETTE[index % FALLBACK_PALETTE.length];
+const getCategoryColor = (cat: string, isDark: boolean = false): string => {
+  switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
+    case "housing":
+      return isDark ? "#ff595e" : "#ff6600";
+    case "food":
+      return isDark ? "#ff924c" : "#ff9900";
+    case "fixed expenses":
+      return isDark ? "#A78BFA" : "#6D28D9";
+    case "transportation":
+    case "transport":
+      return isDark ? "#8ac926" : "#669900";
+    case "entertainment":
+      return isDark ? "#c5ca30" : "#99cc33";
+    case "healthcare":
+    case "health":
+      return isDark ? "#ffca3a" : "#ffcc00";
+    case "clothing":
+      return isDark ? "#36949d" : "#006699";
+    case "pet":
+      return isDark ? "#1982c4" : "#3399cc";
+    case "travel":
+      return isDark ? "#6a4c93" : "#990066";
+    default:
+      return isDark ? "#565aa0" : "#cc3399";
+  }
 };
 
 export default function AnalyticsScreen() {
+  const { colors, isDark } = useAppTheme();
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -281,16 +303,16 @@ export default function AnalyticsScreen() {
     const sortedEntries = Object.entries(totals)
       .filter(([_, amt]) => amt > 0)
       .sort((a, b) => b[1] - a[1])
-      .map(([category, amount], index) => ({
+      .map(([category, amount]) => ({
         category,
         amount,
         percentage:
           totalSpending > 0 ? Math.round((amount / totalSpending) * 100) : 0,
-        color: getCategoryColor(category, index),
+        color: getCategoryColor(category, isDark), // Pass isDark here
       }));
 
     return { totals, sortedEntries, totalSpending };
-  }, [expenses, selectedDate]);
+  }, [expenses, selectedDate, isDark]);
 
   const paymentTypeBreakdown = useMemo(() => {
     let cashSum = 0;
@@ -363,13 +385,18 @@ export default function AnalyticsScreen() {
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.tealDark} />
+      <SafeAreaView
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: colors.screenBackground },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.primaryTeal} />
       </SafeAreaView>
     );
   }
 
-  const chartWidth = SCREEN_WIDTH - 80;
+  const chartWidth = SCREEN_WIDTH - scale(80);
   const maxBarValue = Math.max(
     ...monthlyData.flatMap((d) => [d.income, d.expenses]),
     1000,
@@ -389,11 +416,22 @@ export default function AnalyticsScreen() {
   const CIRCUMFERENCE = 2 * Math.PI * 35;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.tealDark} />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.primaryTeal }]}
+      edges={["top", "left", "right"]}
+    >
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={colors.primaryTeal}
+      />
 
       {/* Fixed Header */}
-      <View style={styles.headerContainer}>
+      <View
+        style={[
+          styles.headerContainer,
+          { backgroundColor: colors.primaryTeal },
+        ]}
+      >
         <Text style={styles.headerTitle}>{t("analytics", "Analytics")}</Text>
         <Text style={styles.headerSubtitle}>
           {t("spendingInsights", "Spending insights")} ·{" "}
@@ -410,23 +448,30 @@ export default function AnalyticsScreen() {
         </Text>
       </View>
 
-      {/* Scrollable Body Container with Cream Background */}
-      <View style={styles.bodyContainer}>
+      {/* Scrollable Body Container with Dynamic Background */}
+      <View
+        style={[
+          styles.bodyContainer,
+          { backgroundColor: colors.screenBackground },
+        ]}
+      >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={COLORS.tealDark}
+              tintColor={colors.primaryTeal}
             />
           }
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.cardsWrapper}>
             {/* 1. Income vs. Expenses Bar Chart */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>
+            <View
+              style={[styles.card, { backgroundColor: colors.cardBackground }]}
+            >
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
                 {t("incomeVsExpenses", "Income vs. Expenses")}
               </Text>
               <Text style={styles.cardSubtitle}>
@@ -434,25 +479,27 @@ export default function AnalyticsScreen() {
               </Text>
 
               <View style={styles.chartWrapper}>
-                <Svg height={200} width={chartWidth}>
+                <Svg height={verticalScale(200)} width={chartWidth}>
                   {barGridSteps.map((val) => {
-                    const y = 160 - (val / maxBarValue) * 140;
+                    const y =
+                      verticalScale(160) -
+                      (val / maxBarValue) * verticalScale(140);
                     return (
                       <React.Fragment key={val}>
                         <Line
-                          x1={40}
+                          x1={scale(40)}
                           y1={y}
                           x2={chartWidth}
                           y2={y}
-                          stroke="#EBE8E1"
+                          stroke={isDark ? "#2D2D2D" : "#EBE8E1"}
                           strokeWidth={1}
                           strokeDasharray="3,3"
                         />
                         <SvgText
-                          x={32}
-                          y={y + 4}
+                          x={scale(32)}
+                          y={y + verticalScale(4)}
                           fill={COLORS.textMuted}
-                          fontSize={10}
+                          fontSize={moderateScale(10)}
                           textAnchor="end"
                         >
                           {val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}
@@ -462,33 +509,36 @@ export default function AnalyticsScreen() {
                   })}
 
                   {monthlyData.map((d, index) => {
-                    const groupX = 48 + index * ((chartWidth - 58) / 6);
-                    const incomeH = (d.income / maxBarValue) * 140;
-                    const expenseH = (d.expenses / maxBarValue) * 140;
+                    const groupX =
+                      scale(48) + index * ((chartWidth - scale(58)) / 6);
+                    const incomeH =
+                      (d.income / maxBarValue) * verticalScale(140);
+                    const expenseH =
+                      (d.expenses / maxBarValue) * verticalScale(140);
 
                     return (
                       <React.Fragment key={d.month}>
                         <Rect
                           x={groupX}
-                          y={160 - incomeH}
-                          width={6}
-                          height={Math.max(incomeH, 2)}
-                          fill={COLORS.tealDark}
-                          rx={3}
+                          y={verticalScale(160) - incomeH}
+                          width={scale(6)}
+                          height={Math.max(incomeH, verticalScale(2))}
+                          fill={colors.primaryTeal}
+                          rx={scale(3)}
                         />
                         <Rect
-                          x={groupX + 8}
-                          y={160 - expenseH}
-                          width={6}
-                          height={Math.max(expenseH, 2)}
+                          x={groupX + scale(8)}
+                          y={verticalScale(160) - expenseH}
+                          width={scale(6)}
+                          height={Math.max(expenseH, verticalScale(2))}
                           fill={COLORS.expenseOrange}
-                          rx={3}
+                          rx={scale(3)}
                         />
                         <SvgText
-                          x={groupX + 7}
-                          y={180}
+                          x={groupX + scale(7)}
+                          y={verticalScale(180)}
                           fill={COLORS.textMuted}
-                          fontSize={11}
+                          fontSize={moderateScale(11)}
                           textAnchor="middle"
                         >
                           {d.month}
@@ -503,22 +553,26 @@ export default function AnalyticsScreen() {
                     <View
                       style={[
                         styles.legendBox,
-                        { backgroundColor: COLORS.expenseOrange },
+                        { backgroundColor: colors.primaryTeal },
                       ]}
                     />
-                    <Text style={styles.legendText}>
-                      {t("expenses", "Expenses")}
+                    <Text
+                      style={[styles.legendText, { color: colors.textPrimary }]}
+                    >
+                      {t("income", "Income")}
                     </Text>
                   </View>
                   <View style={styles.legendItem}>
                     <View
                       style={[
                         styles.legendBox,
-                        { backgroundColor: COLORS.tealDark },
+                        { backgroundColor: COLORS.expenseOrange },
                       ]}
                     />
-                    <Text style={styles.legendText}>
-                      {t("income", "Income")}
+                    <Text
+                      style={[styles.legendText, { color: colors.textPrimary }]}
+                    >
+                      {t("expenses", "Expenses")}
                     </Text>
                   </View>
                 </View>
@@ -526,8 +580,10 @@ export default function AnalyticsScreen() {
             </View>
 
             {/* 2. Cash vs. Card Breakdown */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>
+            <View
+              style={[styles.card, { backgroundColor: colors.cardBackground }]}
+            >
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
                 {t("paymentMethodBreakdown", "Payment Method Breakdown")}
               </Text>
               <Text style={styles.cardSubtitle}>
@@ -540,7 +596,7 @@ export default function AnalyticsScreen() {
                     styles.stackedSegment,
                     {
                       width: `${paymentTypeBreakdown.cardPct}%`,
-                      backgroundColor: COLORS.cardColor,
+                      backgroundColor: colors.primaryTeal,
                     },
                   ]}
                 />
@@ -556,19 +612,29 @@ export default function AnalyticsScreen() {
               </View>
 
               <View style={styles.paymentMetricRow}>
-                <View style={styles.paymentMetricBox}>
+                <View
+                  style={[
+                    styles.paymentMetricBox,
+                    isDark && { backgroundColor: "#2A2A2A" },
+                  ]}
+                >
                   <View style={styles.paymentHeader}>
                     <View
                       style={[
                         styles.legendBox,
-                        { backgroundColor: COLORS.cardColor },
+                        { backgroundColor: colors.primaryTeal },
                       ]}
                     />
                     <Text style={styles.paymentTypeLabel}>
                       {t("cardExpenses", "Card Expenses")}
                     </Text>
                   </View>
-                  <Text style={styles.paymentValueText}>
+                  <Text
+                    style={[
+                      styles.paymentValueText,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
                     ${formatAmount(paymentTypeBreakdown.card)}
                   </Text>
                   <Text style={styles.paymentPercentageText}>
@@ -576,7 +642,12 @@ export default function AnalyticsScreen() {
                   </Text>
                 </View>
 
-                <View style={styles.paymentMetricBox}>
+                <View
+                  style={[
+                    styles.paymentMetricBox,
+                    isDark && { backgroundColor: "#2A2A2A" },
+                  ]}
+                >
                   <View style={styles.paymentHeader}>
                     <View
                       style={[
@@ -588,7 +659,12 @@ export default function AnalyticsScreen() {
                       {t("cashExpenses", "Cash Expenses")}
                     </Text>
                   </View>
-                  <Text style={styles.paymentValueText}>
+                  <Text
+                    style={[
+                      styles.paymentValueText,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
                     ${formatAmount(paymentTypeBreakdown.cash)}
                   </Text>
                   <Text style={styles.paymentPercentageText}>
@@ -599,7 +675,12 @@ export default function AnalyticsScreen() {
 
               {cardUsageBreakdown.cardsList.length > 0 && (
                 <View style={styles.cardBreakdownContainer}>
-                  <Text style={styles.cardBreakdownTitle}>
+                  <Text
+                    style={[
+                      styles.cardBreakdownTitle,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
                     {t("cardsUsage", "Card Breakdown")}
                   </Text>
                   {cardUsageBreakdown.cardsList.map(
@@ -608,7 +689,14 @@ export default function AnalyticsScreen() {
                         <View style={styles.cardUsageHeader}>
                           <View style={styles.cardNameContainer}>
                             <Text style={styles.cardIcon}>💳</Text>
-                            <Text style={styles.cardNameText}>{card.name}</Text>
+                            <Text
+                              style={[
+                                styles.cardNameText,
+                                { color: colors.textPrimary },
+                              ]}
+                            >
+                              {card.name}
+                            </Text>
                             <View style={styles.cardTypeBadge}>
                               <Text style={styles.cardTypeBadgeText}>
                                 {String(
@@ -619,15 +707,28 @@ export default function AnalyticsScreen() {
                               </Text>
                             </View>
                           </View>
-                          <Text style={styles.cardSpentText}>
+                          <Text
+                            style={[
+                              styles.cardSpentText,
+                              { color: colors.primaryTeal },
+                            ]}
+                          >
                             ${formatAmount(totalSpent)}
                           </Text>
                         </View>
-                        <View style={styles.cardProgressBarTrack}>
+                        <View
+                          style={[
+                            styles.cardProgressBarTrack,
+                            { backgroundColor: colors.iconBoxBg },
+                          ]}
+                        >
                           <View
                             style={[
                               styles.cardProgressBarFill,
-                              { width: `${percentage}%` },
+                              {
+                                width: `${percentage}%`,
+                                backgroundColor: colors.primaryTeal,
+                              },
                             ]}
                           />
                         </View>
@@ -639,8 +740,10 @@ export default function AnalyticsScreen() {
             </View>
 
             {/* 3. Spending by Category */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>
+            <View
+              style={[styles.card, { backgroundColor: colors.cardBackground }]}
+            >
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
                 {t("spendingByCategory", "Spending by Category")}
               </Text>
               <Text style={styles.cardSubtitle}>
@@ -649,7 +752,11 @@ export default function AnalyticsScreen() {
               </Text>
 
               <View style={styles.donutWrapper}>
-                <Svg height={180} width={180} viewBox="0 0 100 100">
+                <Svg
+                  height={verticalScale(180)}
+                  width={scale(180)}
+                  viewBox="0 0 100 100"
+                >
                   {categorySpending.totalSpending === 0 ? (
                     <>
                       <Circle
@@ -657,14 +764,14 @@ export default function AnalyticsScreen() {
                         cy={50}
                         r={35}
                         fill="transparent"
-                        stroke="#EAE6DF"
+                        stroke={isDark ? "#2D2D2D" : "#EAE6DF"}
                         strokeWidth={12}
                       />
                       <SvgText
                         x={50}
                         y={54}
                         fill={COLORS.textMuted}
-                        fontSize={11}
+                        fontSize={moderateScale(11)}
                         fontWeight="600"
                         textAnchor="middle"
                       >
@@ -711,7 +818,12 @@ export default function AnalyticsScreen() {
                           { backgroundColor: item.color },
                         ]}
                       />
-                      <Text style={styles.categoryName}>
+                      <Text
+                        style={[
+                          styles.categoryName,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
                         {String(
                           t(item.category.toLowerCase(), {
                             defaultValue: item.category,
@@ -719,7 +831,12 @@ export default function AnalyticsScreen() {
                         )}
                       </Text>
                     </View>
-                    <Text style={styles.categoryValue}>
+                    <Text
+                      style={[
+                        styles.categoryValue,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
                       ${formatAmount(item.amount)}{" "}
                       <Text style={styles.categoryPercentage}>
                         ({item.percentage}%)
@@ -731,8 +848,10 @@ export default function AnalyticsScreen() {
             </View>
 
             {/* 4. Net Savings Trend Line Chart */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>
+            <View
+              style={[styles.card, { backgroundColor: colors.cardBackground }]}
+            >
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
                 {t("netSavingsTrend", "Net Savings Trend")}
               </Text>
               <Text style={styles.cardSubtitle}>
@@ -741,16 +860,31 @@ export default function AnalyticsScreen() {
               </Text>
 
               <View style={styles.netMetricRow}>
-                <View style={styles.netMetricBox}>
+                <View
+                  style={[
+                    styles.netMetricBox,
+                    isDark && { backgroundColor: "#2A2A2A" },
+                  ]}
+                >
                   <Text style={styles.netMetricLabel}>
                     {t("income", "Income")}
                   </Text>
-                  <Text style={styles.netIncomeText}>
+                  <Text
+                    style={[
+                      styles.netIncomeText,
+                      { color: colors.primaryTeal },
+                    ]}
+                  >
                     ${formatAmount(currentMonthSummary.income)}
                   </Text>
                 </View>
 
-                <View style={styles.netMetricBox}>
+                <View
+                  style={[
+                    styles.netMetricBox,
+                    isDark && { backgroundColor: "#2A2A2A" },
+                  ]}
+                >
                   <Text style={styles.netMetricLabel}>
                     {t("expenses", "Expenses")}
                   </Text>
@@ -759,7 +893,12 @@ export default function AnalyticsScreen() {
                   </Text>
                 </View>
 
-                <View style={styles.netMetricBox}>
+                <View
+                  style={[
+                    styles.netMetricBox,
+                    isDark && { backgroundColor: "#2A2A2A" },
+                  ]}
+                >
                   <Text style={styles.netMetricLabel}>
                     {t("netSavings", "Net Savings")}
                   </Text>
@@ -769,7 +908,7 @@ export default function AnalyticsScreen() {
                       {
                         color:
                           currentMonthSummary.net >= 0
-                            ? COLORS.tealDark
+                            ? colors.primaryTeal
                             : COLORS.expenseOrange,
                       },
                     ]}
@@ -780,25 +919,27 @@ export default function AnalyticsScreen() {
               </View>
 
               <View style={styles.chartWrapper}>
-                <Svg height={180} width={chartWidth}>
+                <Svg height={verticalScale(180)} width={chartWidth}>
                   {netGridSteps.map((val) => {
-                    const y = 140 - ((val - minNetValue) / netRange) * 110;
+                    const y =
+                      verticalScale(140) -
+                      ((val - minNetValue) / netRange) * verticalScale(110);
                     return (
                       <React.Fragment key={val}>
                         <Line
-                          x1={35}
+                          x1={scale(35)}
                           y1={y}
                           x2={chartWidth}
                           y2={y}
-                          stroke="#EBE8E1"
+                          stroke={isDark ? "#2D2D2D" : "#EBE8E1"}
                           strokeWidth={1}
                           strokeDasharray="3,3"
                         />
                         <SvgText
-                          x={28}
-                          y={y + 4}
+                          x={scale(28)}
+                          y={y + verticalScale(4)}
                           fill={COLORS.textMuted}
-                          fontSize={10}
+                          fontSize={moderateScale(10)}
                           textAnchor="end"
                         >
                           {Math.abs(val) >= 1000
@@ -811,8 +952,13 @@ export default function AnalyticsScreen() {
 
                   {(() => {
                     const points = monthlyData.map((d, i) => {
-                      const x = 48 + i * ((chartWidth - 58) / 6) + 3;
-                      const y = 140 - ((d.net - minNetValue) / netRange) * 110;
+                      const x =
+                        scale(48) +
+                        i * ((chartWidth - scale(58)) / 6) +
+                        scale(3);
+                      const y =
+                        verticalScale(140) -
+                        ((d.net - minNetValue) / netRange) * verticalScale(110);
                       return { x, y, month: d.month };
                     });
 
@@ -827,7 +973,7 @@ export default function AnalyticsScreen() {
                         <Path
                           d={pathD}
                           fill="none"
-                          stroke={COLORS.tealDark}
+                          stroke={colors.primaryTeal}
                           strokeWidth={2.5}
                         />
                         {points.map((p, i) => (
@@ -835,14 +981,14 @@ export default function AnalyticsScreen() {
                             <Circle
                               cx={p.x}
                               cy={p.y}
-                              r={4}
-                              fill={COLORS.tealDark}
+                              r={scale(4)}
+                              fill={colors.primaryTeal}
                             />
                             <SvgText
                               x={p.x}
-                              y={160}
+                              y={verticalScale(160)}
                               fill={COLORS.textMuted}
-                              fontSize={11}
+                              fontSize={moderateScale(11)}
                               textAnchor="middle"
                             >
                               {p.month}
@@ -865,14 +1011,14 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.tealDark, // Keeps top status bar area green
+    backgroundColor: COLORS.tealDark,
   },
   bodyContainer: {
     flex: 1,
-    backgroundColor: COLORS.backgroundCream, // Cream background for body and overscrolls
-    paddingBottom: 40,
-    marginTop: -20,
-    paddingTop: 20,
+    backgroundColor: COLORS.backgroundCream,
+    paddingBottom: verticalScale(40),
+    marginTop: verticalScale(-20),
+    paddingTop: verticalScale(20),
   },
   loadingContainer: {
     flex: 1,
@@ -882,51 +1028,51 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: verticalScale(40),
   },
   headerContainer: {
     backgroundColor: COLORS.tealDark,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(28),
+    borderBottomLeftRadius: scale(32),
+    borderBottomRightRadius: scale(32),
     zIndex: 10,
     overflow: "hidden",
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: "700",
     color: "#FFFFFF",
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "rgba(255, 255, 255, 0.7)",
-    marginTop: 4,
+    marginTop: verticalScale(4),
   },
   cardsWrapper: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-    gap: 16,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(20),
+    paddingBottom: verticalScale(40),
+    gap: verticalScale(16),
   },
   card: {
     backgroundColor: COLORS.cardWhite,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: scale(24),
+    padding: scale(20),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: "700",
     color: COLORS.textDark,
   },
   cardSubtitle: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: COLORS.textMuted,
-    marginTop: 2,
-    marginBottom: 16,
+    marginTop: verticalScale(2),
+    marginBottom: verticalScale(16),
   },
   chartWrapper: {
     alignItems: "center",
@@ -934,83 +1080,83 @@ const styles = StyleSheet.create({
   legendRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 20,
-    marginTop: 10,
+    gap: scale(20),
+    marginTop: verticalScale(10),
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: scale(6),
   },
   legendBox: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
+    width: scale(12),
+    height: scale(12),
+    borderRadius: scale(3),
   },
   legendText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: "600",
     color: COLORS.textDark,
   },
   stackedBarContainer: {
-    height: 16,
-    borderRadius: 8,
+    height: verticalScale(16),
+    borderRadius: scale(8),
     backgroundColor: "#EFECE6",
     flexDirection: "row",
     overflow: "hidden",
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   stackedSegment: {
     height: "100%",
   },
   paymentMetricRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: scale(12),
   },
   paymentMetricBox: {
     flex: 1,
     backgroundColor: "#F9F8F5",
-    padding: 12,
-    borderRadius: 14,
+    padding: scale(12),
+    borderRadius: scale(14),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
   },
   paymentHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
+    gap: scale(6),
+    marginBottom: verticalScale(6),
   },
   paymentTypeLabel: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: "600",
     color: COLORS.textMuted,
   },
   paymentValueText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: "700",
     color: COLORS.textDark,
   },
   paymentPercentageText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     color: COLORS.textMuted,
-    marginTop: 2,
+    marginTop: verticalScale(2),
   },
   cardBreakdownContainer: {
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: verticalScale(16),
+    paddingTop: verticalScale(16),
     borderTopWidth: 1,
     borderTopColor: COLORS.borderColor,
-    gap: 12,
+    gap: verticalScale(12),
   },
   cardBreakdownTitle: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "700",
     color: COLORS.textDark,
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
   },
   cardUsageRow: {
-    gap: 6,
+    gap: verticalScale(6),
   },
   cardUsageHeader: {
     flexDirection: "row",
@@ -1020,76 +1166,76 @@ const styles = StyleSheet.create({
   cardNameContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: scale(6),
   },
   cardIcon: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
   },
   cardNameText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: "600",
     color: COLORS.textDark,
   },
   cardTypeBadge: {
     backgroundColor: "#EFECE6",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: scale(6),
+    paddingVertical: verticalScale(2),
+    borderRadius: scale(4),
   },
   cardTypeBadgeText: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     fontWeight: "600",
     color: COLORS.textMuted,
     textTransform: "uppercase",
   },
   cardSpentText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: "700",
     color: COLORS.tealDark,
   },
   cardProgressBarTrack: {
-    height: 6,
+    height: verticalScale(6),
     backgroundColor: "#EFECE6",
-    borderRadius: 3,
+    borderRadius: scale(3),
     overflow: "hidden",
   },
   cardProgressBarFill: {
     height: "100%",
     backgroundColor: COLORS.tealDark,
-    borderRadius: 3,
+    borderRadius: scale(3),
   },
   donutWrapper: {
     alignItems: "center",
-    marginVertical: 10,
+    marginVertical: verticalScale(10),
   },
   categoryListContainer: {
-    marginTop: 16,
-    gap: 12,
+    marginTop: verticalScale(16),
+    gap: verticalScale(12),
     width: "100%",
   },
   categoryRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 2,
+    paddingVertical: verticalScale(2),
   },
   categoryLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: scale(10),
   },
   chipIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: scale(10),
+    height: scale(10),
+    borderRadius: scale(5),
   },
   categoryName: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "600",
     color: COLORS.textDark,
   },
   categoryValue: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "600",
     color: COLORS.textDark,
   },
@@ -1099,35 +1245,35 @@ const styles = StyleSheet.create({
   },
   netMetricRow: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
+    gap: scale(8),
+    marginBottom: verticalScale(16),
   },
   netMetricBox: {
     flex: 1,
     backgroundColor: "#F9F8F5",
-    padding: 10,
-    borderRadius: 12,
+    padding: scale(10),
+    borderRadius: scale(12),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
   },
   netMetricLabel: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: "600",
     color: COLORS.textMuted,
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   netIncomeText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "700",
     color: COLORS.tealDark,
   },
   netExpenseText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "700",
     color: COLORS.expenseOrange,
   },
   netValueText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "700",
   },
 });

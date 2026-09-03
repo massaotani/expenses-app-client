@@ -1,10 +1,15 @@
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { parseFlexibleNumber } from "@/utils/storage";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker, {
-  DateTimePickerChangeEvent,
-} from "@react-native-community/datetimepicker";
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  BottomSheetTextInput,
+} from "@gorhom/bottom-sheet";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -18,15 +23,13 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../app/_layout";
-import { colors } from "../constants/theme";
+import { useAppTheme } from "../constants/theme";
 import api from "../services/api";
 
 export interface SpringBootExpense {
@@ -98,6 +101,7 @@ const toLocalISOString = (date: Date): string => {
 };
 
 export default function OverviewScreen() {
+  const { colors, isDark } = useAppTheme();
   const { t, i18n } = useTranslation();
   const { token, signOut } = useAuth();
   const router = useRouter();
@@ -125,7 +129,6 @@ export default function OverviewScreen() {
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
-  const [modalCardVisible, setModalCardVisible] = useState<boolean>(false);
   const [cardModalMode, setCardModalMode] = useState<
     "LIST" | "FORM" | "DETAILS" | "EDIT"
   >("LIST");
@@ -135,8 +138,6 @@ export default function OverviewScreen() {
   const [newCardType, setNewCardType] = useState<"CREDIT" | "DEBIT">("CREDIT");
   const [submittingCard, setSubmittingCard] = useState<boolean>(false);
 
-  const [modalExpensesVisible, setModalExpensesVisible] =
-    useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [description, setDescription] = useState("");
   const [value, setValue] = useState("");
@@ -147,7 +148,6 @@ export default function OverviewScreen() {
     "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY"
   >("NONE");
 
-  const [modalIncomeVisible, setModalIncomeVisible] = useState<boolean>(false);
   const [submittingIncome, setSubmittingIncome] = useState<boolean>(false);
   const [incomeSource, setIncomeSource] = useState("");
   const [incomeValue, setIncomeValue] = useState("");
@@ -175,10 +175,31 @@ export default function OverviewScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      let isMounted = true;
+
       if (token) {
-        fetchAllData();
+        fetchAllData(isMounted);
       }
+
+      return () => {
+        isMounted = false;
+      };
     }, [token]),
+  );
+  const expensesSheetRef = useRef<BottomSheetModal>(null);
+  const incomeSheetRef = useRef<BottomSheetModal>(null);
+  const cardSheetRef = useRef<BottomSheetModal>(null);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        pressBehavior="close"
+      />
+    ),
+    [],
   );
 
   useEffect(() => {
@@ -266,15 +287,25 @@ export default function OverviewScreen() {
     return `${day}/${month}/${year}`;
   };
 
-  const handleDateChange = (
-    event: DateTimePickerChangeEvent,
-    selectedDate?: Date,
-  ) => {
-    if (Platform.OS === "android") setShowDatePicker(false);
-    if (selectedDate) setExpenseDate(selectedDate);
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    const date =
+      selectedDate ||
+      (event?.nativeEvent?.timestamp
+        ? new Date(event.nativeEvent.timestamp)
+        : null);
+
+    if (date) {
+      setExpenseDate(date);
+    }
+
+    setShowDatePicker(false);
   };
 
-  const fetchAllData = async () => {
+  const handleDismiss = () => {
+    setShowDatePicker(false);
+  };
+
+  const fetchAllData = async (isMounted = true) => {
     try {
       const [expensesRes, userRes, incomesRes, cardsRes, balanceRes] =
         await Promise.allSettled([
@@ -284,6 +315,8 @@ export default function OverviewScreen() {
           api.get<UserCard[]>("/api/v1/cards"),
           api.get<MonthlyBalance>("/api/v1/monthly-balances/current"),
         ]);
+
+      if (!isMounted) return;
 
       const isUnauthorized = [
         expensesRes,
@@ -331,8 +364,7 @@ export default function OverviewScreen() {
 
       processFigmaData(fetchedExpenses, fetchedIncomes);
     } catch (error) {
-      console.error("API Error fetching dashboard data:", error);
-      Alert.alert("Network Error", "Could not fetch data from server.");
+      if (isMounted) console.error("API Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -356,10 +388,8 @@ export default function OverviewScreen() {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
-    // Populate Spending Trend data
     setTrendData(processMonthlyTrend(expenses));
 
-    // Filter and sum income deposits for the current month
     const currentMonthIncomes = incomesList.filter((item) => {
       if (!item.createdAt) return true;
       const d = parseLocalDateTime(item.createdAt);
@@ -372,7 +402,6 @@ export default function OverviewScreen() {
     );
     setTotalDeposits(calculatedDeposits);
 
-    // Filter and sum expenses for the current month
     const currentMonthExpenses = expenses.filter((item) => {
       if (!item.dueDate) return true;
       const d = parseLocalDateTime(item.dueDate);
@@ -385,7 +414,6 @@ export default function OverviewScreen() {
     );
     setTotalExpenses(totalExp);
 
-    // Update budget map calculation safely
     const budgetMap = currentMonthExpenses.reduce(
       (acc, item) => {
         const itemVal = parseAmount(item.value ?? (item as any).amount);
@@ -400,11 +428,10 @@ export default function OverviewScreen() {
       category: cat,
       spent: budgetMap[cat],
       limit: budgetMap[cat] + budgetMap[cat] * 0.2,
-      color: getCategoryColor(cat),
+      color: getCategoryColor(cat, isDark),
     }));
     setBudgetItems(groupedBudgets);
 
-    // Format Recents exclusively using current month's items
     const formattedExpenses = currentMonthExpenses.map((item) => {
       const parsedDate = parseLocalDateTime(item.dueDate);
       return {
@@ -488,7 +515,8 @@ export default function OverviewScreen() {
 
       setIncomeSource("");
       setIncomeValue("");
-      setModalIncomeVisible(false);
+      handleCloseIncomeModal();
+
       await fetchAllData();
     } catch (error) {
       console.error("Error creating income record:", error);
@@ -496,6 +524,34 @@ export default function OverviewScreen() {
     } finally {
       setSubmittingIncome(false);
     }
+  };
+
+  const handleOpenIncomeModal = () => {
+    incomeSheetRef.current?.present();
+  };
+
+  const handleCloseIncomeModal = () => {
+    Keyboard.dismiss();
+    incomeSheetRef.current?.dismiss();
+  };
+
+  const handleOpenExpensesModal = () => {
+    expensesSheetRef.current?.present();
+  };
+
+  const handleCloseExpensesModal = () => {
+    Keyboard.dismiss();
+    expensesSheetRef.current?.dismiss();
+  };
+
+  const handleOpenCardModal = () => {
+    setCardModalMode("LIST");
+    cardSheetRef.current?.present();
+  };
+
+  const handleCloseCardModal = () => {
+    Keyboard.dismiss();
+    cardSheetRef.current?.dismiss();
   };
 
   const handleAddExpense = async () => {
@@ -530,22 +586,18 @@ export default function OverviewScreen() {
     let minutes = now.getMinutes();
     let seconds = now.getSeconds();
 
-    // Determine if selected date is in a past or future month relative to current month/year
     const selectedMonthKey = selectedYear * 12 + selectedMonth;
     const currentMonthKey = currentYear * 12 + currentMonth;
 
     if (selectedMonthKey > currentMonthKey) {
-      // Future month -> 00:00:00
       hours = 0;
       minutes = 0;
       seconds = 0;
     } else if (selectedMonthKey < currentMonthKey) {
-      // Past month -> 23:59:59
       hours = 23;
       minutes = 59;
       seconds = 59;
     }
-    // If selectedMonthKey === currentMonthKey (August), it keeps real timestamp (now.getHours(), etc.)
 
     const fullLocalDateTime = new Date(
       selectedYear,
@@ -583,7 +635,7 @@ export default function OverviewScreen() {
       setIsPaid(true);
       setPaymentType("CASH");
       setRecurrencePeriod("NONE");
-      setModalExpensesVisible(false);
+      handleCloseExpensesModal();
 
       await fetchAllData();
     } catch (error) {
@@ -657,38 +709,52 @@ export default function OverviewScreen() {
 
   const handleDeleteCard = async () => {
     if (!selectedCardForAction) return;
-    const cardToDeleteId = selectedCardForAction.id;
+    const cardToDeleteId = String(selectedCardForAction.id);
 
-    Alert.alert(
-      t("delete", "Delete"),
-      "Are you sure you want to delete this card?",
-      [
-        { text: t("cancel", "Cancel"), style: "cancel" },
-        {
-          text: t("delete", "Delete"),
-          style: "destructive",
-          onPress: async () => {
-            setSubmittingCard(true);
-            try {
-              await api.delete(`/api/v1/cards/${cardToDeleteId}`);
-              setUserCards((prevCards) =>
-                prevCards.filter((card) => card.id !== cardToDeleteId),
-              );
-              setSelectedCardForAction(null);
-              setCardModalMode("LIST");
-              await fetchAllData();
-            } catch (error: any) {
-              Alert.alert(
-                t("error", "Error"),
-                error?.response?.data?.message || "Failed to delete card.",
-              );
-            } finally {
-              setSubmittingCard(false);
-            }
-          },
+    // Check cardId directly or via nested object properties safely
+    const isCardInUse = rawExpenses.some((exp: any) => {
+      const rawCardId = exp.cardId ?? exp.card?.id;
+      if (!rawCardId) return false;
+      return String(rawCardId) === cardToDeleteId;
+    });
+
+    const alertTitle = t("delete", "Delete");
+    const alertMessage = isCardInUse
+      ? t(
+          "cardInUseWarning",
+          "This card is associated with another expenses. Are you sure you want to delete it?",
+        )
+      : t(
+          "deleteCardConfirmation",
+          "Are you sure you want to delete this card?",
+        );
+
+    Alert.alert(alertTitle, alertMessage, [
+      { text: t("cancel", "Cancel"), style: "cancel" },
+      {
+        text: t("delete", "Delete"),
+        style: "destructive",
+        onPress: async () => {
+          setSubmittingCard(true);
+          try {
+            await api.delete(`/api/v1/cards/${cardToDeleteId}`);
+            setUserCards((prevCards) =>
+              prevCards.filter((card) => String(card.id) !== cardToDeleteId),
+            );
+            setSelectedCardForAction(null);
+            setCardModalMode("LIST");
+            await fetchAllData();
+          } catch (error: any) {
+            Alert.alert(
+              t("error", "Error"),
+              error?.response?.data?.message || "Failed to delete card.",
+            );
+          } finally {
+            setSubmittingCard(false);
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const formatCategoryLabel = (cat: string) => {
@@ -719,49 +785,58 @@ export default function OverviewScreen() {
     }
   };
 
-  const getCategoryColor = (cat: string) => {
+  const getCategoryColor = (cat: string, isDark: boolean = false): string => {
     switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
       case "housing":
-        return colors.primaryTeal;
+        return isDark ? "#ff595e" : "#ff6600";
       case "food":
-        return colors.primaryOrange;
+        return isDark ? "#ff924c" : "#ff9900";
       case "fixed expenses":
-        return colors.deepOchre;
+        return isDark ? "#A78BFA" : "#6D28D9";
       case "transportation":
       case "transport":
-        return colors.sageTeal;
+        return isDark ? "#8ac926" : "#669900";
       case "entertainment":
-        return colors.goldenOchre;
+        return isDark ? "#c5ca30" : "#99cc33";
       case "healthcare":
       case "health":
-        return colors.softOrange;
+        return isDark ? "#ffca3a" : "#ffcc00";
       case "clothing":
-        return colors.terracotta;
+        return isDark ? "#36949d" : "#006699";
       case "pet":
-        return colors.amber;
+        return isDark ? "#1982c4" : "#3399cc";
       case "travel":
-        return colors.deepSage;
+        return isDark ? "#6a4c93" : "#990066";
       default:
-        return colors.neutral;
+        return isDark ? "#565aa0" : "#cc3399";
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View
+        style={[
+          styles.centerContainer,
+          { backgroundColor: colors.screenBackground },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.primaryTeal} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.headerBackground }]}
+    >
       <StatusBar
-        barStyle="light-content"
+        barStyle={colors.statusBarStyle}
         backgroundColor={colors.headerBackground}
       />
 
-      <View style={styles.header}>
+      <View
+        style={[styles.header, { backgroundColor: colors.headerBackground }]}
+      >
         <Text style={styles.monthText}>{t("overview", "OVERVIEW")}</Text>
 
         <View style={styles.userGreetingRow}>
@@ -771,12 +846,9 @@ export default function OverviewScreen() {
           </Text>
           <TouchableOpacity
             style={styles.cardIconButton}
-            onPress={() => {
-              setCardModalMode("LIST");
-              setModalCardVisible(true);
-            }}
+            onPress={handleOpenCardModal}
           >
-            <Ionicons name="card-outline" size={20} color={colors.textLight} />
+            <Ionicons name="card-outline" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -808,7 +880,7 @@ export default function OverviewScreen() {
         <View style={styles.dualCardRow}>
           <TouchableOpacity
             style={[styles.miniCard, styles.flex1, { marginRight: 8 }]}
-            onPress={() => setModalIncomeVisible(true)}
+            onPress={handleOpenIncomeModal}
           >
             <View style={styles.rowContainer}>
               <Text style={styles.miniCardLabel}>{t("income", "INCOME")}</Text>
@@ -826,7 +898,7 @@ export default function OverviewScreen() {
 
           <TouchableOpacity
             style={[styles.miniCard, styles.flex1, { marginLeft: 8 }]}
-            onPress={() => setModalExpensesVisible(true)}
+            onPress={handleOpenExpensesModal}
           >
             <View style={styles.rowContainer}>
               <Text style={styles.miniCardLabel}>
@@ -845,7 +917,7 @@ export default function OverviewScreen() {
         </View>
       </View>
 
-      <View style={styles.body}>
+      <View style={[styles.body, { backgroundColor: colors.screenBackground }]}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
@@ -858,8 +930,13 @@ export default function OverviewScreen() {
             />
           }
         >
-          <View style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>
+          <View
+            style={[
+              styles.sectionCard,
+              { backgroundColor: colors.cardBackground },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
               {t("spendingTrend", "Spending Trend")}
             </Text>
 
@@ -867,7 +944,7 @@ export default function OverviewScreen() {
               <LineChart
                 data={trendData}
                 curved
-                color={colors.primaryOrange || "#C86D4B"}
+                color={colors.graphicLine}
                 thickness={2.5}
                 hideDataPoints
                 height={130}
@@ -880,11 +957,11 @@ export default function OverviewScreen() {
                 yAxisColor="transparent"
                 xAxisColor="#E5E7EB"
                 yAxisTextStyle={{
-                  color: colors.textMuted || "#9CA3AF",
+                  color: colors.textSecondary,
                   fontSize: 11,
                 }}
                 xAxisLabelTextStyle={{
-                  color: colors.textMuted || "#9CA3AF",
+                  color: colors.textSecondary,
                   fontSize: 11,
                 }}
                 formatYLabel={(val) => `${Number(val)}`}
@@ -892,8 +969,13 @@ export default function OverviewScreen() {
             </View>
           </View>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>
+          <View
+            style={[
+              styles.sectionCard,
+              { backgroundColor: colors.cardBackground },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
               {t("monthlyBudget", "Monthly Budget")}
             </Text>
             {budgetItems.map((item) => {
@@ -905,25 +987,48 @@ export default function OverviewScreen() {
               return (
                 <View key={item.id} style={styles.budgetItem}>
                   <View style={styles.budgetHeader}>
-                    <Text style={styles.budgetCategory}>
+                    <Text
+                      style={[
+                        styles.budgetCategory,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
                       {t(item.category.toLowerCase().replace(/\s+/g, "_"), {
                         defaultValue: item.category,
                       })}
                     </Text>
-                    <Text style={styles.budgetAmounts}>
-                      ${formatCurrency(item.spent)}
-                      <Text style={styles.budgetLimit}>
+                    <Text
+                      style={[
+                        styles.budgetAmounts,
+                        { color: colors.monthlyAmount },
+                      ]}
+                    >
+                      ${formatCurrency(item.spent)}{" "}
+                      <Text
+                        style={[
+                          styles.budgetLimit,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
                         ({sharePercentage.toFixed(0)}%)
                       </Text>
                     </Text>
                   </View>
-                  <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarTrack,
+                      { backgroundColor: colors.iconBoxBg },
+                    ]}
+                  >
                     <View
                       style={[
                         styles.progressBarFill,
                         {
                           width: `${Math.min(sharePercentage, 100)}%`,
-                          backgroundColor: item.color,
+                          backgroundColor: getCategoryColor(
+                            item.category,
+                            isDark,
+                          ),
                         },
                       ]}
                     />
@@ -933,25 +1038,57 @@ export default function OverviewScreen() {
             })}
           </View>
 
-          <View style={styles.sectionCard}>
+          <View
+            style={[
+              styles.sectionCard,
+              { backgroundColor: colors.cardBackground },
+            ]}
+          >
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.cardTitle}>{t("recent", "Recent")}</Text>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+                {t("recent", "Recent")}
+              </Text>
               <TouchableOpacity onPress={() => router.push("/transactions")}>
-                <Text style={styles.seeAllText}>
+                <Text
+                  style={[styles.seeAllText, { color: colors.primaryTeal }]}
+                >
                   {t("seeAll", "See all")} →
                 </Text>
               </TouchableOpacity>
             </View>
 
             {recentTransactions.map((tx) => (
-              <View key={tx.id} style={styles.transactionRow}>
-                <View style={styles.iconContainer}>
+              <View
+                key={tx.id}
+                style={[
+                  styles.transactionRow,
+                  { borderBottomColor: colors.divider },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: colors.iconBoxBg },
+                  ]}
+                >
                   <Text style={styles.emojiText}>{tx.emoji}</Text>
                 </View>
 
                 <View style={styles.transactionMeta}>
-                  <Text style={styles.transactionTitle}>{tx.title}</Text>
-                  <Text style={styles.transactionSubtitle}>
+                  <Text
+                    style={[
+                      styles.transactionTitle,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {tx.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.transactionSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
                     {String(
                       t(tx.category.toLowerCase().replace(/\s+/g, "_"), {
                         defaultValue: tx.category,
@@ -979,436 +1116,617 @@ export default function OverviewScreen() {
         </ScrollView>
       </View>
 
-      <Modal
-        statusBarTranslucent
-        visible={modalCardVisible}
-        animationType="slide"
-        transparent
+      <BottomSheetModal
+        ref={cardSheetRef}
+        enableDynamicSizing
+        enablePanDownToClose
+        keyboardBehavior="interactive"
+        android_keyboardInputMode="adjustPan"
+        keyboardBlurBehavior="restore"
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: colors.cardBackground }}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => {
-            Keyboard.dismiss();
-            setModalCardVisible(false);
-          }}
+        <BottomSheetScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
         >
-          <KeyboardAwareScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            enableOnAndroid
-            enableAutomaticScroll
-            extraScrollHeight={50}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={() => Keyboard.dismiss()}
-            >
-              {cardModalMode === "LIST" && (
-                <>
-                  <View style={styles.modalHeaderRow}>
-                    <Text style={styles.modalTitle}>
-                      {t("registeredCards", "Registered Cards")}
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.addCardHeaderButton}
-                      onPress={() => {
-                        setNewCardName("");
-                        setNewCardType("CREDIT");
-                        setCardModalMode("FORM");
-                      }}
-                    >
-                      <Text style={styles.addCardHeaderButtonText}>
-                        + {t("addCard", "Add Card")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {userCards.length === 0 ? (
-                    <View style={styles.emptyCardsContainer}>
-                      <Text style={styles.emptyCardsText}>
-                        {t("noCardsRegistered", "No cards registered")}
-                      </Text>
-                    </View>
-                  ) : (
-                    <ScrollView style={{ maxHeight: 240, marginVertical: 12 }}>
-                      {userCards.map((c) => (
-                        <TouchableOpacity
-                          key={c.id}
-                          style={styles.cardListItem}
-                          onPress={() => {
-                            setSelectedCardForAction(c);
-                            setCardModalMode("DETAILS");
-                          }}
-                        >
-                          <Text
-                            style={[styles.cardListItemText, { flex: 1 }]}
-                            numberOfLines={1}
-                          >
-                            💳 {c.name || t("unnamedCard", "Unnamed Card")}
-                          </Text>
-                          <Text style={styles.cardListItemBadge}>
-                            {String(
-                              t((c.cardType || "CREDIT").toLowerCase(), {
-                                defaultValue:
-                                  c.cardType === "DEBIT" ? "Debit" : "Credit",
-                              }),
-                            )}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  )}
-
-                  <View style={styles.modalActions}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.cancelButton]}
-                      onPress={() => {
-                        Keyboard.dismiss();
-                        setModalCardVisible(false);
-                      }}
-                    >
-                      <Text style={styles.cancelButtonText}>
-                        {t("close", "Close")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-              {cardModalMode === "DETAILS" && selectedCardForAction && (
-                <>
-                  <View style={styles.modalHeaderRow}>
-                    <TouchableOpacity onPress={() => setCardModalMode("LIST")}>
-                      <Text style={styles.backButtonText}>
-                        ← {t("back", "Back")}
-                      </Text>
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>
-                      {selectedCardForAction.name}
-                    </Text>
-                    <View style={{ width: 40 }} />
-                  </View>
-
-                  <View style={{ marginVertical: 20 }}>
-                    <Text style={styles.inputLabel}>
-                      {t("cardType", "Card Type")}
-                    </Text>
-                    <Text style={styles.cardListItemText}>
-                      💳{" "}
-                      {String(
-                        t(selectedCardForAction.cardType.toLowerCase(), {
-                          defaultValue:
-                            selectedCardForAction.cardType === "CREDIT"
-                              ? "Credit"
-                              : "Debit",
-                        }),
-                      )}
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalActions}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.cancelButton]}
-                      onPress={handleStartEditCard}
-                    >
-                      <Text style={styles.cancelButtonText}>
-                        {t("edit", "Edit")}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
+          <Pressable style={{ flex: 1 }} onPress={() => Keyboard.dismiss()}>
+            {cardModalMode === "LIST" && (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <Text
+                    style={[styles.modalTitle, { color: colors.textPrimary }]}
+                  >
+                    {t("registeredCards", "Registered Cards")}
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.addCardHeaderButton,
+                      { backgroundColor: colors.addButtonBg },
+                    ]}
+                    onPress={() => {
+                      setNewCardName("");
+                      setNewCardType("CREDIT");
+                      setCardModalMode("FORM");
+                    }}
+                  >
+                    <Text
                       style={[
-                        styles.modalButton,
-                        { backgroundColor: "#EF4444" },
+                        styles.addCardHeaderButtonText,
+                        { color: colors.cardBackground },
                       ]}
-                      onPress={handleDeleteCard}
-                      disabled={submittingCard}
                     >
-                      {submittingCard ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <Text style={styles.saveButtonText}>
-                          {t("delete", "Delete")}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-              {(cardModalMode === "FORM" || cardModalMode === "EDIT") && (
-                <>
-                  <View style={styles.modalHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() =>
-                        setCardModalMode(
-                          cardModalMode === "EDIT" ? "DETAILS" : "LIST",
-                        )
-                      }
-                    >
-                      <Text style={styles.backButtonText}>
-                        ← {t("back", "Back")}
-                      </Text>
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>
-                      {cardModalMode === "EDIT"
-                        ? `${t("edit", "Edit")} ${t("card", "Card")}`
-                        : t("newCard", "New Card")}
+                      + {t("addCard", "Add Card")}
                     </Text>
-                    <View style={{ width: 40 }} />
+                  </TouchableOpacity>
+                </View>
+
+                {userCards.length === 0 ? (
+                  <View style={styles.emptyCardsContainer}>
+                    <Text
+                      style={[
+                        styles.emptyCardsText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {t("noCardsRegistered", "No cards registered")}
+                    </Text>
                   </View>
-
-                  <Text style={styles.inputLabel}>
-                    {t("cardName", "Card Name")}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Chase Sapphire, Nubank"
-                    value={newCardName}
-                    onChangeText={setNewCardName}
-                  />
-
-                  <Text style={styles.inputLabel}>
-                    {t("cardType", "Card Type")}
-                  </Text>
-                  <View style={styles.categoryContainer}>
-                    {(["CREDIT", "DEBIT"] as const).map((type) => (
+                ) : (
+                  <ScrollView style={{ maxHeight: 240, marginVertical: 12 }}>
+                    {userCards.map((c) => (
                       <TouchableOpacity
-                        key={type}
+                        key={c.id}
                         style={[
-                          styles.categoryChip,
-                          newCardType === type && styles.categoryChipSelected,
+                          styles.cardListItem,
+                          { backgroundColor: colors.iconBoxBg },
                         ]}
-                        onPress={() => setNewCardType(type)}
+                        onPress={() => {
+                          setSelectedCardForAction(c);
+                          setCardModalMode("DETAILS");
+                        }}
                       >
                         <Text
                           style={[
-                            styles.categoryChipText,
-                            newCardType === type &&
-                              styles.categoryChipTextSelected,
+                            styles.cardListItemText,
+                            { flex: 1, color: colors.textPrimary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          💳 {c.name || t("unnamedCard", "Unnamed Card")}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.cardListItemBadge,
+                            {
+                              backgroundColor: colors.neutral,
+                              color: colors.typeCard,
+                              minWidth: scale(55),
+                              textAlign: "center",
+                            },
                           ]}
                         >
                           {String(
-                            t(type.toLowerCase(), {
+                            t((c.cardType || "CREDIT").toLowerCase(), {
                               defaultValue:
-                                type === "CREDIT" ? "Credit" : "Debit",
+                                c.cardType === "DEBIT" ? "Debit" : "Credit",
                             }),
                           )}
                         </Text>
                       </TouchableOpacity>
                     ))}
-                  </View>
+                  </ScrollView>
+                )}
 
-                  <View style={styles.modalActions}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.cancelButton]}
-                      onPress={() =>
-                        setCardModalMode(
-                          cardModalMode === "EDIT" ? "DETAILS" : "LIST",
-                        )
-                      }
-                    >
-                      <Text style={styles.cancelButtonText}>
-                        {t("cancel", "Cancel")}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.saveButton]}
-                      onPress={
-                        cardModalMode === "EDIT"
-                          ? handleUpdateCard
-                          : handleCreateCard
-                      }
-                      disabled={submittingCard}
-                    >
-                      {submittingCard ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <Text style={styles.saveButtonText}>
-                          {t("saveCard", "Save Card")}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-              <View style={styles.bottomExtension} />
-            </Pressable>
-          </KeyboardAwareScrollView>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        statusBarTranslucent
-        visible={modalIncomeVisible}
-        animationType="slide"
-        transparent
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => {
-            Keyboard.dismiss();
-            setModalIncomeVisible(false);
-          }}
-        >
-          <KeyboardAwareScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            enableOnAndroid
-            enableAutomaticScroll
-            extraScrollHeight={60}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={() => Keyboard.dismiss()}
-            >
-              <Text style={styles.modalTitle}>
-                {t("addIncomeDeposit", "Add Income Deposit")}
-              </Text>
-
-              <Text style={styles.inputLabel}>
-                {t("sourceDescription", "Source / Description")}
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Monthly Salary, Freelance"
-                value={incomeSource}
-                onChangeText={setIncomeSource}
-              />
-
-              <Text style={styles.inputLabel}>{t("amount", "Amount ($)")}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                value={incomeValue}
-                onChangeText={(text) => {
-                  const normalized = text
-                    .replace(/\./g, ",")
-                    .replace(/(,\d{2})\d+$/, "$1");
-                  setIncomeValue(normalized);
-                }}
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setModalIncomeVisible(false);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>
-                    {t("cancel", "Cancel")}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.saveButton]}
-                  onPress={handleAddIncome}
-                  disabled={submittingIncome}
-                >
-                  {submittingIncome ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>
-                      {t("addToIncome", "Add to Income")}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              <View style={styles.bottomExtension} />
-            </Pressable>
-          </KeyboardAwareScrollView>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        statusBarTranslucent
-        visible={modalExpensesVisible}
-        animationType="slide"
-        transparent
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => {
-            Keyboard.dismiss();
-            setModalExpensesVisible(false);
-          }}
-        >
-          <KeyboardAwareScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            enableOnAndroid
-            enableAutomaticScroll
-            extraScrollHeight={30}
-            style={{ width: "100%", maxHeight: "85%" }}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={() => Keyboard.dismiss()}
-            >
-              <Text style={styles.modalTitle}>
-                {t("addNewExpense", "Add New Expense")}
-              </Text>
-
-              <Text style={styles.inputLabel}>
-                {t("description", "Description")}
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Grocery Shopping"
-                value={description}
-                onChangeText={setDescription}
-              />
-
-              <Text style={styles.inputLabel}>{t("amount", "Amount ($)")}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                value={value}
-                onChangeText={(text) => {
-                  const normalized = text
-                    .replace(/\./g, ",")
-                    .replace(/(,\d{2})\d+$/, "$1");
-                  setValue(normalized);
-                }}
-              />
-
-              <Text style={styles.inputLabel}>{t("category", "Category")}</Text>
-              <View style={styles.categoryContainer}>
-                {CATEGORIES.map((cat) => (
+                <View style={styles.modalActions}>
                   <TouchableOpacity
-                    key={cat}
                     style={[
-                      styles.categoryChip,
-                      category === cat && styles.categoryChipSelected,
+                      styles.modalButton,
+                      styles.cancelButton,
+                      { backgroundColor: colors.iconBoxBg },
                     ]}
-                    onPress={() => setCategory(cat)}
+                    onPress={handleCloseCardModal}
                   >
                     <Text
                       style={[
-                        styles.categoryChipText,
-                        category === cat && styles.categoryChipTextSelected,
+                        styles.cancelButtonText,
+                        { color: colors.textPrimary },
                       ]}
                     >
-                      {formatCategoryLabel(cat)}
+                      {t("close", "Close")}
                     </Text>
                   </TouchableOpacity>
-                ))}
+                </View>
+              </>
+            )}
+
+            {cardModalMode === "DETAILS" && selectedCardForAction && (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <TouchableOpacity onPress={() => setCardModalMode("LIST")}>
+                    <Text
+                      style={[
+                        styles.backButtonText,
+                        { color: colors.primaryTeal },
+                      ]}
+                    >
+                      ← {t("back", "Back")}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text
+                    style={[styles.modalTitle, { color: colors.textPrimary }]}
+                  >
+                    {selectedCardForAction.name}
+                  </Text>
+                  <View style={{ width: 40 }} />
+                </View>
+
+                <View style={{ marginVertical: 20 }}>
+                  <Text
+                    style={[styles.inputLabel, { color: colors.textSecondary }]}
+                  >
+                    {t("cardType", "Card Type")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cardListItemText,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    💳{" "}
+                    {String(
+                      t(selectedCardForAction.cardType.toLowerCase(), {
+                        defaultValue:
+                          selectedCardForAction.cardType === "CREDIT"
+                            ? "Credit"
+                            : "Debit",
+                      }),
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.cancelButton,
+                      { backgroundColor: colors.iconBoxBg },
+                    ]}
+                    onPress={handleStartEditCard}
+                  >
+                    <Text
+                      style={[
+                        styles.cancelButtonText,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {t("edit", "Edit")}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, { backgroundColor: "#EF4444" }]}
+                    onPress={handleDeleteCard}
+                    disabled={submittingCard}
+                  >
+                    {submittingCard ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>
+                        {t("delete", "Delete")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {(cardModalMode === "FORM" || cardModalMode === "EDIT") && (
+              <>
+                <View style={styles.modalHeaderRow}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setCardModalMode(
+                        cardModalMode === "EDIT" ? "DETAILS" : "LIST",
+                      )
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.backButtonText,
+                        { color: colors.primaryTeal },
+                      ]}
+                    >
+                      ← {t("back", "Back")}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text
+                    style={[styles.modalTitle, { color: colors.textPrimary }]}
+                  >
+                    {cardModalMode === "EDIT"
+                      ? `${t("edit", "Edit")} ${t("card", "Card")}`
+                      : t("newCard", "New Card")}
+                  </Text>
+                  <View style={{ width: 40 }} />
+                </View>
+
+                <Text
+                  style={[styles.inputLabel, { color: colors.textSecondary }]}
+                >
+                  {t("cardName", "Card Name")}
+                </Text>
+                <BottomSheetTextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.iconBoxBg,
+                      color: colors.textPrimary,
+                    },
+                  ]}
+                  placeholder="e.g. Chase Sapphire, Nubank"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newCardName}
+                  onChangeText={setNewCardName}
+                />
+
+                <Text
+                  style={[styles.inputLabel, { color: colors.textSecondary }]}
+                >
+                  {t("cardType", "Card Type")}
+                </Text>
+                <View style={styles.categoryContainer}>
+                  {(["CREDIT", "DEBIT"] as const).map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: colors.iconBoxBg },
+                        newCardType === type && {
+                          backgroundColor: colors.primaryTeal,
+                        },
+                      ]}
+                      onPress={() => setNewCardType(type)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          { color: colors.textPrimary },
+                          newCardType === type &&
+                            styles.categoryChipTextSelected,
+                        ]}
+                      >
+                        {String(
+                          t(type.toLowerCase(), {
+                            defaultValue:
+                              type === "CREDIT" ? "Credit" : "Debit",
+                          }),
+                        )}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.cancelButton,
+                      { backgroundColor: colors.iconBoxBg },
+                    ]}
+                    onPress={() =>
+                      setCardModalMode(
+                        cardModalMode === "EDIT" ? "DETAILS" : "LIST",
+                      )
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.cancelButtonText,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {t("cancel", "Cancel")}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.saveButton,
+                      { backgroundColor: colors.primaryTeal },
+                    ]}
+                    onPress={
+                      cardModalMode === "EDIT"
+                        ? handleUpdateCard
+                        : handleCreateCard
+                    }
+                    disabled={submittingCard}
+                  >
+                    {submittingCard ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>
+                        {t("saveCard", "Save Card")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
+
+      <BottomSheetModal
+        ref={incomeSheetRef}
+        enableDynamicSizing
+        enablePanDownToClose
+        keyboardBehavior="interactive"
+        android_keyboardInputMode="adjustPan"
+        keyboardBlurBehavior="restore"
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: colors.cardBackground }}
+      >
+        <BottomSheetScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+        >
+          <Pressable style={{ flex: 1 }} onPress={() => Keyboard.dismiss()}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              {t("addIncomeDeposit", "Add Income Deposit")}
+            </Text>
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("sourceDescription", "Source / Description")}
+            </Text>
+            <BottomSheetTextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  color: colors.textPrimary,
+                },
+              ]}
+              placeholder="e.g. Monthly Salary, Freelance"
+              placeholderTextColor={colors.textSecondary}
+              value={incomeSource}
+              onChangeText={setIncomeSource}
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("amount", "Amount ($)")}
+            </Text>
+            <BottomSheetTextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  color: colors.textPrimary,
+                },
+              ]}
+              placeholder="0.00"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="decimal-pad"
+              value={incomeValue}
+              onChangeText={(text) => {
+                const normalized = text
+                  .replace(/\./g, ",")
+                  .replace(/(,\d{2})\d+$/, "$1");
+                setIncomeValue(normalized);
+              }}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  { backgroundColor: colors.iconBoxBg },
+                ]}
+                onPress={handleCloseIncomeModal}
+              >
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    { color: colors.textPrimary },
+                  ]}
+                >
+                  {t("cancel", "Cancel")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  { backgroundColor: colors.primaryTeal },
+                ]}
+                onPress={handleAddIncome}
+                disabled={submittingIncome}
+              >
+                {submittingIncome ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    {t("addToIncome", "Add to Income")}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
+
+      <BottomSheetModal
+        ref={expensesSheetRef}
+        enableDynamicSizing
+        enablePanDownToClose={true}
+        keyboardBehavior="interactive"
+        android_keyboardInputMode="adjustPan"
+        keyboardBlurBehavior="restore"
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{
+          backgroundColor: colors.cardBackground,
+        }}
+      >
+        <BottomSheetScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 40,
+          }}
+        >
+          <Pressable style={{ flex: 1 }} onPress={() => Keyboard.dismiss()}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              {t("addNewExpense", "Add New Expense")}
+            </Text>
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("description", "Description")}
+            </Text>
+            <BottomSheetTextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  color: colors.textPrimary,
+                },
+              ]}
+              placeholder="e.g. Grocery Shopping"
+              placeholderTextColor={colors.textSecondary}
+              value={description}
+              onChangeText={setDescription}
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("amount", "Amount ($)")}
+            </Text>
+            <BottomSheetTextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  color: colors.textPrimary,
+                },
+              ]}
+              placeholder="0.00"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="decimal-pad"
+              value={value}
+              onChangeText={(text) => {
+                const normalized = text
+                  .replace(/\./g, ",")
+                  .replace(/(,\d{2})\d+$/, "$1");
+                setValue(normalized);
+              }}
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("category", "Category")}
+            </Text>
+            <View style={styles.categoryContainer}>
+              <View style={styles.categoryColumn}>
+                {CATEGORIES.slice(0, Math.ceil(CATEGORIES.length / 2)).map(
+                  (cat) => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: colors.iconBoxBg },
+                        category === cat && {
+                          backgroundColor: colors.primaryTeal,
+                        },
+                      ]}
+                      onPress={() => setCategory(cat)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          { color: colors.textPrimary },
+                          category === cat && styles.categoryChipTextSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {formatCategoryLabel(cat)}
+                      </Text>
+                    </TouchableOpacity>
+                  ),
+                )}
               </View>
 
-              <Text style={styles.inputLabel}>
-                {t("paymentMethod", "Payment Method")}
-              </Text>
-              <View style={styles.categoryContainer}>
-                {(["CASH", "CARD"] as const).map((type) => {
-                  const isDisabled = type === "CARD" && userCards.length === 0;
+              <View style={styles.categoryColumn}>
+                {CATEGORIES.slice(Math.ceil(CATEGORIES.length / 2)).map(
+                  (cat) => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: colors.iconBoxBg },
+                        category === cat && {
+                          backgroundColor: colors.primaryTeal,
+                        },
+                      ]}
+                      onPress={() => setCategory(cat)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          { color: colors.textPrimary },
+                          category === cat && styles.categoryChipTextSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {formatCategoryLabel(cat)}
+                      </Text>
+                    </TouchableOpacity>
+                  ),
+                )}
+              </View>
+            </View>
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("paymentMethod", "Payment Method")}
+            </Text>
+            <View style={styles.categoryContainer}>
+              <View style={styles.categoryColumn}>
+                {(() => {
+                  const type = "CASH";
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: colors.iconBoxBg },
+                        paymentType === type && {
+                          backgroundColor: colors.primaryTeal,
+                        },
+                      ]}
+                      onPress={() => setPaymentType(type)}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          { color: colors.textPrimary },
+                          paymentType === type &&
+                            styles.categoryChipTextSelected,
+                        ]}
+                      >
+                        {String(
+                          t(type.toLowerCase(), {
+                            defaultValue: "Cash",
+                          }),
+                        )}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()}
+              </View>
+
+              <View style={styles.categoryColumn}>
+                {(() => {
+                  const type = "CARD";
+                  const isDisabled = userCards.length === 0;
 
                   return (
                     <TouchableOpacity
@@ -1416,16 +1734,15 @@ export default function OverviewScreen() {
                       disabled={isDisabled}
                       style={[
                         styles.categoryChip,
-                        paymentType === type && styles.categoryChipSelected,
+                        { backgroundColor: colors.iconBoxBg },
+                        paymentType === type && {
+                          backgroundColor: colors.primaryTeal,
+                        },
                         isDisabled && { opacity: 0.4 },
                       ]}
                       onPress={() => {
                         setPaymentType(type);
-                        if (
-                          type === "CARD" &&
-                          userCards.length > 0 &&
-                          !selectedCardId
-                        ) {
+                        if (userCards.length > 0 && !selectedCardId) {
                           setSelectedCardId(userCards[0].id);
                         }
                       }}
@@ -1433,466 +1750,572 @@ export default function OverviewScreen() {
                       <Text
                         style={[
                           styles.categoryChipText,
+                          { color: colors.textPrimary },
                           paymentType === type &&
                             styles.categoryChipTextSelected,
                         ]}
+                        numberOfLines={1}
                       >
                         {String(
                           t(type.toLowerCase(), {
-                            defaultValue: type === "CASH" ? "Cash" : "Card",
+                            defaultValue: "Card",
                           }),
                         )}
                         {isDisabled
-                          ? ` ${String(t("noCardsAvailable", { defaultValue: "(No Cards Available)" }))}`
+                          ? ` ${String(
+                              t("noCardsAvailable", {
+                                defaultValue: "(No Cards Available)",
+                              }),
+                            )}`
                           : ""}
                       </Text>
                     </TouchableOpacity>
                   );
-                })}
+                })()}
               </View>
+            </View>
 
-              {paymentType === "CARD" && userCards.length > 0 && (
-                <>
-                  <Text style={styles.inputLabel}>
-                    {t("selectCard", "Select Card")}
-                  </Text>
-                  <View style={styles.categoryContainer}>
-                    {userCards.map((card) => (
-                      <TouchableOpacity
-                        key={card.id}
-                        style={[
-                          styles.categoryChip,
-                          selectedCardId === card.id &&
-                            styles.categoryChipSelected,
-                        ]}
-                        onPress={() => setSelectedCardId(card.id)}
-                      >
-                        <Text
+            {paymentType === "CARD" && userCards.length > 0 && (
+              <>
+                <Text
+                  style={[styles.inputLabel, { color: colors.textSecondary }]}
+                >
+                  {t("selectCard", "Select Card")}
+                </Text>
+                <View style={styles.categoryContainer}>
+                  <View style={styles.categoryColumn}>
+                    {userCards
+                      .slice(0, Math.ceil(userCards.length / 2))
+                      .map((card) => (
+                        <TouchableOpacity
+                          key={card.id}
                           style={[
-                            styles.categoryChipText,
-                            selectedCardId === card.id &&
-                              styles.categoryChipTextSelected,
+                            styles.categoryChip,
+                            { backgroundColor: colors.iconBoxBg },
+                            selectedCardId === card.id && {
+                              backgroundColor: colors.primaryTeal,
+                            },
                           ]}
+                          onPress={() => setSelectedCardId(card.id)}
                         >
-                          💳 {card.name} (
-                          {String(
-                            t(card.cardType.toLowerCase(), {
-                              defaultValue:
-                                card.cardType === "CREDIT" ? "Credit" : "Debit",
-                            }),
-                          )}
-                          )
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                          <Text
+                            style={[
+                              styles.categoryChipText,
+                              { color: colors.textPrimary },
+                              selectedCardId === card.id &&
+                                styles.categoryChipTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            💳 {card.name} (
+                            {String(
+                              t(card.cardType.toLowerCase(), {
+                                defaultValue:
+                                  card.cardType === "CREDIT"
+                                    ? "Credit"
+                                    : "Debit",
+                              }),
+                            )}
+                            )
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
                   </View>
-                </>
-              )}
 
-              <Text style={styles.inputLabel}>{t("date", "Date")}</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowDatePicker(true)}
+                  <View style={styles.categoryColumn}>
+                    {userCards
+                      .slice(Math.ceil(userCards.length / 2))
+                      .map((card) => (
+                        <TouchableOpacity
+                          key={card.id}
+                          style={[
+                            styles.categoryChip,
+                            { backgroundColor: colors.iconBoxBg },
+                            selectedCardId === card.id && {
+                              backgroundColor: colors.primaryTeal,
+                            },
+                          ]}
+                          onPress={() => setSelectedCardId(card.id)}
+                        >
+                          <Text
+                            style={[
+                              styles.categoryChipText,
+                              { color: colors.textPrimary },
+                              selectedCardId === card.id &&
+                                styles.categoryChipTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            💳 {card.name} (
+                            {String(
+                              t(card.cardType.toLowerCase(), {
+                                defaultValue:
+                                  card.cardType === "CREDIT"
+                                    ? "Credit"
+                                    : "Debit",
+                              }),
+                            )}
+                            )
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                  </View>
+                </View>
+              </>
+            )}
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("date", "Date")}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.datePickerButton,
+                { backgroundColor: colors.iconBoxBg },
+              ]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={colors.textPrimary}
+              />
+              <Text
+                style={[styles.datePickerText, { color: colors.textPrimary }]}
               >
-                <Ionicons
-                  name="calendar-outline"
-                  size={20}
-                  color={colors.textDark}
+                {formatDateDDMMYYYY(expenseDate)}
+              </Text>
+            </TouchableOpacity>
+
+            {showDatePicker &&
+              (Platform.OS === "ios" ? (
+                <Modal
+                  transparent
+                  animationType="fade"
+                  visible={showDatePicker}
+                  onRequestClose={() => setShowDatePicker(false)}
+                >
+                  <TouchableOpacity
+                    style={styles.datePickerBackdrop}
+                    activeOpacity={1}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={1}
+                      style={[
+                        styles.datePickerContainerIOS,
+                        { backgroundColor: colors.cardBackground },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.datePickerHeaderIOS,
+                          { borderBottomColor: colors.divider },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          onPress={() => setShowDatePicker(false)}
+                        >
+                          <Text
+                            style={[
+                              styles.datePickerDoneText,
+                              { color: colors.primaryTeal },
+                            ]}
+                          >
+                            {t("done", "Done")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={expenseDate}
+                        mode="date"
+                        display="spinner"
+                        onValueChange={handleDateChange}
+                        onDismiss={handleDismiss}
+                        maximumDate={new Date(2100, 11, 31)}
+                        style={{ alignSelf: "center", width: "100%" }}
+                      />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                </Modal>
+              ) : (
+                <DateTimePicker
+                  value={expenseDate}
+                  mode="date"
+                  display="default"
+                  onValueChange={handleDateChange}
+                  onDismiss={handleDismiss}
+                  maximumDate={new Date(2100, 11, 31)}
                 />
-                <Text style={styles.datePickerText}>
-                  {formatDateDDMMYYYY(expenseDate)}
+              ))}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  { backgroundColor: colors.iconBoxBg },
+                ]}
+                onPress={handleCloseExpensesModal}
+              >
+                <Text
+                  style={[
+                    styles.cancelButtonText,
+                    { color: colors.textPrimary },
+                  ]}
+                >
+                  {t("cancel", "Cancel")}
                 </Text>
               </TouchableOpacity>
 
-              {showDatePicker &&
-                (Platform.OS === "ios" ? (
-                  <Modal
-                    transparent
-                    animationType="fade"
-                    visible={showDatePicker}
-                    onRequestClose={() => setShowDatePicker(false)}
-                  >
-                    <TouchableOpacity
-                      style={styles.datePickerBackdrop}
-                      activeOpacity={1}
-                      onPress={() => setShowDatePicker(false)}
-                    >
-                      <TouchableOpacity
-                        activeOpacity={1}
-                        style={styles.datePickerContainerIOS}
-                      >
-                        <View style={styles.datePickerHeaderIOS}>
-                          <TouchableOpacity
-                            onPress={() => setShowDatePicker(false)}
-                          >
-                            <Text style={styles.datePickerDoneText}>
-                              {t("done", "Done")}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                        <DateTimePicker
-                          value={expenseDate}
-                          mode="date"
-                          display="spinner"
-                          onValueChange={handleDateChange}
-                          maximumDate={new Date(2100, 11, 31)}
-                          style={{ alignSelf: "center", width: "100%" }}
-                        />
-                      </TouchableOpacity>
-                    </TouchableOpacity>
-                  </Modal>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  { backgroundColor: colors.primaryTeal },
+                ]}
+                onPress={handleAddExpense}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFF" />
                 ) : (
-                  <DateTimePicker
-                    value={expenseDate}
-                    mode="date"
-                    display="default"
-                    onValueChange={handleDateChange}
-                    maximumDate={new Date(2100, 11, 31)}
-                  />
-                ))}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setModalExpensesVisible(false);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>
-                    {t("cancel", "Cancel")}
+                  <Text style={styles.saveButtonText}>
+                    {t("saveExpense", "Save Expense")}
                   </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.saveButton]}
-                  onPress={handleAddExpense}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>
-                      {t("saveExpense", "Save Expense")}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              <View style={styles.bottomExtension} />
-            </Pressable>
-          </KeyboardAwareScrollView>
-        </Pressable>
-      </Modal>
+                )}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.headerBackground },
+  container: { flex: 1 },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.screenBackground,
   },
-  flex1: { flex: 1 },
   header: {
-    backgroundColor: colors.headerBackground,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 25,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(28),
   },
   monthText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: "700",
-    color: colors.textLightMuted,
-    letterSpacing: 1.5,
+    color: "rgba(255, 255, 255, 0.7)",
+    letterSpacing: scale(1.2),
   },
   userGreetingRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 4,
+    alignItems: "center",
+    marginTop: verticalScale(4),
   },
   greetingText: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: "bold",
-    color: colors.textLight,
+    color: "#FFFFFF",
   },
   cardIconButton: {
-    backgroundColor: colors.headerCardOverlay,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    padding: scale(8),
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: scale(12),
   },
   subtitleText: {
-    fontSize: 14,
-    color: colors.textLightMuted,
-    marginTop: 2,
-    marginBottom: 20,
+    fontSize: moderateScale(14),
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: verticalScale(4),
+    marginBottom: verticalScale(16),
   },
   balanceCard: {
-    backgroundColor: colors.headerCardOverlay,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: scale(20),
+    padding: scale(16),
+    marginBottom: verticalScale(12),
   },
   balanceLabel: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: "700",
-    color: colors.textLightMuted,
-    letterSpacing: 1.2,
+    color: "rgba(255, 255, 255, 0.6)",
+    letterSpacing: scale(0.5),
   },
   balanceAmount: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: "bold",
-    color: colors.textLight,
-    marginVertical: 6,
+    color: "#FFFFFF",
+    marginVertical: verticalScale(4),
   },
-  balanceTrend: { fontSize: 13, color: colors.textLightMuted },
-  dualCardRow: { flexDirection: "row", justifyContent: "space-between" },
+  balanceTrend: {
+    fontSize: moderateScale(12),
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  dualCardRow: {
+    flexDirection: "row",
+    gap: scale(10),
+  },
+  flex1: { flex: 1 },
   miniCard: {
-    backgroundColor: colors.headerCardOverlay,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: scale(16),
+    padding: scale(14),
   },
   rowContainer: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
   },
   miniCardLabel: {
-    fontSize: 10,
+    fontSize: moderateScale(11),
     fontWeight: "700",
-    color: colors.textLightMuted,
-    letterSpacing: 1,
+    color: "rgba(255, 255, 255, 0.6)",
   },
   miniCardAdd: {
-    fontSize: 15,
+    fontSize: moderateScale(16),
+    color: "#FFFFFF",
     fontWeight: "bold",
-    color: colors.textLightMuted,
-    letterSpacing: 1,
-    marginLeft: "auto",
   },
   miniCardValue: {
-    fontSize: 20,
+    fontSize: moderateScale(16),
     fontWeight: "bold",
-    color: colors.textLight,
-    marginTop: 6,
+    color: "#FFFFFF",
+    marginTop: verticalScale(4),
   },
   body: {
-    flex: 1, // Ensures body takes all available space below header
-    backgroundColor: colors.screenBackground,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: "hidden", // Clips content cleanly inside rounded corners
+    flex: 1,
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
+    overflow: "hidden",
+    paddingBottom: scale(40),
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 60, // Padding at the end of the scrollable content
+    padding: scale(20),
+    gap: verticalScale(16),
   },
-  incomeText: { color: colors.depositText },
   sectionCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
+    borderRadius: scale(20),
+    padding: scale(16),
   },
   cardTitle: {
-    fontSize: 17,
-    fontWeight: "bold",
-    color: colors.textDark,
-    marginBottom: 16,
+    fontSize: moderateScale(18),
+    fontWeight: "700",
+    marginBottom: verticalScale(12),
+  },
+  chartContainer: {
+    alignItems: "center",
+    marginVertical: verticalScale(8),
+  },
+  budgetItem: {
+    marginBottom: verticalScale(12),
+  },
+  budgetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: verticalScale(4),
+  },
+  budgetCategory: {
+    fontSize: moderateScale(14),
+    fontWeight: "600",
+  },
+  budgetAmounts: {
+    fontSize: moderateScale(13),
+    fontWeight: "600",
+  },
+  budgetLimit: {
+    fontSize: moderateScale(12),
+  },
+  progressBarTrack: {
+    height: verticalScale(8),
+    borderRadius: scale(4),
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: scale(4),
   },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  seeAllText: { fontSize: 13, fontWeight: "600", color: colors.primaryOrange },
-  chartContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingRight: 12,
-    marginTop: 8,
+  seeAllText: {
+    fontSize: moderateScale(13),
+    fontWeight: "600",
   },
-  budgetItem: { marginBottom: 16 },
-  budgetHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  budgetCategory: { fontSize: 14, fontWeight: "600", color: colors.textDark },
-  budgetAmounts: { fontSize: 13, fontWeight: "600", color: colors.textDark },
-  budgetLimit: { color: colors.textMuted, fontWeight: "normal" },
-  progressBarTrack: {
-    height: 8,
-    backgroundColor: colors.progressTrack,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  progressBarFill: { height: "100%", borderRadius: 4 },
   transactionRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: verticalScale(10),
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: colors.screenBackground,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(12),
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: scale(12),
   },
-  emojiText: { fontSize: 20 },
-  transactionMeta: { flex: 1 },
-  transactionTitle: { fontSize: 15, fontWeight: "600", color: colors.textDark },
-  transactionSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  transactionAmount: { fontSize: 15, fontWeight: "bold" },
-  expenseText: { color: colors.expenseText },
+  emojiText: {
+    fontSize: moderateScale(18),
+  },
+  transactionMeta: {
+    flex: 1,
+  },
+  transactionTitle: {
+    fontSize: moderateScale(15),
+    fontWeight: "600",
+  },
+  transactionSubtitle: {
+    fontSize: moderateScale(12),
+    marginTop: verticalScale(2),
+  },
+  transactionAmount: {
+    fontSize: moderateScale(15),
+    fontWeight: "700",
+  },
+  incomeText: { color: "#1E6B5C" },
+  expenseText: { color: "#D9534F" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: colors.cardBackground || "#FFFFFF",
-    padding: 24,
-    paddingBottom: 50,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    // maxHeight: "85%",
+    borderTopLeftRadius: scale(24),
+    borderTopRightRadius: scale(24),
+    padding: scale(24),
+    paddingBottom:
+      Platform.OS === "ios" ? verticalScale(34) : verticalScale(24),
+    width: "100%",
   },
   bottomExtension: {
     position: "absolute",
-    bottom: -1000,
+    bottom: verticalScale(-1000),
     left: 0,
     right: 0,
-    height: 1000,
-    backgroundColor: colors.cardBackground || "#FFFFFF",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.textDark,
+    height: verticalScale(1000),
   },
   modalHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
+  },
+  modalTitle: {
+    fontSize: moderateScale(20),
+    fontWeight: "700",
   },
   addCardHeaderButton: {
-    backgroundColor: colors.primaryTeal || "#008080",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    borderRadius: scale(12),
   },
   addCardHeaderButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-  backButtonText: {
-    fontSize: 14,
-    color: colors.primaryTeal || "#008080",
     fontWeight: "600",
+    fontSize: moderateScale(13),
   },
   emptyCardsContainer: {
-    paddingVertical: 32,
+    paddingVertical: verticalScale(20),
     alignItems: "center",
   },
   emptyCardsText: {
-    color: colors.textMuted || "#9CA3AF",
-    fontSize: 15,
+    fontSize: moderateScale(14),
   },
   cardListItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.screenBackground || "#F5F5F5",
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(12),
+    borderRadius: scale(12),
+    marginBottom: verticalScale(8),
   },
   cardListItemText: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: "600",
-    color: colors.textDark || "#111827",
   },
   cardListItemBadge: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textMuted || "#6B7280",
-    letterSpacing: 0.5,
-    marginLeft: 8,
+    fontSize: moderateScale(12),
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(2),
+    borderRadius: scale(6),
+  },
+  backButtonText: {
+    fontWeight: "600",
+    fontSize: moderateScale(14),
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: moderateScale(12),
     fontWeight: "600",
-    color: colors.textDark,
-    marginBottom: 6,
-    marginTop: 10,
+    marginTop: verticalScale(12),
+    marginBottom: verticalScale(6),
   },
   input: {
-    backgroundColor: colors.screenBackground || "#F5F5F5",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    color: colors.textDark,
+    borderRadius: scale(12),
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(10),
+    fontSize: moderateScale(15),
   },
   categoryContainer: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 4,
+    gap: scale(10),
+  },
+  categoryColumn: {
+    flex: 1,
+    gap: verticalScale(8),
   },
   categoryChip: {
-    flexBasis: "48%",
-    flexGrow: 1,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(10),
+    borderRadius: scale(12),
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: colors.screenBackground || "#F5F5F5",
   },
-  categoryChipSelected: { backgroundColor: colors.primaryTeal || "#008080" },
-  categoryChipText: { fontSize: 12, color: colors.textDark, fontWeight: "600" },
-  categoryChipTextSelected: { color: "#FFFFFF" },
-  modalActions: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 30,
-    paddingTop: 15,
+  categoryChipText: {
+    fontSize: moderateScale(13),
+    fontWeight: "600",
   },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
+  categoryChipTextSelected: {
+    color: "#FFFFFF",
   },
-  cancelButton: { backgroundColor: colors.screenBackground || "#F5F5F5" },
-  cancelButtonText: { color: colors.textDark, fontWeight: "600" },
-  saveButton: { backgroundColor: colors.primaryTeal || "#008080" },
-  saveButtonText: { color: "#FFFFFF", fontWeight: "bold" },
   datePickerButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.screenBackground || "#F5F5F5",
-    borderRadius: 10,
-    padding: 12,
-    gap: 10,
+    borderRadius: scale(12),
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(12),
+    gap: scale(10),
   },
   datePickerText: {
-    fontSize: 15,
-    color: colors.textDark,
+    fontSize: moderateScale(15),
     fontWeight: "500",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: scale(12),
+    marginTop: verticalScale(24),
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: verticalScale(12),
+    borderRadius: scale(12),
+    alignItems: "center",
+  },
+  cancelButton: {},
+  cancelButtonText: {
+    fontWeight: "700",
+    fontSize: moderateScale(14),
+  },
+  saveButton: {},
+  saveButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: moderateScale(14),
   },
   datePickerBackdrop: {
     flex: 1,
@@ -1900,21 +2323,17 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   datePickerContainerIOS: {
-    backgroundColor: colors.cardBackground || "#FFFFFF",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 20,
+    borderTopLeftRadius: scale(20),
+    borderTopRightRadius: scale(20),
+    paddingBottom: verticalScale(20),
   },
   datePickerHeaderIOS: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    padding: 14,
+    alignItems: "flex-end",
+    padding: scale(16),
     borderBottomWidth: 1,
-    borderBottomColor: colors.border || "#E5E7EB",
   },
   datePickerDoneText: {
-    color: colors.primaryTeal || "#008080",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: moderateScale(16),
   },
 });

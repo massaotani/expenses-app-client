@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/ledger-icon.png",
-      "bundleIdentifier": "com.anonymous.app"
+      "bundleIdentifier": "com.massaotani.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -36,7 +36,8 @@
       ],
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "expo-image"
+      "expo-image",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -45,7 +46,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e8fc0492-06b7-494c-91bc-12141f2c459a"
+        "projectId": "6cdb5e1b-8bb6-4280-baab-d32a41110ae9"
       }
     },
     "owner": "massaotani"

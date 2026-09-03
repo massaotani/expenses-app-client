@@ -1,4 +1,5 @@
 import api from "@/services/api";
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -17,7 +18,11 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors_sign_register } from "../constants/theme";
+import {
+  colors_sign_register,
+  dark_colors_sign_register,
+  useAppTheme,
+} from "../constants/theme";
 import { useAuth } from "./_layout";
 
 export default function LoginScreen() {
@@ -25,6 +30,9 @@ export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
   const insets = useSafeAreaInsets();
+  const { isDark, toggleTheme } = useAppTheme();
+
+  const themeColors = isDark ? dark_colors_sign_register : colors_sign_register;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,7 +89,12 @@ export default function LoginScreen() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: themeColors.screenBackground },
+        ]}
+      >
         <StatusBar
           barStyle="light-content"
           backgroundColor="transparent"
@@ -90,13 +103,49 @@ export default function LoginScreen() {
         <KeyboardAwareScrollView
           contentContainerStyle={[
             styles.scrollContainer,
-            { paddingBottom: insets.bottom + 24 },
+            { paddingBottom: insets.bottom + verticalScale(24) },
           ]}
         >
-          <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-            <View style={styles.headerCircle} />
-            <Text style={styles.headerTitle}>{t("welcome")}</Text>
-            <Text style={styles.headerSubtitle}>{t("signInToAccount")}</Text>
+          <View
+            style={[
+              styles.header,
+              {
+                paddingTop: insets.top + verticalScale(20),
+                backgroundColor: themeColors.headerBackground,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.headerCircle,
+                { backgroundColor: themeColors.headerCircleOverlay },
+              ]}
+            />
+            {/* Theme Toggle Button */}
+            <TouchableOpacity
+              style={styles.themeToggle}
+              onPress={toggleTheme}
+              accessibilityLabel="Toggle Theme"
+            >
+              <Ionicons
+                name={isDark ? "sunny-outline" : "moon-outline"}
+                size={moderateScale(22)}
+                color={themeColors.textLight}
+              />
+            </TouchableOpacity>
+            <Text
+              style={[styles.headerTitle, { color: themeColors.textLight }]}
+            >
+              {t("welcome")}
+            </Text>
+            <Text
+              style={[
+                styles.headerSubtitle,
+                { color: themeColors.textLightMuted },
+              ]}
+            >
+              {t("signInToAccount")}
+            </Text>
           </View>
 
           <View style={styles.form}>
@@ -104,21 +153,30 @@ export default function LoginScreen() {
               <View style={styles.errorContainer}>
                 <Ionicons
                   name="alert-circle"
-                  size={18}
+                  size={moderateScale(18)}
                   color="#D9383A"
-                  style={{ marginRight: 6 }}
+                  style={{ marginRight: scale(6) }}
                 />
                 <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
             )}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t("emailLabel")}</Text>
+              <Text style={[styles.label, { color: themeColors.textMuted }]}>
+                {t("emailLabel")}
+              </Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: themeColors.cardBackground,
+                    borderColor: themeColors.inputBorder,
+                    color: themeColors.textDark,
+                  },
+                ]}
                 value={email}
                 placeholder={t("emailPlaceholder")}
-                placeholderTextColor={colors_sign_register.textMuted}
+                placeholderTextColor={themeColors.textMuted}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -127,14 +185,27 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t("passwordLabel")}</Text>
-              <View style={styles.passwordContainer}>
+              <Text style={[styles.label, { color: themeColors.textMuted }]}>
+                {t("passwordLabel")}
+              </Text>
+              <View
+                style={[
+                  styles.passwordContainer,
+                  {
+                    backgroundColor: themeColors.cardBackground,
+                    borderColor: themeColors.inputBorder,
+                  },
+                ]}
+              >
                 <TextInput
-                  style={styles.passwordInput}
+                  style={[
+                    styles.passwordInput,
+                    { color: themeColors.textDark },
+                  ]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder={t("loginPasswordPlaceholder")}
-                  placeholderTextColor={colors_sign_register.textMuted}
+                  placeholderTextColor={themeColors.textMuted}
                   secureTextEntry={!showPassword}
                   editable={!loading}
                 />
@@ -142,7 +213,9 @@ export default function LoginScreen() {
                   onPress={() => setShowPassword(!showPassword)}
                   disabled={loading}
                 >
-                  <Text style={styles.showText}>
+                  <Text
+                    style={[styles.showText, { color: themeColors.textMuted }]}
+                  >
                     {showPassword ? t("hide") : t("show")}
                   </Text>
                 </TouchableOpacity>
@@ -150,56 +223,128 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity style={styles.forgotContainer} disabled={loading}>
-              <Text style={styles.forgotText}>{t("forgotPassword")}</Text>
+              <Text
+                style={[styles.forgotText, { color: themeColors.accentOrange }]}
+              >
+                {t("forgotPassword")}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.signInButton, loading && styles.buttonDisabled]}
+              style={[
+                styles.signInButton,
+                { backgroundColor: themeColors.primaryTeal },
+                loading && styles.buttonDisabled,
+              ]}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={colors_sign_register.textLight} />
+                <ActivityIndicator color={themeColors.textLight} />
               ) : (
-                <Text style={styles.signInButtonText}>{t("signIn")}</Text>
+                <Text
+                  style={[
+                    styles.signInButtonText,
+                    { color: themeColors.textLight },
+                  ]}
+                >
+                  {t("signIn")}
+                </Text>
               )}
             </TouchableOpacity>
 
             <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t("orContinueWith")}</Text>
-              <View style={styles.dividerLine} />
+              <View
+                style={[
+                  styles.dividerLine,
+                  { backgroundColor: themeColors.inputBorder },
+                ]}
+              />
+              <Text
+                style={[styles.dividerText, { color: themeColors.textMuted }]}
+              >
+                {t("orContinueWith")}
+              </Text>
+              <View
+                style={[
+                  styles.dividerLine,
+                  { backgroundColor: themeColors.inputBorder },
+                ]}
+              />
             </View>
 
             <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialButton} disabled={loading}>
+              <TouchableOpacity
+                style={[
+                  styles.socialButton,
+                  {
+                    backgroundColor: themeColors.cardBackground,
+                    borderColor: themeColors.inputBorder,
+                  },
+                ]}
+                disabled={loading}
+              >
                 <Ionicons
                   name="logo-google"
-                  size={18}
-                  color={colors_sign_register.textDark}
+                  size={moderateScale(18)}
+                  color={themeColors.textDark}
                   style={styles.socialIcon}
                 />
-                <Text style={styles.socialButtonText}>Google</Text>
+                <Text
+                  style={[
+                    styles.socialButtonText,
+                    { color: themeColors.textDark },
+                  ]}
+                >
+                  Google
+                </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.socialButton} disabled={loading}>
+              <TouchableOpacity
+                style={[
+                  styles.socialButton,
+                  {
+                    backgroundColor: themeColors.cardBackground,
+                    borderColor: themeColors.inputBorder,
+                  },
+                ]}
+                disabled={loading}
+              >
                 <Ionicons
                   name="logo-apple"
-                  size={20}
-                  color={colors_sign_register.textDark}
+                  size={moderateScale(20)}
+                  color={themeColors.textDark}
                   style={styles.socialIcon}
                 />
-                <Text style={styles.socialButtonText}>Apple</Text>
+                <Text
+                  style={[
+                    styles.socialButtonText,
+                    { color: themeColors.textDark },
+                  ]}
+                >
+                  Apple
+                </Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>{t("dontHaveAccount")}</Text>
+              <Text
+                style={[styles.footerText, { color: themeColors.textMuted }]}
+              >
+                {t("dontHaveAccount")}
+              </Text>
               <TouchableOpacity
                 onPress={() => router.push("/register")}
                 disabled={loading}
               >
-                <Text style={styles.signupText}>{t("signUp")}</Text>
+                <Text
+                  style={[
+                    styles.signupText,
+                    { color: themeColors.accentOrange },
+                  ]}
+                >
+                  {t("signUp")}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -212,44 +357,46 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors_sign_register.screenBackground,
   },
   scrollContainer: {
     flexGrow: 1,
   },
   header: {
-    backgroundColor: colors_sign_register.headerBackground,
-    paddingHorizontal: 28,
-    paddingBottom: 40,
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
+    paddingHorizontal: scale(28),
+    paddingBottom: verticalScale(40),
+    borderBottomLeftRadius: scale(36),
+    borderBottomRightRadius: scale(36),
     position: "relative",
     overflow: "hidden",
   },
   headerCircle: {
     position: "absolute",
-    top: -40,
-    right: -30,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: colors_sign_register.headerCircleOverlay,
+    top: verticalScale(-40),
+    right: scale(-30),
+    width: scale(160),
+    height: scale(160),
+    borderRadius: scale(80),
+  },
+  themeToggle: {
+    alignSelf: "flex-end",
+    padding: scale(8),
+    borderRadius: scale(20),
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    marginBottom: verticalScale(12),
   },
   headerTitle: {
-    fontSize: 34,
+    fontSize: moderateScale(34),
     fontWeight: "700",
-    color: colors_sign_register.textLight,
-    lineHeight: 40,
+    lineHeight: moderateScale(40),
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: colors_sign_register.textLightMuted,
-    marginTop: 8,
+    fontSize: moderateScale(14),
+    marginTop: verticalScale(8),
   },
   form: {
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 32,
+    paddingHorizontal: scale(24),
+    paddingTop: verticalScale(28),
+    paddingBottom: verticalScale(32),
   },
   errorContainer: {
     flexDirection: "row",
@@ -257,118 +404,102 @@ const styles = StyleSheet.create({
     backgroundColor: "#FDE8E8",
     borderColor: "#F8B4B4",
     borderWidth: 1,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
+    padding: scale(12),
+    borderRadius: scale(12),
+    marginBottom: verticalScale(16),
   },
   errorText: {
     color: "#D9383A",
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: "500",
     flex: 1,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
   },
   label: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: "700",
-    color: colors_sign_register.textMuted,
-    letterSpacing: 1,
-    marginBottom: 8,
+    letterSpacing: scale(1),
+    marginBottom: verticalScale(8),
   },
   input: {
-    backgroundColor: colors_sign_register.cardBackground,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: colors_sign_register.textDark,
+    borderRadius: scale(14),
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(14),
+    fontSize: moderateScale(15),
     borderWidth: 1,
-    borderColor: colors_sign_register.inputBorder,
   },
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors_sign_register.cardBackground,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: scale(14),
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(14),
     borderWidth: 1,
-    borderColor: colors_sign_register.inputBorder,
   },
   passwordInput: {
     flex: 1,
-    fontSize: 15,
-    color: colors_sign_register.textDark,
+    fontSize: moderateScale(15),
   },
   showText: {
-    fontSize: 13,
-    color: colors_sign_register.textMuted,
+    fontSize: moderateScale(13),
     fontWeight: "500",
   },
   forgotContainer: {
     alignSelf: "flex-end",
-    marginBottom: 24,
+    marginBottom: verticalScale(24),
   },
   forgotText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: "600",
-    color: colors_sign_register.accentOrange,
   },
   signInButton: {
-    backgroundColor: colors_sign_register.primaryTeal,
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: scale(14),
+    paddingVertical: verticalScale(16),
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: verticalScale(28),
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   signInButtonText: {
-    color: colors_sign_register.textLight,
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: "700",
   },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: verticalScale(24),
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors_sign_register.inputBorder,
   },
   dividerText: {
-    fontSize: 12,
-    color: colors_sign_register.textMuted,
-    paddingHorizontal: 12,
+    fontSize: moderateScale(12),
+    paddingHorizontal: scale(12),
   },
   socialRow: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 32,
+    gap: scale(12),
+    marginBottom: verticalScale(32),
   },
   socialButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors_sign_register.cardBackground,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: scale(14),
+    paddingVertical: verticalScale(14),
     borderWidth: 1,
-    borderColor: colors_sign_register.inputBorder,
   },
   socialIcon: {
-    marginRight: 8,
+    marginRight: scale(8),
   },
   socialButtonText: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: "600",
-    color: colors_sign_register.textDark,
   },
   footerRow: {
     flexDirection: "row",
@@ -376,12 +507,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   footerText: {
-    fontSize: 14,
-    color: colors_sign_register.textMuted,
+    fontSize: moderateScale(14),
   },
   signupText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: "700",
-    color: colors_sign_register.accentOrange,
   },
 });
