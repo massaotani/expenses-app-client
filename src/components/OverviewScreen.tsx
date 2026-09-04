@@ -101,6 +101,7 @@ const toLocalISOString = (date: Date): string => {
 };
 
 export default function OverviewScreen() {
+  const chartRef = useRef<any>(null);
   const { colors, isDark } = useAppTheme();
   const { t, i18n } = useTranslation();
   const { token, signOut } = useAuth();
@@ -149,8 +150,12 @@ export default function OverviewScreen() {
   >("NONE");
 
   const [submittingIncome, setSubmittingIncome] = useState<boolean>(false);
+
   const [incomeSource, setIncomeSource] = useState("");
   const [incomeValue, setIncomeValue] = useState("");
+  const [incomeDate, setIncomeDate] = useState<Date>(new Date());
+  const [showIncomeDatePicker, setShowIncomeDatePicker] =
+    useState<boolean>(false);
 
   const [trendData, setTrendData] = useState<
     { value: number; label: string }[]
@@ -203,6 +208,23 @@ export default function OverviewScreen() {
   );
 
   useEffect(() => {
+    if (trendData.length > 0 && chartRef.current) {
+      const itemSpacing = 55;
+      const targetIndex = 1;
+      const offset = targetIndex * itemSpacing;
+
+      setTimeout(() => {
+        // Handles both ScrollView and FlatList refs
+        if (typeof chartRef.current.scrollTo === "function") {
+          chartRef.current.scrollTo({ x: offset, animated: true });
+        } else if (typeof chartRef.current.scrollToOffset === "function") {
+          chartRef.current.scrollToOffset({ offset, animated: true });
+        }
+      }, 100);
+    }
+  }, [trendData]);
+
+  useEffect(() => {
     processFigmaData(rawExpenses, rawIncomes);
   }, [i18n.language, rawExpenses, rawIncomes]);
 
@@ -215,9 +237,9 @@ export default function OverviewScreen() {
 
   const processMonthlyTrend = (expenses: SpringBootExpense[]) => {
     const now = new Date();
-    const last6Months = [];
+    const monthsTrend = [];
 
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 3; i >= -3; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const month = d.getMonth();
       const year = d.getFullYear();
@@ -237,10 +259,14 @@ export default function OverviewScreen() {
       const capitalizedLabel =
         rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
 
-      last6Months.push({ label: capitalizedLabel, value: monthlyTotal });
+      monthsTrend.push({
+        label: capitalizedLabel,
+        value: Math.max(0, monthlyTotal || 0),
+        focused: i === 0,
+      });
     }
 
-    return last6Months;
+    return monthsTrend;
   };
 
   const parseLocalDateTime = (
@@ -306,10 +332,6 @@ export default function OverviewScreen() {
     if (date) {
       setExpenseDate(date);
     }
-  };
-
-  const handleDismiss = () => {
-    setShowDatePicker(false);
   };
 
   const fetchAllData = async (isMounted = true) => {
@@ -496,6 +518,27 @@ export default function OverviewScreen() {
   const decimalSeparator =
     (1.1).toLocaleString(i18n.language).replace(/\d/g, "") || ".";
 
+  const handleIncomeDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === "android" && event.type === "dismissed") {
+      setShowIncomeDatePicker(false);
+      return;
+    }
+
+    const date =
+      selectedDate ||
+      (event?.nativeEvent?.timestamp
+        ? new Date(event.nativeEvent.timestamp)
+        : null);
+
+    if (Platform.OS === "android" && event.type === "set") {
+      setShowIncomeDatePicker(false);
+    }
+
+    if (date) {
+      setIncomeDate(date);
+    }
+  };
+
   const handleAddIncome = async () => {
     const deposit = parseFlexibleNumber(incomeValue);
 
@@ -514,16 +557,50 @@ export default function OverviewScreen() {
 
     setSubmittingIncome(true);
 
+    const now = new Date();
+    const selectedYear = incomeDate.getFullYear();
+    const selectedMonth = incomeDate.getMonth();
+
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let hours = now.getHours();
+    let minutes = now.getMinutes();
+    let seconds = now.getSeconds();
+
+    const selectedMonthKey = selectedYear * 12 + selectedMonth;
+    const currentMonthKey = currentYear * 12 + currentMonth;
+
+    if (selectedMonthKey > currentMonthKey) {
+      hours = 0;
+      minutes = 0;
+      seconds = 0;
+    } else if (selectedMonthKey < currentMonthKey) {
+      hours = 23;
+      minutes = 59;
+      seconds = 59;
+    }
+
+    const fullLocalDateTime = new Date(
+      selectedYear,
+      selectedMonth,
+      incomeDate.getDate(),
+      hours,
+      minutes,
+      seconds,
+    );
+
     try {
       await api.post("/api/v1/incomes", {
         description: incomeSource.trim(),
         amount: deposit,
         value: deposit,
-        createdAt: toLocalISOString(new Date()),
+        createdAt: toLocalISOString(fullLocalDateTime), // Selected date formatted
       });
 
       setIncomeSource("");
       setIncomeValue("");
+      setIncomeDate(new Date());
       handleCloseIncomeModal();
 
       await fetchAllData();
@@ -723,7 +800,6 @@ export default function OverviewScreen() {
     if (!selectedCardForAction) return;
     const cardToDeleteId = String(selectedCardForAction.id);
 
-    // Check cardId directly or via nested object properties safely
     const isCardInUse = rawExpenses.some((exp: any) => {
       const rawCardId = exp.cardId ?? exp.card?.id;
       if (!rawCardId) return false;
@@ -817,6 +893,14 @@ export default function OverviewScreen() {
       case "fixed_expenses":
       case "fixed expenses":
         return "📌";
+      case "healthcare":
+        return "🩺";
+      case "clothing":
+        return "👕";
+      case "pet":
+        return "🐾";
+      case "travel":
+        return "✈️";
       default:
         return "💳";
     }
@@ -879,7 +963,7 @@ export default function OverviewScreen() {
         <View style={styles.userGreetingRow}>
           <Text style={styles.greetingText}>
             {t("hello", "Hello")}
-            {userName ? `, ${userName}` : ""}.
+            {userName ? `, ${userName.split(" ")[0]}` : ""}.
           </Text>
           <TouchableOpacity
             style={styles.cardIconButton}
@@ -979,15 +1063,19 @@ export default function OverviewScreen() {
 
             <View style={styles.chartContainer}>
               <LineChart
+                scrollRef={chartRef}
                 data={trendData}
                 curved
                 color={colors.graphicLine}
                 thickness={2.5}
-                hideDataPoints
+                hideDataPoints={false}
+                focusedDataPointIndex={3}
+                dataPointsColor={colors.graphicLine}
+                focusedDataPointColor={colors.graphicLine}
                 height={130}
-                spacing={44}
-                initialSpacing={15}
-                endSpacing={15}
+                spacing={55}
+                initialSpacing={20}
+                endSpacing={0}
                 noOfSections={3}
                 rulesType="dashed"
                 rulesColor="#E5E7EB"
@@ -1002,6 +1090,13 @@ export default function OverviewScreen() {
                   fontSize: 11,
                 }}
                 formatYLabel={(val) => `${Number(val)}`}
+                areaChart={false}
+                adjustToWidth={false}
+                startFillColor="transparent"
+                endFillColor="transparent"
+                startOpacity={0}
+                endOpacity={0}
+                curveType={1}
               />
             </View>
           </View>
@@ -1412,12 +1507,12 @@ export default function OverviewScreen() {
                 >
                   {t("cardType", "Card Type")}
                 </Text>
-                <View style={styles.categoryContainer}>
+                <View style={styles.twoColumnContainer}>
                   {(["CREDIT", "DEBIT"] as const).map((type) => (
                     <TouchableOpacity
                       key={type}
                       style={[
-                        styles.categoryChip,
+                        styles.categoryChipTwoCol,
                         { backgroundColor: colors.iconBoxBg },
                         newCardType === type && {
                           backgroundColor: colors.primaryTeal,
@@ -1565,6 +1660,88 @@ export default function OverviewScreen() {
                 setIncomeValue(sanitized);
               }}
             />
+
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("date", "Date")}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.datePickerButton,
+                { backgroundColor: colors.iconBoxBg },
+              ]}
+              onPress={() => setShowIncomeDatePicker(true)}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={colors.textPrimary}
+              />
+              <Text
+                style={[styles.datePickerText, { color: colors.textPrimary }]}
+              >
+                {formatDateDDMMYYYY(incomeDate)}
+              </Text>
+            </TouchableOpacity>
+
+            {showIncomeDatePicker &&
+              (Platform.OS === "ios" ? (
+                <Modal
+                  transparent
+                  animationType="fade"
+                  visible={showIncomeDatePicker}
+                  onRequestClose={() => setShowIncomeDatePicker(false)}
+                >
+                  <TouchableOpacity
+                    style={styles.datePickerBackdrop}
+                    activeOpacity={1}
+                    onPress={() => setShowIncomeDatePicker(false)}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={1}
+                      style={[
+                        styles.datePickerContainerIOS,
+                        { backgroundColor: colors.cardBackground },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.datePickerHeaderIOS,
+                          { borderBottomColor: colors.divider },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          onPress={() => setShowIncomeDatePicker(false)}
+                        >
+                          <Text
+                            style={[
+                              styles.datePickerDoneText,
+                              { color: colors.primaryTeal },
+                            ]}
+                          >
+                            {t("done", "Done")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={incomeDate}
+                        mode="date"
+                        display="spinner"
+                        onValueChange={handleIncomeDateChange}
+                        maximumDate={new Date(2100, 11, 31)}
+                        style={{ alignSelf: "center", width: "100%" }}
+                      />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                </Modal>
+              ) : (
+                <DateTimePicker
+                  value={incomeDate}
+                  mode="date"
+                  display="default"
+                  onValueChange={handleIncomeDateChange}
+                  maximumDate={new Date(2100, 11, 31)}
+                />
+              ))}
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -2168,6 +2345,8 @@ const styles = StyleSheet.create({
   chartContainer: {
     alignItems: "center",
     marginVertical: verticalScale(8),
+    overflow: "hidden",
+    width: "100%",
   },
   budgetItem: {
     marginBottom: verticalScale(12),
@@ -2342,6 +2521,19 @@ const styles = StyleSheet.create({
   },
   categoryChipTextSelected: {
     color: "#FFFFFF",
+  },
+  twoColumnContainer: {
+    flexDirection: "row",
+    gap: 12, // adjust gap spacing between the two columns as needed
+    marginBottom: 16,
+  },
+  categoryChipTwoCol: {
+    flex: 1, // forces equal 50/50 split
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   datePickerButton: {
     flexDirection: "row",

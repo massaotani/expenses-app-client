@@ -1,16 +1,22 @@
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  BottomSheetTextInput,
+} from "@gorhom/bottom-sheet";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
+  Animated,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -42,14 +48,50 @@ export default function SettingsScreen() {
   const { signOut, token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const router = useRouter();
 
-  const [modalLanguageVisible, setModalLanguageVisible] = useState(false);
+  // Form states
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Toggle state for password visibility
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Gorhom Bottom Sheet Refs & Snap Points
+  const languageModalRef = useRef<BottomSheetModal>(null);
+  const passwordModalRef = useRef<BottomSheetModal>(null);
+
+  const langSnapPoints = useMemo(() => ["60%"], []);
+  const passwordSnapPoints = useMemo(() => ["68%"], []);
+
   const { colors, isDark, setDarkMode } = useAppTheme();
+
+  const switchAnim = useRef(new Animated.Value(isDark ? 1 : 0)).current;
+
   useEffect(() => {
-    if (token) {
-      fetchUserProfile();
-    }
-  }, [token]);
+    Animated.timing(switchAnim, {
+      toValue: isDark ? 1 : 0,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+  }, [isDark]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        fetchUserProfile();
+      }
+    }, [token]),
+  );
+
+  const thumbTranslateX = switchAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, scale(24)],
+  });
 
   const fetchUserProfile = async () => {
     try {
@@ -70,10 +112,75 @@ export default function SettingsScreen() {
     }
   };
 
+  // Handlers for opening modals
+  const handleOpenLanguageModal = () => languageModalRef.current?.present();
+  const handleOpenPasswordModal = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    passwordModalRef.current?.present();
+  };
+
   const handleLanguageSelect = (langCode: string) => {
     i18n.changeLanguage(langCode);
-    setModalLanguageVisible(false);
+    languageModalRef.current?.dismiss();
   };
+
+  // Change Password API Call
+  const handleSavePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert(
+        t("error", "Error"),
+        t("fillAllFields", "Please fill in all password fields."),
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert(
+        t("error", "Error"),
+        t("passwordsDoNotMatch", "New passwords do not match."),
+      );
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await api.post("/api/v1/auth/change-password", {
+        currentPassword,
+        newPassword,
+      });
+      Alert.alert(
+        t("success", "Success"),
+        t("passwordChanged", "Your password has been changed successfully."),
+      );
+      passwordModalRef.current?.dismiss();
+    } catch (error) {
+      Alert.alert(
+        t("error", "Error"),
+        t(
+          "couldNotChangePassword",
+          "Failed to change password. Please check current password.",
+        ),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+      />
+    ),
+    [],
+  );
 
   const handleSignOut = () => {
     Alert.alert(
@@ -120,7 +227,6 @@ export default function SettingsScreen() {
 
   const name = userProfile?.name || t("user", "User");
   const email = userProfile?.email || "";
-  const monthlyBudget = userProfile?.monthlyIncome || 0;
 
   const activeLangCode = i18n.language ? i18n.language.split(/[-_]/)[0] : "en";
   const currentLanguageLabel =
@@ -153,10 +259,6 @@ export default function SettingsScreen() {
             <Text style={styles.profileName}>{name}</Text>
             {email ? <Text style={styles.profileEmail}>{email}</Text> : null}
           </View>
-
-          <TouchableOpacity style={styles.editButton}>
-            <Text style={styles.editButtonText}>{t("edit", "Edit")}</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -191,7 +293,10 @@ export default function SettingsScreen() {
                     { backgroundColor: colors.cardBackground },
                   ]}
                 >
-                  <TouchableOpacity style={styles.row}>
+                  <TouchableOpacity
+                    style={styles.row}
+                    onPress={() => router.push("/personalinfo")}
+                  >
                     <View
                       style={[
                         styles.iconBox,
@@ -223,7 +328,11 @@ export default function SettingsScreen() {
                     ]}
                   />
 
-                  <TouchableOpacity style={styles.row}>
+                  {/* CHANGE PASSWORD ROW */}
+                  <TouchableOpacity
+                    style={styles.row}
+                    onPress={handleOpenPasswordModal}
+                  >
                     <View
                       style={[
                         styles.iconBox,
@@ -255,7 +364,10 @@ export default function SettingsScreen() {
                     ]}
                   />
 
-                  <TouchableOpacity style={styles.row}>
+                  <TouchableOpacity
+                    style={styles.row}
+                    onPress={() => router.push("/paymentmethods")}
+                  >
                     <View
                       style={[
                         styles.iconBox,
@@ -279,41 +391,6 @@ export default function SettingsScreen() {
                       color={colors.textSecondary}
                     />
                   </TouchableOpacity>
-
-                  <View
-                    style={[
-                      styles.divider,
-                      { backgroundColor: colors.divider },
-                    ]}
-                  />
-
-                  <TouchableOpacity style={styles.row}>
-                    <View
-                      style={[
-                        styles.iconBox,
-                        { backgroundColor: colors.iconBoxBg },
-                      ]}
-                    >
-                      <Ionicons
-                        name="stats-chart"
-                        size={18}
-                        color={colors.textPrimary}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.rowLabel, { color: colors.textPrimary }]}
-                    >
-                      {t("monthlyBudget", "Monthly Budget")}
-                    </Text>
-                    <Text
-                      style={[styles.rowValue, { color: colors.textSecondary }]}
-                    >
-                      $
-                      {monthlyBudget.toLocaleString("en-US", {
-                        minimumFractionDigits: 0,
-                      })}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
                 {/* PREFERENCES SECTION */}
@@ -336,7 +413,7 @@ export default function SettingsScreen() {
                       ]}
                     >
                       <Ionicons
-                        name="moon"
+                        name={isDark ? "moon" : "sunny"}
                         size={18}
                         color={colors.textPrimary}
                       />
@@ -344,17 +421,31 @@ export default function SettingsScreen() {
                     <Text
                       style={[styles.rowLabel, { color: colors.textPrimary }]}
                     >
-                      {t("darkMode", "Dark Mode")}
+                      {isDark
+                        ? t("darkMode", "Dark Mode")
+                        : t("lightMode", "Light Mode")}
                     </Text>
-                    <Switch
-                      value={isDark}
-                      onValueChange={(val) => setDarkMode(val)}
-                      trackColor={{
-                        false: colors.divider,
-                        true: colors.primaryTeal,
-                      }}
-                      thumbColor="#FFFFFF"
-                    />
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => setDarkMode(!isDark)}
+                      style={[
+                        styles.customSwitchTrack,
+                        {
+                          backgroundColor: isDark
+                            ? colors.primaryTeal
+                            : colors.divider,
+                        },
+                      ]}
+                    >
+                      <Animated.View
+                        style={[
+                          styles.customSwitchThumb,
+                          {
+                            transform: [{ translateX: thumbTranslateX }],
+                          },
+                        ]}
+                      />
+                    </TouchableOpacity>
                   </View>
 
                   <View
@@ -366,7 +457,7 @@ export default function SettingsScreen() {
 
                   <TouchableOpacity
                     style={styles.row}
-                    onPress={() => setModalLanguageVisible(true)}
+                    onPress={handleOpenLanguageModal}
                   >
                     <View
                       style={[
@@ -467,76 +558,200 @@ export default function SettingsScreen() {
         </ScrollView>
       </View>
 
-      {/* LANGUAGE SELECTION MODAL */}
-      <Modal visible={modalLanguageVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: colors.cardBackground },
-            ]}
-          >
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              {t("selectLanguage", "Select Language")}
-            </Text>
+      {/* LANGUAGE SELECTION BOTTOM SHEET MODAL */}
+      <BottomSheetModal
+        ref={languageModalRef}
+        snapPoints={langSnapPoints}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: colors.cardBackground }}
+        handleIndicatorStyle={{ backgroundColor: colors.textSecondary }}
+      >
+        <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
+          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+            {t("selectLanguage", "Select Language")}
+          </Text>
 
-            <View style={{ marginVertical: 12 }}>
-              {LANGUAGES.map((lang) => {
-                const isSelected = activeLangCode === lang.code;
-                return (
-                  <TouchableOpacity
-                    key={lang.code}
+          <View style={{ marginVertical: 12 }}>
+            {LANGUAGES.map((lang) => {
+              const isSelected = activeLangCode === lang.code;
+              return (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.languageOption,
+                    { backgroundColor: colors.iconBoxBg },
+                    isSelected && {
+                      backgroundColor: isDark ? "#1A1A1A" : "#E6F0F0",
+                      borderWidth: 1,
+                      borderColor: colors.primaryTeal,
+                    },
+                  ]}
+                  onPress={() => handleLanguageSelect(lang.code)}
+                >
+                  <Text
                     style={[
-                      styles.languageOption,
-                      { backgroundColor: colors.iconBoxBg },
+                      styles.languageOptionText,
+                      { color: colors.textPrimary },
                       isSelected && {
-                        backgroundColor: isDark ? "#1E3838" : "#E6F0F0",
-                        borderWidth: 1,
-                        borderColor: colors.primaryTeal,
+                        color: colors.primaryTeal,
+                        fontWeight: "bold",
                       },
                     ]}
-                    onPress={() => handleLanguageSelect(lang.code)}
                   >
-                    <Text
-                      style={[
-                        styles.languageOptionText,
-                        { color: colors.textPrimary },
-                        isSelected && {
-                          color: colors.primaryTeal,
-                          fontWeight: "bold",
-                        },
-                      ]}
-                    >
-                      {lang.label}
-                    </Text>
-                    {isSelected && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color={colors.primaryTeal}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+                    {lang.label}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={colors.primaryTeal}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
+
+      {/* CHANGE PASSWORD BOTTOM SHEET MODAL */}
+      <BottomSheetModal
+        ref={passwordModalRef}
+        snapPoints={passwordSnapPoints}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: colors.cardBackground }}
+        handleIndicatorStyle={{ backgroundColor: colors.textSecondary }}
+      >
+        <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
+          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+            {t("changePassword", "Change Password")}
+          </Text>
+
+          <View style={{ marginVertical: verticalScale(12) }}>
+            {/* CURRENT PASSWORD */}
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("currentPassword", "Current Password")}
+            </Text>
+            <View
+              style={[
+                styles.passwordContainer,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  borderColor: colors.divider,
+                },
+              ]}
+            >
+              <BottomSheetTextInput
+                style={[styles.passwordInput, { color: colors.textPrimary }]}
+                secureTextEntry={!showCurrentPassword}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder={t(
+                  "currentPasswordPlaceholder",
+                  "Enter current password",
+                )}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <TouchableOpacity
+                onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                style={styles.eyeIconContainer}
+              >
+                <Ionicons
+                  name={showCurrentPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
+            {/* NEW PASSWORD */}
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("newPassword", "New Password")}
+            </Text>
+            <View
               style={[
-                styles.cancelButton,
-                { backgroundColor: colors.iconBoxBg },
+                styles.passwordContainer,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  borderColor: colors.divider,
+                },
               ]}
-              onPress={() => setModalLanguageVisible(false)}
             >
-              <Text
-                style={[styles.cancelButtonText, { color: colors.textPrimary }]}
+              <BottomSheetTextInput
+                style={[styles.passwordInput, { color: colors.textPrimary }]}
+                secureTextEntry={!showNewPassword}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder={t("newPasswordPlaceholder", "Enter new password")}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <TouchableOpacity
+                onPress={() => setShowNewPassword(!showNewPassword)}
+                style={styles.eyeIconContainer}
               >
-                {t("cancel", "Cancel")}
-              </Text>
-            </TouchableOpacity>
+                <Ionicons
+                  name={showNewPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* CONFIRM NEW PASSWORD */}
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("confirmNewPassword", "Confirm New Password")}
+            </Text>
+            <View
+              style={[
+                styles.passwordContainer,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  borderColor: colors.divider,
+                },
+              ]}
+            >
+              <BottomSheetTextInput
+                style={[styles.passwordInput, { color: colors.textPrimary }]}
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder={t(
+                  "confirmPasswordPlaceholder",
+                  "Re-enter new password",
+                )}
+                placeholderTextColor={colors.textSecondary}
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={styles.eyeIconContainer}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
+
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              { backgroundColor: colors.primaryTeal },
+            ]}
+            onPress={handleSavePassword}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryButtonText}>
+                {t("updatePassword", "Update Password")}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -607,6 +822,20 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(13),
     fontWeight: "600",
   },
+  customSwitchTrack: {
+    width: scale(62),
+    height: verticalScale(30),
+    borderRadius: scale(15),
+    padding: scale(3),
+    justifyContent: "center",
+    alignSelf: "center",
+  },
+  customSwitchThumb: {
+    width: scale(32),
+    height: scale(24),
+    borderRadius: scale(12),
+    backgroundColor: "#FFFFFF",
+  },
   body: {
     flex: 1,
     paddingHorizontal: scale(20),
@@ -651,21 +880,14 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
   },
   divider: { height: 1, marginLeft: scale(52) },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
+  sheetContent: {
     padding: scale(24),
-    borderTopLeftRadius: scale(24),
-    borderTopRightRadius: scale(24),
-    paddingBottom: verticalScale(60),
+    paddingBottom: verticalScale(40),
   },
   modalTitle: {
     fontSize: moderateScale(20),
     fontWeight: "bold",
-    marginBottom: verticalScale(8),
+    marginBottom: verticalScale(4),
   },
   languageOption: {
     flexDirection: "row",
@@ -680,14 +902,39 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(16),
     fontWeight: "600",
   },
-  cancelButton: {
-    paddingVertical: verticalScale(14),
-    borderRadius: scale(12),
-    alignItems: "center",
-    marginTop: verticalScale(8),
-  },
-  cancelButtonText: {
+  inputLabel: {
+    fontSize: moderateScale(13),
     fontWeight: "600",
-    fontSize: moderateScale(15),
+    marginTop: verticalScale(10),
+    marginBottom: verticalScale(6),
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: verticalScale(48),
+    borderRadius: scale(12),
+    borderWidth: 1,
+    marginBottom: verticalScale(12),
+    paddingHorizontal: scale(16),
+  },
+  passwordInput: {
+    flex: 1,
+    height: "100%",
+    fontSize: moderateScale(16),
+  },
+  eyeIconContainer: {
+    padding: scale(4),
+  },
+  primaryButton: {
+    height: verticalScale(50),
+    borderRadius: scale(14),
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: verticalScale(16),
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: moderateScale(16),
+    fontWeight: "bold",
   },
 });

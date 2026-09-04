@@ -282,7 +282,7 @@ const getCategoryIcon = (
 
   const cat = (category || "").toLowerCase().trim();
 
-  switch (cat) {
+  switch (cat?.toLowerCase()) {
     case "food":
       return "🛒";
     case "housing":
@@ -294,6 +294,14 @@ const getCategoryIcon = (
     case "fixed_expenses":
     case "fixed expenses":
       return "📌";
+    case "healthcare":
+      return "🩺";
+    case "clothing":
+      return "👕";
+    case "pet":
+      return "🐾";
+    case "travel":
+      return "✈️";
     default:
       return "💳";
   }

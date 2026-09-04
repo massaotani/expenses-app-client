@@ -87,6 +87,21 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* HIDE FROM BOTTOM TAB MENU */}
+      <Tabs.Screen
+        name="personalinfo"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="paymentmethods"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

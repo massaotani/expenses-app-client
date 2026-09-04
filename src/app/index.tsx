@@ -2,7 +2,7 @@ import api from "@/services/api";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -40,6 +40,21 @@ export default function LoginScreen() {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -56,11 +71,11 @@ export default function LoginScreen() {
         password: password,
       });
 
-      const { accessToken, token, refreshToken } = response.data;
-      const jwtAccessToken = accessToken || token;
+      const { token, accessToken, refreshToken } = response.data;
+      const jwtToken = token || accessToken;
 
-      if (jwtAccessToken && refreshToken) {
-        await signIn(jwtAccessToken, refreshToken);
+      if (jwtToken && refreshToken) {
+        await signIn(jwtToken, refreshToken);
       } else {
         setErrorMessage("Invalid server response. Missing security tokens.");
       }
@@ -101,6 +116,11 @@ export default function LoginScreen() {
           translucent
         />
         <KeyboardAwareScrollView
+          scrollEnabled={isKeyboardVisible}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          enableOnAndroid
+          extraScrollHeight={verticalScale(20)}
           contentContainerStyle={[
             styles.scrollContainer,
             { paddingBottom: insets.bottom + verticalScale(24) },

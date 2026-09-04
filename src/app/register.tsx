@@ -8,9 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -19,6 +16,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   colors_sign_register,
@@ -38,7 +36,6 @@ export default function RegisterScreen() {
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [monthlyIncome, setMonthlyIncome] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -70,11 +67,6 @@ export default function RegisterScreen() {
       return;
     }
 
-    const cleanIncome = monthlyIncome.replace(",", ".");
-    const parsedIncome = isNaN(parseFloat(cleanIncome))
-      ? 0
-      : parseFloat(cleanIncome);
-
     setLoading(true);
     setErrorMessage("");
 
@@ -83,15 +75,15 @@ export default function RegisterScreen() {
         name: fullName.trim(),
         email: email.trim().toLowerCase(),
         password: password,
-        monthlyIncome: parsedIncome,
+        monthlyIncome: "0.00",
         accountRole: "NORMAL",
       });
 
-      const accessToken = response.data.accessToken || response.data.token;
-      const refreshToken = response.data.refreshToken;
+      const { token, accessToken, refreshToken } = response.data;
+      const jwtToken = token || accessToken;
 
-      if (accessToken && refreshToken) {
-        await signIn(accessToken, refreshToken);
+      if (jwtToken && refreshToken) {
+        await signIn(jwtToken, refreshToken);
       } else {
         setErrorMessage("Invalid server response. Missing security tokens.");
       }
@@ -131,335 +123,319 @@ export default function RegisterScreen() {
           translucent
         />
 
-        <View
-          style={[
-            styles.header,
-            {
-              paddingTop: insets.top + verticalScale(16),
-              backgroundColor: themeColors.headerBackground,
-            },
+        <KeyboardAwareScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          enableOnAndroid
+          extraScrollHeight={verticalScale(20)}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            { paddingBottom: insets.bottom + verticalScale(24) },
           ]}
         >
           <View
             style={[
-              styles.headerCircle,
-              { backgroundColor: themeColors.headerCircleOverlay },
+              styles.header,
+              {
+                paddingTop: insets.top + verticalScale(16),
+                backgroundColor: themeColors.headerBackground,
+              },
             ]}
-          />
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={loading}
           >
-            <Ionicons
-              name="arrow-back"
-              size={moderateScale(16)}
-              color={themeColors.textLight}
+            <View
+              style={[
+                styles.headerCircle,
+                { backgroundColor: themeColors.headerCircleOverlay },
+              ]}
             />
-            <Text
-              style={[styles.backButtonText, { color: themeColors.textLight }]}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              disabled={loading}
             >
-              {t("back")}
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={[styles.headerTitle, { color: themeColors.textLight }]}>
-            {t("createYourAccount")}
-          </Text>
-          <Text
-            style={[
-              styles.headerSubtitle,
-              { color: themeColors.textLightMuted },
-            ]}
-          >
-            {t("startTrackingExpenses")}
-          </Text>
-        </View>
-
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-        >
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={[
-              styles.scrollContainer,
-              { paddingBottom: insets.bottom + verticalScale(40) },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            scrollEventThrottle={16}
-            nestedScrollEnabled={true}
-            canCancelContentTouches={true}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.form}>
-              {errorMessage !== "" && (
-                <View style={styles.errorContainer}>
-                  <Ionicons
-                    name="alert-circle"
-                    size={moderateScale(18)}
-                    color="#D9383A"
-                    style={{ marginRight: scale(6) }}
-                  />
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
-              )}
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: themeColors.textMuted }]}>
-                  {t("fullName")}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: themeColors.cardBackground,
-                      borderColor: themeColors.inputBorder,
-                      color: themeColors.textDark,
-                    },
-                  ]}
-                  value={fullName}
-                  onChangeText={setFullName}
-                  placeholder={t("fullNamePlaceholder")}
-                  placeholderTextColor={themeColors.textMuted}
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: themeColors.textMuted }]}>
-                  {t("emailLabel")}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: themeColors.cardBackground,
-                      borderColor: themeColors.inputBorder,
-                      color: themeColors.textDark,
-                    },
-                  ]}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder={t("emailPlaceholder")}
-                  placeholderTextColor={themeColors.textMuted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: themeColors.textMuted }]}>
-                  {t("monthlyIncomeLabel")}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: themeColors.cardBackground,
-                      borderColor: themeColors.inputBorder,
-                      color: themeColors.textDark,
-                    },
-                  ]}
-                  value={monthlyIncome}
-                  onChangeText={(text) =>
-                    setMonthlyIncome(
-                      text.replace(/\./g, ",").replace(/(,\d{2})\d+$/, "$1"),
-                    )
-                  }
-                  placeholder={t("incomePlaceholder")}
-                  placeholderTextColor={themeColors.textMuted}
-                  keyboardType="decimal-pad"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: themeColors.textMuted }]}>
-                  {t("passwordLabel")}
-                </Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.passwordInput,
-                      {
-                        backgroundColor: themeColors.cardBackground,
-                        borderColor: themeColors.inputBorder,
-                        color: themeColors.textDark,
-                      },
-                    ]}
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder={t("passwordPlaceholder")}
-                    placeholderTextColor={themeColors.textMuted}
-                    secureTextEntry={!showPassword}
-                    editable={!loading}
-                  />
-                  <TouchableOpacity
-                    style={styles.showButton}
-                    onPress={() => setShowPassword(!showPassword)}
-                    disabled={loading}
-                  >
-                    <Text
-                      style={[
-                        styles.showText,
-                        { color: themeColors.textMuted },
-                      ]}
-                    >
-                      {showPassword ? t("hide") : t("show")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: themeColors.textMuted }]}>
-                  {t("confirmPasswordLabel")}
-                </Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.passwordInput,
-                      {
-                        backgroundColor: themeColors.cardBackground,
-                        borderColor: themeColors.inputBorder,
-                        color: themeColors.textDark,
-                      },
-                    ]}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder={t("confirmPasswordPlaceholder")}
-                    placeholderTextColor={themeColors.textMuted}
-                    secureTextEntry={!showConfirmPassword}
-                    editable={!loading}
-                  />
-                  <TouchableOpacity
-                    style={styles.showButton}
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    disabled={loading}
-                  >
-                    <Text
-                      style={[
-                        styles.showText,
-                        { color: themeColors.textMuted },
-                      ]}
-                    >
-                      {showConfirmPassword ? t("hide") : t("show")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.checkboxContainer}
-                onPress={() => setAgreeTerms(!agreeTerms)}
-                activeOpacity={0.8}
-                disabled={loading}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      borderColor: themeColors.inputBorder,
-                      backgroundColor: themeColors.cardBackground,
-                    },
-                    agreeTerms && {
-                      backgroundColor: themeColors.primaryTeal,
-                      borderColor: themeColors.primaryTeal,
-                    },
-                  ]}
-                >
-                  {agreeTerms && (
-                    <Ionicons
-                      name="checkmark"
-                      size={moderateScale(12)}
-                      color={themeColors.textLight}
-                    />
-                  )}
-                </View>
-                <Text
-                  style={[styles.checkboxText, { color: themeColors.textDark }]}
-                >
-                  {t("agreeTo")}
-                  <Text
-                    style={[
-                      styles.linkText,
-                      { color: themeColors.accentOrange },
-                    ]}
-                  >
-                    {t("termsOfService")}
-                  </Text>
-                  {t("and")}
-                  <Text
-                    style={[
-                      styles.linkText,
-                      { color: themeColors.accentOrange },
-                    ]}
-                  >
-                    {t("privacyPolicy")}
-                  </Text>
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
+              <Ionicons
+                name="arrow-back"
+                size={moderateScale(16)}
+                color={themeColors.textLight}
+              />
+              <Text
                 style={[
-                  styles.createButton,
+                  styles.backButtonText,
+                  { color: themeColors.textLight },
+                ]}
+              >
+                {t("back")}
+              </Text>
+            </TouchableOpacity>
+
+            <Text
+              style={[styles.headerTitle, { color: themeColors.textLight }]}
+            >
+              {t("createYourAccount")}
+            </Text>
+            <Text
+              style={[
+                styles.headerSubtitle,
+                { color: themeColors.textLightMuted },
+              ]}
+            >
+              {t("startTrackingExpenses")}
+            </Text>
+          </View>
+
+          <View style={styles.form}>
+            {errorMessage !== "" && (
+              <View style={styles.errorContainer}>
+                <Ionicons
+                  name="alert-circle"
+                  size={moderateScale(18)}
+                  color="#D9383A"
+                  style={{ marginRight: scale(6) }}
+                />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: themeColors.textMuted }]}>
+                {t("fullName")}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
                   {
-                    backgroundColor:
-                      agreeTerms && !loading
-                        ? themeColors.primaryTeal
-                        : themeColors.buttonDisabled,
+                    backgroundColor: themeColors.cardBackground,
+                    borderColor: themeColors.inputBorder,
+                    color: themeColors.textDark,
                   },
                 ]}
-                disabled={!agreeTerms || loading}
-                onPress={handleRegister}
-              >
-                {loading ? (
-                  <ActivityIndicator color={themeColors.textLight} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.createButtonText,
-                      {
-                        color: agreeTerms
-                          ? themeColors.textLight
-                          : themeColors.textDisabled,
-                      },
-                    ]}
-                  >
-                    {t("createAccount")}
-                  </Text>
-                )}
-              </TouchableOpacity>
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder={t("fullNamePlaceholder")}
+                placeholderTextColor={themeColors.textMuted}
+                editable={!loading}
+              />
+            </View>
 
-              <View style={styles.footerRow}>
-                <Text
-                  style={[styles.footerText, { color: themeColors.textMuted }]}
-                >
-                  {t("alreadyHaveAccount")}
-                </Text>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: themeColors.textMuted }]}>
+                {t("emailLabel")}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: themeColors.cardBackground,
+                    borderColor: themeColors.inputBorder,
+                    color: themeColors.textDark,
+                  },
+                ]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder={t("emailPlaceholder")}
+                placeholderTextColor={themeColors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!loading}
+              />
+            </View>
+
+            {/*<View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: themeColors.textMuted }]}>
+                {t("monthlyIncomeLabel")}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: themeColors.cardBackground,
+                    borderColor: themeColors.inputBorder,
+                    color: themeColors.textDark,
+                  },
+                ]}
+                value={monthlyIncome}
+                onChangeText={(text) =>
+                  setMonthlyIncome(
+                    text.replace(/\./g, ",").replace(/(,\d{2})\d+$/, "$1"),
+                  )
+                }
+                placeholder={t("incomePlaceholder")}
+                placeholderTextColor={themeColors.textMuted}
+                keyboardType="decimal-pad"
+                editable={!loading}
+              />
+            </View>*/}
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: themeColors.textMuted }]}>
+                {t("passwordLabel")}
+              </Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    {
+                      backgroundColor: themeColors.cardBackground,
+                      borderColor: themeColors.inputBorder,
+                      color: themeColors.textDark,
+                    },
+                  ]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder={t("passwordPlaceholder")}
+                  placeholderTextColor={themeColors.textMuted}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
                 <TouchableOpacity
-                  onPress={() => router.back()}
+                  style={styles.showButton}
+                  onPress={() => setShowPassword(!showPassword)}
                   disabled={loading}
                 >
                   <Text
-                    style={[
-                      styles.signinText,
-                      { color: themeColors.accentOrange },
-                    ]}
+                    style={[styles.showText, { color: themeColors.textMuted }]}
                   >
-                    {t("signIn")}
+                    {showPassword ? t("hide") : t("show")}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: themeColors.textMuted }]}>
+                {t("confirmPasswordLabel")}
+              </Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    {
+                      backgroundColor: themeColors.cardBackground,
+                      borderColor: themeColors.inputBorder,
+                      color: themeColors.textDark,
+                    },
+                  ]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder={t("confirmPasswordPlaceholder")}
+                  placeholderTextColor={themeColors.textMuted}
+                  secureTextEntry={!showConfirmPassword}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  style={styles.showButton}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={loading}
+                >
+                  <Text
+                    style={[styles.showText, { color: themeColors.textMuted }]}
+                  >
+                    {showConfirmPassword ? t("hide") : t("show")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={() => setAgreeTerms(!agreeTerms)}
+              activeOpacity={0.8}
+              disabled={loading}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    borderColor: themeColors.inputBorder,
+                    backgroundColor: themeColors.cardBackground,
+                  },
+                  agreeTerms && {
+                    backgroundColor: themeColors.primaryTeal,
+                    borderColor: themeColors.primaryTeal,
+                  },
+                ]}
+              >
+                {agreeTerms && (
+                  <Ionicons
+                    name="checkmark"
+                    size={moderateScale(12)}
+                    color={themeColors.textLight}
+                  />
+                )}
+              </View>
+              <Text
+                style={[styles.checkboxText, { color: themeColors.textDark }]}
+              >
+                {t("agreeTo")}
+                <Text
+                  style={[styles.linkText, { color: themeColors.accentOrange }]}
+                >
+                  {t("termsOfService")}
+                </Text>
+                {t("and")}
+                <Text
+                  style={[styles.linkText, { color: themeColors.accentOrange }]}
+                >
+                  {t("privacyPolicy")}
+                </Text>
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.createButton,
+                {
+                  backgroundColor:
+                    agreeTerms && !loading
+                      ? themeColors.primaryTeal
+                      : themeColors.buttonDisabled,
+                },
+              ]}
+              disabled={!agreeTerms || loading}
+              onPress={handleRegister}
+            >
+              {loading ? (
+                <ActivityIndicator color={themeColors.textLight} />
+              ) : (
+                <Text
+                  style={[
+                    styles.createButtonText,
+                    {
+                      color: agreeTerms
+                        ? themeColors.textLight
+                        : themeColors.textDisabled,
+                    },
+                  ]}
+                >
+                  {t("createAccount")}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footerRow}>
+              <Text
+                style={[styles.footerText, { color: themeColors.textMuted }]}
+              >
+                {t("alreadyHaveAccount")}
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                disabled={loading}
+              >
+                <Text
+                  style={[
+                    styles.signinText,
+                    { color: themeColors.accentOrange },
+                  ]}
+                >
+                  {t("signIn")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAwareScrollView>
       </View>
     </TouchableWithoutFeedback>
   );
