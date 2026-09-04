@@ -9,6 +9,8 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
 
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : verticalScale(10);
+
   return (
     <Tabs
       screenOptions={{
@@ -18,7 +20,7 @@ export default function TabLayout() {
           styles.tabBar,
           {
             backgroundColor: colors.cardBackground,
-            height: verticalScale(40) + insets.bottom,
+            height: verticalScale(50) + bottomPadding,
             paddingBottom: insets.bottom,
             shadowColor: isDark ? "#000000" : "#000000",
             borderTopColor: colors.divider,
@@ -167,5 +169,6 @@ const styles = StyleSheet.create({
     width: scale(5),
     height: scale(5),
     borderRadius: scale(3),
+    marginTop: verticalScale(4),
   },
 });
