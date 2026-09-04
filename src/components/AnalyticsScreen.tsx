@@ -70,8 +70,19 @@ const parseAmount = (val: any): number => {
   return 0;
 };
 
-const formatAmount = (val: number): string => {
-  return (isNaN(val) ? 0 : val).toFixed(2).replace(".", ",");
+const formatAmount = (val: number, locale: string = "en"): string => {
+  const num = isNaN(val) ? 0 : val;
+  const lang = locale.toLowerCase();
+
+  const targetLocale =
+    lang.startsWith("pt") || lang.startsWith("es")
+      ? "pt-BR" // Formats as 1.000,00
+      : "en-US"; // Formats as 1,000.00 (EN & JA)
+
+  return new Intl.NumberFormat(targetLocale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
 };
 
 const COLORS = {
@@ -167,12 +178,14 @@ export default function AnalyticsScreen() {
           ? expensesRes.value.data
           : [],
       );
+
       setIncomes(
         incomesRes.status === "fulfilled" &&
           Array.isArray(incomesRes.value.data)
           ? incomesRes.value.data
           : [],
       );
+
       setUserCards(
         cardsRes.status === "fulfilled" && Array.isArray(cardsRes.value.data)
           ? cardsRes.value.data
@@ -224,29 +237,30 @@ export default function AnalyticsScreen() {
   const monthlyData = useMemo(() => {
     return last6Months.map((m) => {
       let registeredIncome = 0;
-      let hasIncomeEntries = false;
       let monthExpense = 0;
 
+      // Sum all deposit incomes created for this specific month
       incomes.forEach((inc) => {
-        const d = new Date(inc.createdAt || inc.date || "");
+        const rawDate = inc.createdAt || inc.date || "";
+        const d = new Date(rawDate);
         if (
           !isNaN(d.getTime()) &&
           d.getMonth() === m.monthIndex &&
           d.getFullYear() === m.year
         ) {
           registeredIncome += parseAmount(inc.value ?? inc.amount);
-          hasIncomeEntries = true;
         }
       });
 
-      const monthIncome = hasIncomeEntries
-        ? registeredIncome
-        : baseMonthlyIncome;
+      // Combine base monthly income budget with extra income deposits
+      const monthIncome = baseMonthlyIncome + registeredIncome;
 
+      // Filter expenses matching TransactionsScreen date resolution order
       expenses.forEach((exp) => {
-        const d = new Date(
-          exp.dueDate || exp.paidAt || exp.date || exp.createdAt || "",
-        );
+        const rawDate =
+          exp.dueDate || exp.paidAt || exp.date || exp.createdAt || "";
+        const d = new Date(rawDate);
+
         if (
           !isNaN(d.getTime()) &&
           d.getMonth() === m.monthIndex &&
@@ -315,15 +329,29 @@ export default function AnalyticsScreen() {
   }, [expenses, selectedDate, isDark]);
 
   const paymentTypeBreakdown = useMemo(() => {
+    const targetMonth = selectedDate.getMonth();
+    const targetYear = selectedDate.getFullYear();
+
     let cashSum = 0;
     let cardSum = 0;
 
     expenses.forEach((exp) => {
-      const val = parseAmount(exp.value ?? exp.amount);
-      if (exp.paymentType?.toUpperCase() === "CASH") {
-        cashSum += val;
-      } else {
-        cardSum += val;
+      const rawDate =
+        exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
+      const d = new Date(rawDate);
+
+      const isTargetMonth =
+        !isNaN(d.getTime()) &&
+        d.getMonth() === targetMonth &&
+        d.getFullYear() === targetYear;
+
+      if (isTargetMonth) {
+        const val = parseAmount(exp.value ?? exp.amount);
+        if (exp.paymentType?.toUpperCase() === "CASH") {
+          cashSum += val;
+        } else {
+          cardSum += val;
+        }
       }
     });
 
@@ -335,9 +363,12 @@ export default function AnalyticsScreen() {
       cashPct: Math.round((cashSum / total) * 100),
       cardPct: Math.round((cardSum / total) * 100),
     };
-  }, [expenses]);
+  }, [expenses, selectedDate]);
 
   const cardUsageBreakdown = useMemo(() => {
+    const targetMonth = selectedDate.getMonth();
+    const targetYear = selectedDate.getFullYear();
+
     const cardTotals: Record<string, { card: UserCard; totalSpent: number }> =
       {};
 
@@ -348,7 +379,16 @@ export default function AnalyticsScreen() {
     let unassignedCardSpending = 0;
 
     expenses.forEach((exp) => {
-      if (exp.paymentType?.toUpperCase() === "CASH") return;
+      const rawDate =
+        exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
+      const d = new Date(rawDate);
+
+      const isTargetMonth =
+        !isNaN(d.getTime()) &&
+        d.getMonth() === targetMonth &&
+        d.getFullYear() === targetYear;
+
+      if (!isTargetMonth || exp.paymentType?.toUpperCase() === "CASH") return;
 
       const val = parseAmount(exp.value ?? exp.amount);
       const targetCardId =
@@ -381,7 +421,7 @@ export default function AnalyticsScreen() {
       .sort((a, b) => b.totalSpent - a.totalSpent);
 
     return { cardsList, unassignedCardSpending, totalCardSpent };
-  }, [expenses, userCards, paymentTypeBreakdown.card]);
+  }, [expenses, userCards, paymentTypeBreakdown.card, selectedDate]);
 
   if (loading && !refreshing) {
     return (
@@ -587,7 +627,16 @@ export default function AnalyticsScreen() {
                 {t("paymentMethodBreakdown", "Payment Method Breakdown")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {t("cardVsCash", "Card vs. Cash")}
+                {t("cardVsCash", "Card vs. Cash")} •{" "}
+                {(() => {
+                  const rawMonth = selectedDate.toLocaleDateString(
+                    i18n.language || "en",
+                    {
+                      month: "long",
+                    },
+                  );
+                  return rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1);
+                })()}
               </Text>
 
               <View style={styles.stackedBarContainer}>
@@ -635,7 +684,7 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    ${formatAmount(paymentTypeBreakdown.card)}
+                    ${formatAmount(paymentTypeBreakdown.card, i18n.language)}
                   </Text>
                   <Text style={styles.paymentPercentageText}>
                     {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
@@ -665,7 +714,7 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    ${formatAmount(paymentTypeBreakdown.cash)}
+                    ${formatAmount(paymentTypeBreakdown.cash, i18n.language)}
                   </Text>
                   <Text style={styles.paymentPercentageText}>
                     {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
@@ -713,7 +762,7 @@ export default function AnalyticsScreen() {
                               { color: colors.primaryTeal },
                             ]}
                           >
-                            ${formatAmount(totalSpent)}
+                            ${formatAmount(totalSpent, i18n.language)}
                           </Text>
                         </View>
                         <View
@@ -744,11 +793,20 @@ export default function AnalyticsScreen() {
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                {t("spendingByCategory", "Spending by Category")}
+                {t("spendingByCategory", "Spending by Category")} •{" "}
+                {(() => {
+                  const rawMonth = selectedDate.toLocaleDateString(
+                    i18n.language || "en",
+                    {
+                      month: "long",
+                    },
+                  );
+                  return rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1);
+                })()}
               </Text>
               <Text style={styles.cardSubtitle}>
                 {t("total", "Total")}: $
-                {formatAmount(categorySpending.totalSpending)}
+                {formatAmount(categorySpending.totalSpending, i18n.language)}
               </Text>
 
               <View style={styles.donutWrapper}>
@@ -837,7 +895,7 @@ export default function AnalyticsScreen() {
                         { color: colors.textPrimary },
                       ]}
                     >
-                      ${formatAmount(item.amount)}{" "}
+                      ${formatAmount(item.amount, i18n.language)}{" "}
                       <Text style={styles.categoryPercentage}>
                         ({item.percentage}%)
                       </Text>
@@ -856,7 +914,7 @@ export default function AnalyticsScreen() {
               </Text>
               <Text style={styles.cardSubtitle}>
                 {t("income", "Income")} – {t("expenses", "Expenses")} (
-                {currentMonthSummary.month})
+                {currentMonthSummary.month}.)
               </Text>
 
               <View style={styles.netMetricRow}>
@@ -875,7 +933,7 @@ export default function AnalyticsScreen() {
                       { color: colors.primaryTeal },
                     ]}
                   >
-                    ${formatAmount(currentMonthSummary.income)}
+                    ${formatAmount(currentMonthSummary.income, i18n.language)}
                   </Text>
                 </View>
 
@@ -889,7 +947,7 @@ export default function AnalyticsScreen() {
                     {t("expenses", "Expenses")}
                   </Text>
                   <Text style={styles.netExpenseText}>
-                    ${formatAmount(currentMonthSummary.expenses)}
+                    ${formatAmount(currentMonthSummary.expenses, i18n.language)}
                   </Text>
                 </View>
 
@@ -913,7 +971,7 @@ export default function AnalyticsScreen() {
                       },
                     ]}
                   >
-                    ${formatAmount(currentMonthSummary.net)}
+                    ${formatAmount(currentMonthSummary.net, i18n.language)}
                   </Text>
                 </View>
               </View>

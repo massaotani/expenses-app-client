@@ -288,17 +288,24 @@ export default function OverviewScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === "android" && event.type === "dismissed") {
+      setShowDatePicker(false);
+      return;
+    }
+
     const date =
       selectedDate ||
       (event?.nativeEvent?.timestamp
         ? new Date(event.nativeEvent.timestamp)
         : null);
 
+    if (Platform.OS === "android" && event.type === "set") {
+      setShowDatePicker(false);
+    }
+
     if (date) {
       setExpenseDate(date);
     }
-
-    setShowDatePicker(false);
   };
 
   const handleDismiss = () => {
@@ -486,9 +493,11 @@ export default function OverviewScreen() {
     fetchAllData();
   };
 
+  const decimalSeparator =
+    (1.1).toLocaleString(i18n.language).replace(/\d/g, "") || ".";
+
   const handleAddIncome = async () => {
-    const normalizedValue = incomeValue.replace(",", ".");
-    const deposit = parseFloat(normalizedValue);
+    const deposit = parseFlexibleNumber(incomeValue);
 
     if (
       !incomeSource.trim() ||
@@ -533,6 +542,7 @@ export default function OverviewScreen() {
   const handleCloseIncomeModal = () => {
     Keyboard.dismiss();
     incomeSheetRef.current?.dismiss();
+    clearIncomeFields();
   };
 
   const handleOpenExpensesModal = () => {
@@ -542,6 +552,7 @@ export default function OverviewScreen() {
   const handleCloseExpensesModal = () => {
     Keyboard.dismiss();
     expensesSheetRef.current?.dismiss();
+    clearExpenseFields();
   };
 
   const handleOpenCardModal = () => {
@@ -552,6 +563,7 @@ export default function OverviewScreen() {
   const handleCloseCardModal = () => {
     Keyboard.dismiss();
     cardSheetRef.current?.dismiss();
+    clearCardFields();
   };
 
   const handleAddExpense = async () => {
@@ -755,6 +767,31 @@ export default function OverviewScreen() {
         },
       },
     ]);
+  };
+
+  const clearIncomeFields = () => {
+    setIncomeSource("");
+    setIncomeValue("");
+  };
+
+  const clearExpenseFields = () => {
+    setDescription("");
+    setValue("");
+    setCategory("Food");
+    setExpenseDate(new Date());
+    setIsPaid(true);
+    setPaymentType("CASH");
+    setRecurrencePeriod("NONE");
+    if (userCards.length > 0) {
+      setSelectedCardId(userCards[0].id);
+    }
+  };
+
+  const clearCardFields = () => {
+    setNewCardName("");
+    setNewCardType("CREDIT");
+    setSelectedCardForAction(null);
+    setCardModalMode("LIST");
   };
 
   const formatCategoryLabel = (cat: string) => {
@@ -1118,6 +1155,7 @@ export default function OverviewScreen() {
 
       <BottomSheetModal
         ref={cardSheetRef}
+        onDismiss={clearCardFields}
         enableDynamicSizing
         enablePanDownToClose
         keyboardBehavior="interactive"
@@ -1459,6 +1497,7 @@ export default function OverviewScreen() {
 
       <BottomSheetModal
         ref={incomeSheetRef}
+        onDismiss={clearIncomeFields}
         enableDynamicSizing
         enablePanDownToClose
         keyboardBehavior="interactive"
@@ -1504,15 +1543,26 @@ export default function OverviewScreen() {
                   color: colors.textPrimary,
                 },
               ]}
-              placeholder="0.00"
+              placeholder={`0${decimalSeparator}00`}
               placeholderTextColor={colors.textSecondary}
               keyboardType="decimal-pad"
               value={incomeValue}
               onChangeText={(text) => {
-                const normalized = text
-                  .replace(/\./g, ",")
-                  .replace(/(,\d{2})\d+$/, "$1");
-                setIncomeValue(normalized);
+                // Replace alternative separators (, or .) with the active locale's separator
+                let sanitized = text.replace(/[.,]/g, decimalSeparator);
+
+                // Prevent multiple decimal separators
+                const parts = sanitized.split(decimalSeparator);
+                if (parts.length > 2) {
+                  sanitized = `${parts[0]}${decimalSeparator}${parts.slice(1).join("")}`;
+                }
+
+                // Restrict to 2 decimal places
+                if (parts[1] && parts[1].length > 2) {
+                  sanitized = `${parts[0]}${decimalSeparator}${parts[1].slice(0, 2)}`;
+                }
+
+                setIncomeValue(sanitized);
               }}
             />
 
@@ -1559,6 +1609,7 @@ export default function OverviewScreen() {
 
       <BottomSheetModal
         ref={expensesSheetRef}
+        onDismiss={clearExpenseFields}
         enableDynamicSizing
         enablePanDownToClose={true}
         keyboardBehavior="interactive"
@@ -1610,15 +1661,26 @@ export default function OverviewScreen() {
                   color: colors.textPrimary,
                 },
               ]}
-              placeholder="0.00"
+              placeholder={`0${decimalSeparator}00`}
               placeholderTextColor={colors.textSecondary}
               keyboardType="decimal-pad"
               value={value}
               onChangeText={(text) => {
-                const normalized = text
-                  .replace(/\./g, ",")
-                  .replace(/(,\d{2})\d+$/, "$1");
-                setValue(normalized);
+                // Replace alternative separators (, or .) with the active locale's separator
+                let sanitized = text.replace(/[.,]/g, decimalSeparator);
+
+                // Prevent multiple decimal separators
+                const parts = sanitized.split(decimalSeparator);
+                if (parts.length > 2) {
+                  sanitized = `${parts[0]}${decimalSeparator}${parts.slice(1).join("")}`;
+                }
+
+                // Restrict to 2 decimal places
+                if (parts[1] && parts[1].length > 2) {
+                  sanitized = `${parts[0]}${decimalSeparator}${parts[1].slice(0, 2)}`;
+                }
+
+                setValue(sanitized);
               }}
             />
 
@@ -1930,7 +1992,6 @@ export default function OverviewScreen() {
                         mode="date"
                         display="spinner"
                         onValueChange={handleDateChange}
-                        onDismiss={handleDismiss}
                         maximumDate={new Date(2100, 11, 31)}
                         style={{ alignSelf: "center", width: "100%" }}
                       />
@@ -1943,7 +2004,6 @@ export default function OverviewScreen() {
                   mode="date"
                   display="default"
                   onValueChange={handleDateChange}
-                  onDismiss={handleDismiss}
                   maximumDate={new Date(2100, 11, 31)}
                 />
               ))}
