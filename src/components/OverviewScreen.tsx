@@ -2436,8 +2436,8 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(15),
     fontWeight: "700",
   },
-  incomeText: { color: "#1E6B5C" },
-  expenseText: { color: "#D9534F" },
+  incomeText: { color: "#2E7D32" },
+  expenseText: { color: "#C62828" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

@@ -12,6 +12,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -75,9 +76,7 @@ const formatAmount = (val: number, locale: string = "en"): string => {
   const lang = locale.toLowerCase();
 
   const targetLocale =
-    lang.startsWith("pt") || lang.startsWith("es")
-      ? "pt-BR" // Formats as 1.000,00
-      : "en-US"; // Formats as 1,000.00 (EN & JA)
+    lang.startsWith("pt") || lang.startsWith("es") ? "pt-BR" : "en-US";
 
   return new Intl.NumberFormat(targetLocale, {
     minimumFractionDigits: 2,
@@ -99,19 +98,6 @@ const COLORS = {
   textMuted: "#8E8E93",
   incomeGreen: "#23c960",
   expenseRed: "#EF4444",
-  categoryColors: {
-    Housing: "#284E4C",
-    Food: "#C86D51",
-    "Fixed Expenses": "#96652C",
-    Fixed_Expenses: "#96652C",
-    Transportation: "#729B96",
-    Entertainment: "#D9A05B",
-    Healthcare: "#E29C82",
-    Clothing: "#B86B53",
-    PET: "#E8A855",
-    Travel: "#486E68",
-    Others: "#9A8B85",
-  } as Record<string, string>,
 };
 
 const getCategoryColor = (cat: string, isDark: boolean = false): string => {
@@ -140,6 +126,7 @@ const getCategoryColor = (cat: string, isDark: boolean = false): string => {
       return isDark ? "#565aa0" : "#cc3399";
   }
 };
+
 const CARD_COLOR_LIGHT = "#1E4D4F";
 const CASH_COLOR_LIGHT = COLORS.expenseOrange;
 const CARD_COLOR_DARK = "#00D2FF";
@@ -154,7 +141,11 @@ export default function AnalyticsScreen() {
   const [incomes, setIncomes] = useState<IncomeItem[]>([]);
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [baseMonthlyIncome, setBaseMonthlyIncome] = useState<number>(0);
+
+  // Reference date for dynamic month navigation
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  // Selected index within the calculated 6-month window (5 is the focused active month)
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(2);
 
   const fetchData = async () => {
     try {
@@ -210,16 +201,26 @@ export default function AnalyticsScreen() {
     fetchData();
   }, []);
 
+  const changeMonth = (offset: number) => {
+    setSelectedDate(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1),
+    );
+  };
+
   const incomeColor = isDark ? COLORS.incomeGreen : colors.primaryTeal;
   const expenseColor = isDark ? COLORS.expenseRed : COLORS.expenseOrange;
   const cardColor = isDark ? CARD_COLOR_DARK : CARD_COLOR_LIGHT;
   const cashColor = isDark ? CASH_COLOR_DARK : CASH_COLOR_LIGHT;
 
-  const last6Months = useMemo(() => {
+  // Generates 6 months ending at selectedDate
+  const calculated6Months = useMemo(() => {
     const months = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const targetYear = selectedDate.getFullYear();
+    const targetMonth = selectedDate.getMonth();
+
+    // Generate 6 months centered around selectedDate (e.g., 2 months before, active month, 3 months after)
+    for (let i = -2; i <= 3; i++) {
+      const d = new Date(targetYear, targetMonth + i, 1);
       const rawLabel = d.toLocaleDateString(i18n.language || "en", {
         month: "short",
       });
@@ -233,14 +234,20 @@ export default function AnalyticsScreen() {
       });
     }
     return months;
-  }, [i18n.language]);
+  }, [selectedDate, i18n.language]);
+
+  const selectedMonth = useMemo(() => {
+    return (
+      calculated6Months[selectedMonthIndex] ||
+      calculated6Months[calculated6Months.length - 1]
+    );
+  }, [calculated6Months, selectedMonthIndex]);
 
   const monthlyData = useMemo(() => {
-    return last6Months.map((m) => {
+    return calculated6Months.map((m) => {
       let registeredIncome = 0;
       let monthExpense = 0;
 
-      // Sum all deposit incomes created for this specific month
       incomes.forEach((inc) => {
         const rawDate = inc.createdAt || inc.date || "";
         const d = new Date(rawDate);
@@ -253,10 +260,8 @@ export default function AnalyticsScreen() {
         }
       });
 
-      // Combine base monthly income budget with extra income deposits
       const monthIncome = baseMonthlyIncome + registeredIncome;
 
-      // Filter expenses matching TransactionsScreen date resolution order
       expenses.forEach((exp) => {
         const rawDate =
           exp.dueDate || exp.paidAt || exp.date || exp.createdAt || "";
@@ -276,12 +281,15 @@ export default function AnalyticsScreen() {
         income: monthIncome,
         expenses: monthExpense,
         net: monthIncome - monthExpense,
+        monthIndex: m.monthIndex,
+        year: m.year,
       };
     });
-  }, [expenses, incomes, baseMonthlyIncome, last6Months]);
+  }, [expenses, incomes, baseMonthlyIncome, calculated6Months]);
 
   const currentMonthSummary = useMemo(() => {
     return (
+      monthlyData[selectedMonthIndex] ||
       monthlyData[monthlyData.length - 1] || {
         income: 0,
         expenses: 0,
@@ -289,11 +297,11 @@ export default function AnalyticsScreen() {
         month: "",
       }
     );
-  }, [monthlyData]);
+  }, [monthlyData, selectedMonthIndex]);
 
   const categorySpending = useMemo(() => {
-    const targetMonth = selectedDate.getMonth();
-    const targetYear = selectedDate.getFullYear();
+    const targetMonth = selectedMonth.monthIndex;
+    const targetYear = selectedMonth.year;
     const totals: Record<string, number> = {};
 
     expenses.forEach((exp) => {
@@ -323,15 +331,15 @@ export default function AnalyticsScreen() {
         amount,
         percentage:
           totalSpending > 0 ? Math.round((amount / totalSpending) * 100) : 0,
-        color: getCategoryColor(category, isDark), // Pass isDark here
+        color: getCategoryColor(category, isDark),
       }));
 
     return { totals, sortedEntries, totalSpending };
-  }, [expenses, selectedDate, isDark]);
+  }, [expenses, selectedMonth, isDark]);
 
   const paymentTypeBreakdown = useMemo(() => {
-    const targetMonth = selectedDate.getMonth();
-    const targetYear = selectedDate.getFullYear();
+    const targetMonth = selectedMonth.monthIndex;
+    const targetYear = selectedMonth.year;
 
     let cashSum = 0;
     let cardSum = 0;
@@ -364,11 +372,11 @@ export default function AnalyticsScreen() {
       cashPct: Math.round((cashSum / total) * 100),
       cardPct: Math.round((cardSum / total) * 100),
     };
-  }, [expenses, selectedDate]);
+  }, [expenses, selectedMonth]);
 
   const cardUsageBreakdown = useMemo(() => {
-    const targetMonth = selectedDate.getMonth();
-    const targetYear = selectedDate.getFullYear();
+    const targetMonth = selectedMonth.monthIndex;
+    const targetYear = selectedMonth.year;
 
     const cardTotals: Record<string, { card: UserCard; totalSpent: number }> =
       {};
@@ -422,7 +430,7 @@ export default function AnalyticsScreen() {
       .sort((a, b) => b.totalSpent - a.totalSpent);
 
     return { cardsList, unassignedCardSpending, totalCardSpent };
-  }, [expenses, userCards, paymentTypeBreakdown.card, selectedDate]);
+  }, [expenses, userCards, paymentTypeBreakdown.card, selectedMonth]);
 
   if (loading && !refreshing) {
     return (
@@ -466,7 +474,7 @@ export default function AnalyticsScreen() {
         backgroundColor={colors.headerBackground}
       />
 
-      {/* Fixed Header */}
+      {/* Fixed Header with Navigation Controls */}
       <View
         style={[
           styles.headerContainer,
@@ -474,22 +482,38 @@ export default function AnalyticsScreen() {
         ]}
       >
         <Text style={styles.headerTitle}>{t("analytics", "Analytics")}</Text>
-        <Text style={styles.headerSubtitle}>
-          {t("spendingInsights", "Spending insights")} ·{" "}
-          {(() => {
-            const rawDate = new Date().toLocaleDateString(
-              i18n.language || "en",
-              {
-                month: "long",
-                year: "numeric",
-              },
-            );
-            return rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
-          })()}
-        </Text>
+        <View style={styles.monthSelectorRow}>
+          <TouchableOpacity
+            onPress={() => changeMonth(-1)}
+            style={styles.monthNavButton}
+          >
+            <Text style={styles.monthNavText}>{"‹"}</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.headerSubtitle}>
+            {t("spendingInsights", "Spending insights")} ·{" "}
+            {(() => {
+              const rawDate = selectedDate.toLocaleDateString(
+                i18n.language || "en",
+                {
+                  month: "long",
+                  year: "numeric",
+                },
+              );
+              return rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
+            })()}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => changeMonth(1)}
+            style={styles.monthNavButton}
+          >
+            <Text style={styles.monthNavText}>{"›"}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Scrollable Body Container with Dynamic Background */}
+      {/* Body Container */}
       <View
         style={[
           styles.bodyContainer,
@@ -516,7 +540,7 @@ export default function AnalyticsScreen() {
                 {t("incomeVsExpenses", "Income vs. Expenses")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {t("last6Months", "Last 6 months")}
+                {selectedMonth.label} {selectedMonth.year}
               </Text>
 
               <View style={styles.chartWrapper}>
@@ -551,14 +575,26 @@ export default function AnalyticsScreen() {
 
                   {monthlyData.map((d, index) => {
                     const groupX =
-                      scale(48) + index * ((chartWidth - scale(58)) / 6);
+                      scale(40) + index * ((chartWidth - scale(50)) / 6);
                     const incomeH =
                       (d.income / maxBarValue) * verticalScale(140);
                     const expenseH =
                       (d.expenses / maxBarValue) * verticalScale(140);
+                    const isSelected = index === selectedMonthIndex;
 
                     return (
-                      <React.Fragment key={d.month}>
+                      <React.Fragment key={`${d.month}-${d.year}`}>
+                        {isSelected && (
+                          <Rect
+                            x={groupX - scale(8)}
+                            y={verticalScale(10)}
+                            width={scale(30)}
+                            height={verticalScale(180)}
+                            fill={colors.primaryTeal}
+                            opacity={0.12}
+                            rx={scale(6)}
+                          />
+                        )}
                         <Rect
                           x={groupX}
                           y={verticalScale(160) - incomeH}
@@ -566,6 +602,7 @@ export default function AnalyticsScreen() {
                           height={Math.max(incomeH, verticalScale(2))}
                           fill={incomeColor}
                           rx={scale(3)}
+                          onPress={() => setSelectedMonthIndex(index)}
                         />
                         <Rect
                           x={groupX + scale(8)}
@@ -574,13 +611,18 @@ export default function AnalyticsScreen() {
                           height={Math.max(expenseH, verticalScale(2))}
                           fill={expenseColor}
                           rx={scale(3)}
+                          onPress={() => setSelectedMonthIndex(index)}
                         />
                         <SvgText
                           x={groupX + scale(7)}
                           y={verticalScale(180)}
-                          fill={COLORS.textMuted}
+                          fill={
+                            isSelected ? colors.primaryTeal : COLORS.textMuted
+                          }
                           fontSize={moderateScale(11)}
+                          fontWeight={isSelected ? "700" : "400"}
                           textAnchor="middle"
+                          onPress={() => setSelectedMonthIndex(index)}
                         >
                           {d.month}
                         </SvgText>
@@ -628,16 +670,8 @@ export default function AnalyticsScreen() {
                 {t("paymentMethodBreakdown", "Payment Method Breakdown")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {t("cardVsCash", "Card vs. Cash")} •{" "}
-                {(() => {
-                  const rawMonth = selectedDate.toLocaleDateString(
-                    i18n.language || "en",
-                    {
-                      month: "long",
-                    },
-                  );
-                  return rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1);
-                })()}
+                {selectedMonth.label} {selectedMonth.year} ·{" "}
+                {t("cardVsCash", "Card vs. Cash")}
               </Text>
 
               <View style={styles.stackedBarContainer}>
@@ -672,7 +706,11 @@ export default function AnalyticsScreen() {
                     <View
                       style={[styles.legendBox, { backgroundColor: cardColor }]}
                     />
-                    <Text style={styles.paymentTypeLabel}>
+                    <Text
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      style={styles.paymentTypeLabel}
+                    >
                       {t("cardExpenses", "Card Expenses")}
                     </Text>
                   </View>
@@ -699,7 +737,11 @@ export default function AnalyticsScreen() {
                     <View
                       style={[styles.legendBox, { backgroundColor: cashColor }]}
                     />
-                    <Text style={styles.paymentTypeLabel}>
+                    <Text
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      style={styles.paymentTypeLabel}
+                    >
                       {t("cashExpenses", "Cash Expenses")}
                     </Text>
                   </View>
@@ -788,18 +830,10 @@ export default function AnalyticsScreen() {
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                {t("spendingByCategory", "Spending by Category")} •{" "}
-                {(() => {
-                  const rawMonth = selectedDate.toLocaleDateString(
-                    i18n.language || "en",
-                    {
-                      month: "long",
-                    },
-                  );
-                  return rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1);
-                })()}
+                {t("spendingByCategory", "Spending by Category")}
               </Text>
               <Text style={styles.cardSubtitle}>
+                {selectedMonth.label} {selectedMonth.year} ·{" "}
                 {t("total", "Total")}: $
                 {formatAmount(categorySpending.totalSpending, i18n.language)}
               </Text>
@@ -908,8 +942,8 @@ export default function AnalyticsScreen() {
                 {t("netSavingsTrend", "Net Savings Trend")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {t("income", "Incomes")} – {t("expenses", "Expenses")} (
-                {currentMonthSummary.month}.)
+                {selectedMonth.label} {selectedMonth.year} ·{" "}
+                {t("income", "Incomes")} – {t("expenses", "Expenses")}
               </Text>
 
               <View style={styles.netMetricRow}>
@@ -919,10 +953,17 @@ export default function AnalyticsScreen() {
                     isDark && { backgroundColor: "#2A2A2A" },
                   ]}
                 >
-                  <Text style={styles.netMetricLabel}>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                    style={styles.netMetricLabel}
+                  >
                     {t("income", "Incomes")}
                   </Text>
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
                     style={[
                       styles.netIncomeText,
                       {
@@ -944,6 +985,8 @@ export default function AnalyticsScreen() {
                     {t("expenses", "Expenses")}
                   </Text>
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
                     style={[
                       styles.netExpenseText,
                       {
@@ -967,6 +1010,8 @@ export default function AnalyticsScreen() {
                     {t("netSavings", "Net Savings")}
                   </Text>
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
                     style={[
                       styles.netValueText,
                       {
@@ -1036,33 +1081,59 @@ export default function AnalyticsScreen() {
                       "",
                     );
 
+                    const lineColor = isDark ? "#4A8B8D" : COLORS.tealLight;
+
                     return (
                       <React.Fragment>
                         <Path
                           d={pathD}
                           fill="none"
-                          stroke={colors.primaryTeal}
+                          stroke={lineColor}
                           strokeWidth={2.5}
                         />
-                        {points.map((p, i) => (
-                          <React.Fragment key={i}>
-                            <Circle
-                              cx={p.x}
-                              cy={p.y}
-                              r={scale(4)}
-                              fill={colors.primaryTeal}
-                            />
-                            <SvgText
-                              x={p.x}
-                              y={verticalScale(160)}
-                              fill={COLORS.textMuted}
-                              fontSize={moderateScale(11)}
-                              textAnchor="middle"
-                            >
-                              {p.month}
-                            </SvgText>
-                          </React.Fragment>
-                        ))}
+                        {points.map((p, i) => {
+                          const isSelected = i === selectedMonthIndex;
+                          return (
+                            <React.Fragment key={i}>
+                              {/* Background ring for active month to make it stand out */}
+                              {isSelected && (
+                                <Circle
+                                  cx={p.x}
+                                  cy={p.y}
+                                  r={scale(9)}
+                                  fill={COLORS.expenseOrange}
+                                  opacity={0.3}
+                                />
+                              )}
+                              <Circle
+                                cx={p.x}
+                                cy={p.y}
+                                r={isSelected ? scale(6) : scale(4)}
+                                fill={
+                                  isSelected ? COLORS.expenseOrange : lineColor
+                                }
+                                stroke={isSelected ? "#FFFFFF" : "transparent"}
+                                strokeWidth={isSelected ? 1.5 : 0}
+                                onPress={() => setSelectedMonthIndex(i)}
+                              />
+                              <SvgText
+                                x={p.x}
+                                y={verticalScale(160)}
+                                fill={
+                                  isSelected
+                                    ? colors.primaryTeal
+                                    : COLORS.textMuted
+                                }
+                                fontSize={moderateScale(11)}
+                                fontWeight={isSelected ? "700" : "400"}
+                                textAnchor="middle"
+                                onPress={() => setSelectedMonthIndex(i)}
+                              >
+                                {p.month}
+                              </SvgText>
+                            </React.Fragment>
+                          );
+                        })}
                       </React.Fragment>
                     );
                   })()}
@@ -1116,13 +1187,42 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: moderateScale(14),
     color: "rgba(255, 255, 255, 0.7)",
-    marginTop: verticalScale(4),
+  },
+  monthSelectorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: verticalScale(8),
+  },
+  monthNavButton: {
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(4),
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: scale(12),
+  },
+  monthNavText: {
+    color: "#FFFFFF",
+    fontSize: moderateScale(20),
+    fontWeight: "bold",
   },
   cardsWrapper: {
     paddingHorizontal: scale(20),
     paddingTop: verticalScale(20),
     paddingBottom: verticalScale(40),
     gap: verticalScale(16),
+  },
+  monthSelectorContainer: {
+    gap: scale(8),
+    paddingBottom: verticalScale(4),
+  },
+  monthChip: {
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(8),
+    borderRadius: scale(20),
+    borderWidth: 1,
+  },
+  monthChipText: {
+    fontSize: moderateScale(13),
   },
   card: {
     backgroundColor: COLORS.cardWhite,
@@ -1184,7 +1284,8 @@ const styles = StyleSheet.create({
   paymentMetricBox: {
     flex: 1,
     backgroundColor: "#F9F8F5",
-    padding: scale(12),
+    paddingVertical: verticalScale(16),
+    paddingHorizontal: scale(14),
     borderRadius: scale(14),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
@@ -1192,23 +1293,26 @@ const styles = StyleSheet.create({
   paymentHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: scale(6),
-    marginBottom: verticalScale(6),
+    gap: scale(8),
+    marginBottom: verticalScale(10),
+    flexWrap: "wrap",
   },
   paymentTypeLabel: {
     fontSize: moderateScale(12),
     fontWeight: "600",
     color: COLORS.textMuted,
+    flexShrink: 1,
   },
   paymentValueText: {
     fontSize: moderateScale(16),
     fontWeight: "700",
     color: COLORS.textDark,
+    marginBottom: verticalScale(4),
   },
   paymentPercentageText: {
     fontSize: moderateScale(11),
     color: COLORS.textMuted,
-    marginTop: verticalScale(2),
+    // marginTop: verticalScale(2),
   },
   cardBreakdownContainer: {
     marginTop: verticalScale(16),
@@ -1291,6 +1395,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: scale(10),
+    flex: 1,
+    paddingRight: scale(8),
   },
   chipIndicator: {
     width: scale(10),
@@ -1301,6 +1407,7 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     fontWeight: "600",
     color: COLORS.textDark,
+    flexShrink: 1,
   },
   categoryValue: {
     fontSize: moderateScale(14),
@@ -1313,35 +1420,40 @@ const styles = StyleSheet.create({
   },
   netMetricRow: {
     flexDirection: "row",
-    gap: scale(8),
+    gap: scale(6),
     marginBottom: verticalScale(16),
   },
   netMetricBox: {
     flex: 1,
     backgroundColor: "#F9F8F5",
-    padding: scale(10),
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(4),
     borderRadius: scale(12),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
+    alignItems: "center",
+    justifyContent: "center",
   },
   netMetricLabel: {
     fontSize: moderateScale(11),
     fontWeight: "600",
     color: COLORS.textMuted,
     marginBottom: verticalScale(4),
+    textAlign: "center",
+    flexShrink: 1,
   },
   netIncomeText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(12),
     fontWeight: "700",
     color: COLORS.tealDark,
   },
   netExpenseText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(12),
     fontWeight: "700",
     color: COLORS.expenseOrange,
   },
   netValueText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(12),
     fontWeight: "700",
   },
 });

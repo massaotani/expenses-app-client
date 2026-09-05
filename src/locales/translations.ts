@@ -412,7 +412,7 @@ export const resources = {
       noTransactionsRegistered: "Nenhuma transação registrada.",
 
       // Análises
-      analytics: "Análises",
+      analytics: "Visão Analítica",
       spendingInsights: "Análises de gastos",
       incomeVsExpenses: "Receita vs. Despesas",
       last6Months: "Últimos 6 meses",
@@ -425,7 +425,7 @@ export const resources = {
       total: "Total",
       noExpenses: "Sem Despesas",
       netSavingsTrend: "Tendência de Economia Líquida",
-      netSavings: "ECONOMIA",
+      netSavings: "ECONOMIA LÍQUIDA",
       health: "Saúde",
       shopping: "Compras",
       general: "Geral",
@@ -631,7 +631,7 @@ export const resources = {
       noTransactionsRegistered: "No hay transacciones registradas.",
 
       // Análisis
-      analytics: "Análisis",
+      analytics: "Visión Analítica",
       spendingInsights: "Análisis de gastos",
       incomeVsExpenses: "Ingresos vs. Gastos",
       last6Months: "Últimos 6 meses",
@@ -846,7 +846,7 @@ export const resources = {
       noTransactionsRegistered: "登録された取引はありません。",
 
       // 分析
-      analytics: "分析",
+      analytics: "分析視点",
       spendingInsights: "支出インサイト",
       incomeVsExpenses: "収入 vs 支出",
       last6Months: "過去6ヶ月",
@@ -1060,7 +1060,7 @@ export const resources = {
       noTransactionsRegistered: "등록된 거래 내역이 없습니다.",
 
       // Analytics
-      analytics: "분석",
+      analytics: "분석 시각",
       spendingInsights: "지출 분석",
       incomeVsExpenses: "수입 대 지출",
       last6Months: "최근 6개월",
@@ -1268,7 +1268,7 @@ export const resources = {
       noTransactionsRegistered: "暂无交易记录。",
 
       // Analytics
-      analytics: "分析",
+      analytics: "分析视角",
       spendingInsights: "支出洞察",
       incomeVsExpenses: "收入 vs 支出",
       last6Months: "最近 6 个月",
@@ -1487,7 +1487,7 @@ export const resources = {
       noTransactionsRegistered: "Aucune transaction enregistrée.",
 
       // Analytics
-      analytics: "Analyses",
+      analytics: "Vue analytique",
       spendingInsights: "Aperçu des dépenses",
       incomeVsExpenses: "Revenus vs Dépenses",
       last6Months: "6 derniers mois",
