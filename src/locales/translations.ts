@@ -162,7 +162,7 @@ export const resources = {
       // Income Modal
       addIncomeDeposit: "Add Income Deposit",
       sourceDescription: "Source / Description",
-      amount: "Amount ($)",
+      amount: "Amount",
       addToIncome: "Add to Income",
 
       // Expense Modal
@@ -380,7 +380,7 @@ export const resources = {
       // Modal de Receitas
       addIncomeDeposit: "Adicionar Depósito de Receita",
       sourceDescription: "Origem / Descrição",
-      amount: "Valor ($)",
+      amount: "Valor",
       addToIncome: "Adicionar à Receita",
 
       // Modal de Despesas
@@ -600,7 +600,7 @@ export const resources = {
       // Modal de Ingresos
       addIncomeDeposit: "Agregar Ingreso",
       sourceDescription: "Fuente / Descripción",
-      amount: "Monto ($)",
+      amount: "Monto",
       addToIncome: "Agregar a Ingresos",
 
       // Modal de Gastos
@@ -815,7 +815,7 @@ export const resources = {
       // 収入モーダル
       addIncomeDeposit: "収入の追加",
       sourceDescription: "収入源 / 説明",
-      amount: "金額 ($)",
+      amount: "金額",
       addToIncome: "収入に追加",
 
       // 支出モーダル
@@ -1028,7 +1028,7 @@ export const resources = {
       // Income Modal
       addIncomeDeposit: "수입 추가",
       sourceDescription: "출처 / 설명",
-      amount: "금액 ($)",
+      amount: "금액",
       addToIncome: "수입에 추가",
 
       // Expense Modal
@@ -1236,7 +1236,7 @@ export const resources = {
       // Income Modal
       addIncomeDeposit: "添加收入",
       sourceDescription: "来源 / 说明",
-      amount: "金额 ($)",
+      amount: "金额",
       addToIncome: "计入收入",
 
       // Expense Modal
@@ -1455,7 +1455,7 @@ export const resources = {
       // Income Modal
       addIncomeDeposit: "Ajouter un revenu",
       sourceDescription: "Source / Description",
-      amount: "Montant ($)",
+      amount: "Montant",
       addToIncome: "Ajouter aux revenus",
 
       // Expense Modal

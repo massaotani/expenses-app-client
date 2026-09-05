@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -6,6 +7,7 @@ import {
   BottomSheetScrollView,
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
+import * as Localization from "expo-localization";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,6 +26,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../app/_layout";
 import { useAppTheme } from "../constants/theme";
+import { useCurrency } from "../context/CurrencyContext";
 import api from "../services/api";
 
 export interface UserProfile {
@@ -43,7 +46,27 @@ const LANGUAGES = [
   { code: "fr", label: "Français" },
 ];
 
+const CURRENCIES = [
+  { code: "USD", symbol: "$", label: "USD ($)" },
+  { code: "BRL", symbol: "R$", label: "BRL (R$)" },
+  { code: "GBP", symbol: "£", label: "GBP (£)" },
+  { code: "JPY", symbol: "¥", label: "JPY (¥)" },
+  { code: "EUR", symbol: "€", label: "EUR (€)" },
+  { code: "KRW", symbol: "₩", label: "KRW (₩)" },
+  { code: "CNY", symbol: "¥", label: "CNY (¥)" },
+];
+
+// Helper to determine system currency or fallback to USD
+const getDefaultCurrency = (): string => {
+  const currencyCode = Localization.getLocales()?.[0]?.currencyCode;
+  if (currencyCode && CURRENCIES.some((c) => c.code === currencyCode)) {
+    return currencyCode;
+  }
+  return "USD";
+};
+
 export default function SettingsScreen() {
+  const { currency, setCurrency } = useCurrency();
   const { t, i18n } = useTranslation();
   const { signOut, token } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -64,9 +87,11 @@ export default function SettingsScreen() {
   // Gorhom Bottom Sheet Refs & Snap Points
   const languageModalRef = useRef<BottomSheetModal>(null);
   const passwordModalRef = useRef<BottomSheetModal>(null);
+  const currencyModalRef = useRef<BottomSheetModal>(null);
 
   const langSnapPoints = useMemo(() => ["60%"], []);
   const passwordSnapPoints = useMemo(() => ["68%"], []);
+  const currencySnapPoints = useMemo(() => ["60%"], []);
 
   const { colors, isDark, setDarkMode } = useAppTheme();
 
@@ -116,6 +141,7 @@ export default function SettingsScreen() {
 
   // Handlers for opening modals
   const handleOpenLanguageModal = () => languageModalRef.current?.present();
+  const handleOpenCurrencyModal = () => currencyModalRef.current?.present();
   const handleOpenPasswordModal = () => {
     setCurrentPassword("");
     setNewPassword("");
@@ -129,6 +155,11 @@ export default function SettingsScreen() {
   const handleLanguageSelect = (langCode: string) => {
     i18n.changeLanguage(langCode);
     languageModalRef.current?.dismiss();
+  };
+
+  const handleCurrencySelect = async (currencyCode: string) => {
+    await setCurrency(currencyCode);
+    currencyModalRef.current?.dismiss();
   };
 
   // Change Password API Call
@@ -233,6 +264,11 @@ export default function SettingsScreen() {
   const activeLangCode = i18n.language ? i18n.language.split(/[-_]/)[0] : "en";
   const currentLanguageLabel =
     LANGUAGES.find((l) => l.code === activeLangCode)?.label || "English";
+
+  const currentCurrencyObj = CURRENCIES.find((c) => c.code === currency);
+  const currentCurrencyLabel =
+    currentCurrencyObj?.label ||
+    `${currency} (${formatCurrency(0, currency).replace(/[\d\s.,]/g, "")})`;
 
   return (
     <SafeAreaView
@@ -484,6 +520,42 @@ export default function SettingsScreen() {
                       {currentLanguageLabel}
                     </Text>
                   </TouchableOpacity>
+
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: colors.divider },
+                    ]}
+                  />
+
+                  {/* CURRENCY SELECTOR ROW */}
+                  <TouchableOpacity
+                    style={styles.row}
+                    onPress={handleOpenCurrencyModal}
+                  >
+                    <View
+                      style={[
+                        styles.iconBox,
+                        { backgroundColor: colors.iconBoxBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name="cash-outline"
+                        size={18}
+                        color={colors.textPrimary}
+                      />
+                    </View>
+                    <Text
+                      style={[styles.rowLabel, { color: colors.textPrimary }]}
+                    >
+                      {t("currency", "Currency")}
+                    </Text>
+                    <Text
+                      style={[styles.rowValue, { color: colors.textSecondary }]}
+                    >
+                      {currentCurrencyLabel}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 {/* ACCOUNT ACTIONS */}
@@ -601,6 +673,62 @@ export default function SettingsScreen() {
                     ]}
                   >
                     {lang.label}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={colors.primaryTeal}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
+
+      {/* CURRENCY SELECTION BOTTOM SHEET MODAL */}
+      <BottomSheetModal
+        ref={currencyModalRef}
+        snapPoints={currencySnapPoints}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: colors.cardBackground }}
+        handleIndicatorStyle={{ backgroundColor: colors.textSecondary }}
+      >
+        <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
+          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+            {t("selectCurrency", "Select Currency")}
+          </Text>
+
+          <View style={{ marginVertical: 12 }}>
+            {CURRENCIES.map((item) => {
+              const isSelected = currency === item.code;
+              return (
+                <TouchableOpacity
+                  key={item.code}
+                  style={[
+                    styles.languageOption,
+                    { backgroundColor: colors.iconBoxBg },
+                    isSelected && {
+                      backgroundColor: isDark ? "#1A1A1A" : "#E6F0F0",
+                      borderWidth: 1,
+                      borderColor: colors.primaryTeal,
+                    },
+                  ]}
+                  onPress={() => handleCurrencySelect(item.code)}
+                >
+                  <Text
+                    style={[
+                      styles.languageOptionText,
+                      { color: colors.textPrimary },
+                      isSelected && {
+                        color: colors.primaryTeal,
+                        fontWeight: "bold",
+                      },
+                    ]}
+                  >
+                    {item.label}
                   </Text>
                   {isSelected && (
                     <Ionicons

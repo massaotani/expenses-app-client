@@ -1,3 +1,7 @@
+import {
+  formatCurrency,
+  getCurrencyDecimalSeparator,
+} from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { parseFlexibleNumber } from "@/utils/storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,7 +13,7 @@ import {
 } from "@gorhom/bottom-sheet";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -30,6 +34,7 @@ import { LineChart } from "react-native-gifted-charts";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../app/_layout";
 import { useAppTheme } from "../constants/theme";
+import { useCurrency } from "../context/CurrencyContext";
 import api from "../services/api";
 
 export interface SpringBootExpense {
@@ -51,6 +56,7 @@ export interface UserProfile {
   monthlyIncome: number;
   investmentPot: number;
   monthlyExpenses: number;
+  currency?: string;
 }
 
 export interface SpringBootIncome {
@@ -100,10 +106,110 @@ const toLocalISOString = (date: Date): string => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
+function getCategoryEmoji(cat: string) {
+  switch (cat?.toLowerCase()) {
+    case "food":
+      return "🛒";
+    case "housing":
+      return "🏠";
+    case "transportation":
+      return "🚗";
+    case "entertainment":
+      return "🎬";
+    case "fixed_expenses":
+    case "fixed expenses":
+      return "📌";
+    case "healthcare":
+      return "🩺";
+    case "clothing":
+      return "👕";
+    case "pet":
+      return "🐾";
+    case "travel":
+      return "✈️";
+    default:
+      return "💳";
+  }
+}
+
+function getCategoryColor(cat: string, isDark: boolean = false): string {
+  switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
+    case "housing":
+      return isDark ? "#ff595e" : "#ff6600";
+    case "food":
+      return isDark ? "#ff924c" : "#ff9900";
+    case "fixed expenses":
+      return isDark ? "#A78BFA" : "#6D28D9";
+    case "transportation":
+    case "transport":
+      return isDark ? "#8ac926" : "#669900";
+    case "entertainment":
+      return isDark ? "#c5ca30" : "#99cc33";
+    case "healthcare":
+    case "health":
+      return isDark ? "#ffca3a" : "#ffcc00";
+    case "clothing":
+      return isDark ? "#36949d" : "#006699";
+    case "pet":
+      return isDark ? "#1982c4" : "#3399cc";
+    case "travel":
+      return isDark ? "#6a4c93" : "#990066";
+    default:
+      return isDark ? "#565aa0" : "#cc3399";
+  }
+}
+
+function parseAmount(value: string | number | undefined | null): number {
+  if (typeof value === "number") return value;
+  if (!value) return 0;
+
+  // Remove non-numeric characters except decimal points and negative signs
+  const cleaned = String(value).replace(/[^0-9.-]+/g, "");
+  const parsed = parseFloat(cleaned);
+
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function parseLocalDateTime(dateInput: string | Date | undefined | null): Date {
+  if (!dateInput) return new Date();
+  if (dateInput instanceof Date) return dateInput;
+
+  const str = String(dateInput);
+  const [datePart, timePart] = str.split("T");
+  const dateParts = datePart.split("-").map(Number);
+
+  if (dateParts.length === 3 && !dateParts.some(isNaN)) {
+    let hours = 0,
+      minutes = 0,
+      seconds = 0;
+
+    if (timePart) {
+      const cleanTime = timePart.split(".")[0].replace("Z", "");
+      const timeParts = cleanTime.split(":").map(Number);
+      hours = timeParts[0] || 0;
+      minutes = timeParts[1] || 0;
+      seconds = timeParts[2] || 0;
+    }
+
+    return new Date(
+      dateParts[0],
+      dateParts[1] - 1,
+      dateParts[2],
+      hours,
+      minutes,
+      seconds,
+    );
+  }
+
+  const parsed = new Date(dateInput);
+  return !isNaN(parsed.getTime()) ? parsed : new Date();
+}
+
 export default function OverviewScreen() {
   const chartRef = useRef<any>(null);
   const { colors, isDark } = useAppTheme();
   const { t, i18n } = useTranslation();
+  const { currency, setCurrency } = useCurrency();
   const { token, signOut } = useAuth();
   const router = useRouter();
 
@@ -121,6 +227,7 @@ export default function OverviewScreen() {
   const [rawExpenses, setRawExpenses] = useState<SpringBootExpense[]>([]);
   const [rawIncomes, setRawIncomes] = useState<SpringBootIncome[]>([]);
 
+  const [currentLang, setCurrentLang] = useState(i18n.language);
   const [totalExpenses, setTotalExpenses] = useState<number>(0);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [budgetItems, setBudgetItems] = useState<any[]>([]);
@@ -161,25 +268,216 @@ export default function OverviewScreen() {
     { value: number; label: string }[]
   >([]);
 
-  const now = new Date();
-  const isCurrentMonthBalance =
-    monthlyBalance?.year === now.getFullYear() &&
-    monthlyBalance?.month === now.getMonth() + 1;
+  const formatWithCapitalMonth = (
+    date: Date,
+    locale: string,
+    options: Intl.DateTimeFormatOptions,
+  ): string => {
+    const safeLocale = (locale || "en").replace("_", "-");
 
-  const effectiveIncome = isCurrentMonthBalance
-    ? monthlyBalance.income
-    : monthlyIncome + totalDeposits;
+    try {
+      const formatted = new Intl.DateTimeFormat(safeLocale, options).format(
+        date,
+      );
+      const lowercasePrepositions = new Set([
+        "de",
+        "del",
+        "e",
+        "y",
+        "do",
+        "da",
+        "dos",
+        "das",
+      ]);
 
-  const effectiveExpenses = isCurrentMonthBalance
-    ? monthlyBalance.totalExpenses
-    : totalExpenses;
+      return formatted
+        .split(" ")
+        .map((word) => {
+          const cleanLower = word.toLowerCase();
+          if (lowercasePrepositions.has(cleanLower)) {
+            return cleanLower;
+          }
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        })
+        .join(" ");
+    } catch {
+      return date.toLocaleDateString();
+    }
+  };
 
-  const totalBalance = isCurrentMonthBalance
-    ? monthlyBalance.savings
-    : effectiveIncome - effectiveExpenses;
+  const processMonthlyTrend = useCallback(
+    (expenses: SpringBootExpense[]) => {
+      const now = new Date();
+      const monthsTrend = [];
+
+      for (let i = 3; i >= -3; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const month = d.getMonth();
+        const year = d.getFullYear();
+
+        const monthlyTotal = expenses
+          .filter((exp) => {
+            if (!exp.dueDate) return false;
+            const expDate = parseLocalDateTime(exp.dueDate);
+            return (
+              expDate.getMonth() === month && expDate.getFullYear() === year
+            );
+          })
+          .reduce(
+            (sum, exp) => sum + parseAmount(exp.value ?? (exp as any).amount),
+            0,
+          );
+
+        const rawLabel = d.toLocaleDateString(i18n.language, {
+          month: "short",
+        });
+
+        const capitalizedLabel =
+          rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+
+        monthsTrend.push({
+          label: capitalizedLabel,
+          value: Math.max(0, monthlyTotal || 0),
+          focused: i === 0,
+        });
+      }
+
+      return monthsTrend;
+    },
+    [i18n.language],
+  );
+
+  const { effectiveIncome, effectiveExpenses, totalBalance } = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const isCurrentMonthBalance =
+      monthlyBalance?.year === now.getFullYear() &&
+      monthlyBalance?.month === now.getMonth() + 1;
+
+    const trend = processMonthlyTrend(rawExpenses);
+
+    const currentMonthIncomes = rawIncomes.filter((item) => {
+      if (!item.createdAt) return true;
+      const d = parseLocalDateTime(item.createdAt);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+
+    const calculatedDeposits = currentMonthIncomes.reduce(
+      (sum, item) => sum + parseAmount(item.value ?? item.amount),
+      0,
+    );
+
+    const currentMonthExpenses = rawExpenses.filter((item) => {
+      if (!item.dueDate) return true;
+      const d = parseLocalDateTime(item.dueDate);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+
+    const totalExp = currentMonthExpenses.reduce(
+      (sum, item) => sum + parseAmount(item.value ?? (item as any).amount),
+      0,
+    );
+
+    const budgetMap = currentMonthExpenses.reduce(
+      (acc, item) => {
+        const itemVal = parseAmount(item.value ?? (item as any).amount);
+        acc[item.category] = (acc[item.category] || 0) + itemVal;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const groupedBudgets = Object.keys(budgetMap).map((cat, index) => ({
+      id: index.toString(),
+      category: cat,
+      spent: budgetMap[cat],
+      limit: budgetMap[cat] + budgetMap[cat] * 0.2,
+      color: getCategoryColor(cat, isDark),
+    }));
+
+    const formattedExpenses = currentMonthExpenses.map((item) => {
+      const parsedDate = parseLocalDateTime(item.dueDate);
+      return {
+        id: `exp-${item.id || Math.random()}`,
+        type: "EXPENSE" as const,
+        title: item.description,
+        category: item.category,
+        rawDate: parsedDate,
+        date: item.dueDate
+          ? formatWithCapitalMonth(parsedDate, i18n.language, {
+              month: "short",
+              day: "numeric",
+            })
+          : t("today", "Today"),
+        amount: parseAmount(item.value ?? (item as any).amount),
+        emoji: getCategoryEmoji(item.category),
+      };
+    });
+
+    const formattedIncomes = currentMonthIncomes.map((item) => {
+      const parsedDate = parseLocalDateTime(item.createdAt);
+      return {
+        id: `inc-${item.id || Math.random()}`,
+        type: "INCOME" as const,
+        title: item.description,
+        category: "DEPOSIT",
+        rawDate: parsedDate,
+        date: item.createdAt
+          ? formatWithCapitalMonth(parsedDate, i18n.language, {
+              month: "short",
+              day: "numeric",
+            })
+          : t("today", "Today"),
+        amount: parseAmount(item.value ?? item.amount),
+        emoji: "💰",
+      };
+    });
+
+    const combined = [...formattedExpenses, ...formattedIncomes].sort(
+      (a, b) => {
+        const timeDiff = b.rawDate.getTime() - a.rawDate.getTime();
+        if (timeDiff !== 0) return timeDiff;
+        return String(b.id).localeCompare(String(a.id));
+      },
+    );
+
+    const effInc = isCurrentMonthBalance
+      ? monthlyBalance.income
+      : monthlyIncome + calculatedDeposits;
+
+    const effExp = isCurrentMonthBalance
+      ? monthlyBalance.totalExpenses
+      : totalExp;
+
+    const totBal = isCurrentMonthBalance
+      ? monthlyBalance.savings
+      : effInc - effExp;
+
+    return {
+      trendData: trend,
+      budgetItems: groupedBudgets,
+      recentTransactions: combined.slice(0, 5),
+      effectiveIncome: effInc,
+      effectiveExpenses: effExp,
+      totalBalance: totBal,
+      totalDeposits: calculatedDeposits,
+    };
+  }, [
+    rawExpenses,
+    rawIncomes,
+    monthlyBalance,
+    monthlyIncome,
+    currentLang,
+    i18n.language,
+    isDark,
+    currency,
+    processMonthlyTrend,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
+      setCurrentLang(i18n.language);
       let isMounted = true;
 
       if (token) {
@@ -189,8 +487,9 @@ export default function OverviewScreen() {
       return () => {
         isMounted = false;
       };
-    }, [token]),
+    }, [token, i18n.language]),
   );
+
   const expensesSheetRef = useRef<BottomSheetModal>(null);
   const incomeSheetRef = useRef<BottomSheetModal>(null);
   const cardSheetRef = useRef<BottomSheetModal>(null);
@@ -224,86 +523,10 @@ export default function OverviewScreen() {
     }
   }, [trendData]);
 
-  useEffect(() => {
-    processFigmaData(rawExpenses, rawIncomes);
-  }, [i18n.language, rawExpenses, rawIncomes]);
-
-  const formatCurrency = (amount: number) => {
-    return (amount || 0).toLocaleString(i18n.language, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const processMonthlyTrend = (expenses: SpringBootExpense[]) => {
-    const now = new Date();
-    const monthsTrend = [];
-
-    for (let i = 3; i >= -3; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const month = d.getMonth();
-      const year = d.getFullYear();
-
-      const monthlyTotal = expenses
-        .filter((exp) => {
-          if (!exp.dueDate) return false;
-          const expDate = parseLocalDateTime(exp.dueDate);
-          return expDate.getMonth() === month && expDate.getFullYear() === year;
-        })
-        .reduce(
-          (sum, exp) => sum + parseAmount(exp.value ?? (exp as any).amount),
-          0,
-        );
-
-      const rawLabel = d.toLocaleDateString(i18n.language, { month: "short" });
-      const capitalizedLabel =
-        rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
-
-      monthsTrend.push({
-        label: capitalizedLabel,
-        value: Math.max(0, monthlyTotal || 0),
-        focused: i === 0,
-      });
-    }
-
-    return monthsTrend;
-  };
-
-  const parseLocalDateTime = (
-    dateInput: string | Date | undefined | null,
-  ): Date => {
-    if (!dateInput) return new Date();
-    if (dateInput instanceof Date) return dateInput;
-
-    const str = String(dateInput);
-    const [datePart, timePart] = str.split("T");
-    const dateParts = datePart.split("-").map(Number);
-
-    if (dateParts.length === 3 && !dateParts.some(isNaN)) {
-      let hours = 0,
-        minutes = 0,
-        seconds = 0;
-
-      if (timePart) {
-        const cleanTime = timePart.split(".")[0].replace("Z", "");
-        const timeParts = cleanTime.split(":").map(Number);
-        hours = timeParts[0] || 0;
-        minutes = timeParts[1] || 0;
-        seconds = timeParts[2] || 0;
-      }
-
-      return new Date(
-        dateParts[0],
-        dateParts[1] - 1,
-        dateParts[2],
-        hours,
-        minutes,
-        seconds,
-      );
-    }
-
-    const parsed = new Date(dateInput);
-    return !isNaN(parsed.getTime()) ? parsed : new Date();
+  const formatCategoryTranslation = (cat: string) => {
+    if (!cat) return "";
+    const key = cat.toLowerCase().trim().replace(/\s+/g, "_");
+    return t(key, { defaultValue: cat.replace(/_/g, " ") });
   };
 
   const formatDateDDMMYYYY = (date: Date) => {
@@ -378,6 +601,9 @@ export default function OverviewScreen() {
         setUserName(user.name || "");
         setMonthlyIncome(user.monthlyIncome || 0);
         setInvestmentPot(user.investmentPot || 0);
+        if (user.currency) {
+          setCurrency(user.currency);
+        }
       }
 
       if (balanceRes.status === "fulfilled") {
@@ -402,15 +628,6 @@ export default function OverviewScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const parseAmount = (val: any): number => {
-    if (typeof val === "number") return isNaN(val) ? 0 : val;
-    if (typeof val === "string") {
-      const parsed = parseFloat(val.replace(",", "."));
-      return isNaN(parsed) ? 0 : parsed;
-    }
-    return 0;
   };
 
   const processFigmaData = (
@@ -474,7 +691,7 @@ export default function OverviewScreen() {
         category: item.category,
         rawDate: parsedDate,
         date: item.dueDate
-          ? parsedDate.toLocaleDateString(i18n.language, {
+          ? formatWithCapitalMonth(parsedDate, i18n.language, {
               month: "short",
               day: "numeric",
             })
@@ -493,7 +710,7 @@ export default function OverviewScreen() {
         category: "DEPOSIT",
         rawDate: parsedDate,
         date: item.createdAt
-          ? parsedDate.toLocaleDateString(i18n.language, {
+          ? formatWithCapitalMonth(parsedDate, i18n.language, {
               month: "short",
               day: "numeric",
             })
@@ -519,8 +736,7 @@ export default function OverviewScreen() {
     fetchAllData();
   };
 
-  const decimalSeparator =
-    (1.1).toLocaleString(i18n.language).replace(/\d/g, "") || ".";
+  const decimalSeparator = getCurrencyDecimalSeparator(currency);
 
   const handleIncomeDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === "android") {
@@ -894,59 +1110,6 @@ export default function OverviewScreen() {
     return t(key, { defaultValue: fallback });
   };
 
-  const getCategoryEmoji = (cat: string) => {
-    switch (cat?.toLowerCase()) {
-      case "food":
-        return "🛒";
-      case "housing":
-        return "🏠";
-      case "transportation":
-        return "🚗";
-      case "entertainment":
-        return "🎬";
-      case "fixed_expenses":
-      case "fixed expenses":
-        return "📌";
-      case "healthcare":
-        return "🩺";
-      case "clothing":
-        return "👕";
-      case "pet":
-        return "🐾";
-      case "travel":
-        return "✈️";
-      default:
-        return "💳";
-    }
-  };
-
-  const getCategoryColor = (cat: string, isDark: boolean = false): string => {
-    switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
-      case "housing":
-        return isDark ? "#ff595e" : "#ff6600";
-      case "food":
-        return isDark ? "#ff924c" : "#ff9900";
-      case "fixed expenses":
-        return isDark ? "#A78BFA" : "#6D28D9";
-      case "transportation":
-      case "transport":
-        return isDark ? "#8ac926" : "#669900";
-      case "entertainment":
-        return isDark ? "#c5ca30" : "#99cc33";
-      case "healthcare":
-      case "health":
-        return isDark ? "#ffca3a" : "#ffcc00";
-      case "clothing":
-        return isDark ? "#36949d" : "#006699";
-      case "pet":
-        return isDark ? "#1982c4" : "#3399cc";
-      case "travel":
-        return isDark ? "#6a4c93" : "#990066";
-      default:
-        return isDark ? "#565aa0" : "#cc3399";
-    }
-  };
-
   if (loading) {
     return (
       <View
@@ -996,18 +1159,12 @@ export default function OverviewScreen() {
             {t("totalBalance", "TOTAL BALANCE")}
           </Text>
           <Text style={styles.balanceAmount}>
-            $
-            {totalBalance.toLocaleString(i18n.language, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            {formatCurrency(totalBalance, currency, i18n.language)}
           </Text>
           {investmentPot > 0 && (
             <Text style={styles.balanceTrend}>
-              {t("investmentPot", "Investment Pot")}: $
-              {investmentPot.toLocaleString(i18n.language, {
-                minimumFractionDigits: 2,
-              })}
+              {t("investmentPot", "Investment Pot")}:{" "}
+              {formatCurrency(investmentPot, currency, i18n.language)}
             </Text>
           )}
         </View>
@@ -1023,11 +1180,7 @@ export default function OverviewScreen() {
             </View>
 
             <Text style={styles.miniCardValue}>
-              $
-              {effectiveIncome.toLocaleString(i18n.language, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(effectiveIncome, currency, i18n.language)}
             </Text>
           </TouchableOpacity>
 
@@ -1042,11 +1195,7 @@ export default function OverviewScreen() {
               <Text style={styles.miniCardAdd}>+</Text>
             </View>
             <Text style={styles.miniCardValue}>
-              $
-              {effectiveExpenses.toLocaleString(i18n.language, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(effectiveExpenses, currency, i18n.language)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1149,7 +1298,7 @@ export default function OverviewScreen() {
                         { color: colors.monthlyAmount },
                       ]}
                     >
-                      ${formatCurrency(item.spent)}{" "}
+                      {formatCurrency(item.spent, currency, i18n.language)}{" "}
                       <Text
                         style={[
                           styles.budgetLimit,
@@ -1233,12 +1382,7 @@ export default function OverviewScreen() {
                       { color: colors.textSecondary },
                     ]}
                   >
-                    {String(
-                      t(tx.category.toLowerCase().replace(/\s+/g, "_"), {
-                        defaultValue: tx.category,
-                      }),
-                    )}{" "}
-                    · {tx.date}
+                    {String(formatCategoryTranslation(tx.category))} • {tx.date}
                   </Text>
                 </View>
 
@@ -1251,8 +1395,8 @@ export default function OverviewScreen() {
                   ]}
                 >
                   {tx.type === "INCOME"
-                    ? `+$${formatCurrency(tx.amount)}`
-                    : `-$${formatCurrency(tx.amount)}`}
+                    ? `+${formatCurrency(tx.amount, currency, i18n.language)}`
+                    : `-${formatCurrency(tx.amount, currency, i18n.language)}`}
                 </Text>
               </View>
             ))}
@@ -1646,7 +1790,7 @@ export default function OverviewScreen() {
             />
 
             <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-              {t("amount", "Amount ($)")}
+              {t("amount", "Amount")} ({currency})
             </Text>
             <BottomSheetTextInput
               style={[
@@ -1656,11 +1800,19 @@ export default function OverviewScreen() {
                   color: colors.textPrimary,
                 },
               ]}
-              placeholder={`0${decimalSeparator}00`}
+              placeholder={formatCurrency(0, currency, i18n.language)}
               placeholderTextColor={colors.textSecondary}
-              keyboardType="decimal-pad"
+              keyboardType={
+                ["JPY", "KRW"].includes(currency) ? "number-pad" : "decimal-pad"
+              }
               value={incomeValue}
               onChangeText={(text) => {
+                // If the currency is JPY or KRW, strip out all non-digits
+                if (["JPY", "KRW"].includes(currency)) {
+                  setIncomeValue(text.replace(/\D/g, ""));
+                  return;
+                }
+
                 // Replace alternative separators (, or .) with the active locale's separator
                 let sanitized = text.replace(/[.,]/g, decimalSeparator);
 
@@ -1846,7 +1998,7 @@ export default function OverviewScreen() {
             />
 
             <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-              {t("amount", "Amount ($)")}
+              {t("amount", "Amount")} ({currency})
             </Text>
             <BottomSheetTextInput
               style={[
@@ -1856,11 +2008,19 @@ export default function OverviewScreen() {
                   color: colors.textPrimary,
                 },
               ]}
-              placeholder={`0${decimalSeparator}00`}
+              placeholder={formatCurrency(0, currency, i18n.language)}
               placeholderTextColor={colors.textSecondary}
-              keyboardType="decimal-pad"
+              keyboardType={
+                ["JPY", "KRW"].includes(currency) ? "number-pad" : "decimal-pad"
+              }
               value={value}
               onChangeText={(text) => {
+                // If the currency is JPY or KRW, strip out all non-digits
+                if (["JPY", "KRW"].includes(currency)) {
+                  setValue(text.replace(/\D/g, ""));
+                  return;
+                }
+
                 // Replace alternative separators (, or .) with the active locale's separator
                 let sanitized = text.replace(/[.,]/g, decimalSeparator);
 
@@ -2543,11 +2703,11 @@ const styles = StyleSheet.create({
   },
   twoColumnContainer: {
     flexDirection: "row",
-    gap: 12, // adjust gap spacing between the two columns as needed
+    gap: 12,
     marginBottom: 16,
   },
   categoryChipTwoCol: {
-    flex: 1, // forces equal 50/50 split
+    flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,

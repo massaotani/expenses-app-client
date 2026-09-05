@@ -57,6 +57,7 @@ export const deleteItem = async (key: string): Promise<void> => {
     }
   }
 };
+
 export const parseFlexibleNumber = (input: string): number => {
   if (!input || typeof input !== "string") return NaN;
 

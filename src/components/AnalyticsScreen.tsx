@@ -1,5 +1,7 @@
 import { useAppTheme } from "@/constants/theme";
+import { useCurrency } from "@/context/CurrencyContext";
 import api from "@/services/api";
+import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -71,19 +73,6 @@ const parseAmount = (val: any): number => {
   return 0;
 };
 
-const formatAmount = (val: number, locale: string = "en"): string => {
-  const num = isNaN(val) ? 0 : val;
-  const lang = locale.toLowerCase();
-
-  const targetLocale =
-    lang.startsWith("pt") || lang.startsWith("es") ? "pt-BR" : "en-US";
-
-  return new Intl.NumberFormat(targetLocale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(num);
-};
-
 const COLORS = {
   tealDark: "#204B4C",
   tealLight: "#356566",
@@ -133,6 +122,7 @@ const CARD_COLOR_DARK = "#00D2FF";
 const CASH_COLOR_DARK = "#FF4081";
 
 export default function AnalyticsScreen() {
+  const { currency } = useCurrency();
   const { colors, isDark } = useAppTheme();
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -491,7 +481,7 @@ export default function AnalyticsScreen() {
           </TouchableOpacity>
 
           <Text style={styles.headerSubtitle}>
-            {t("spendingInsights", "Spending insights")} ·{" "}
+            {t("spendingInsights", "Spending insights")} •{" "}
             {(() => {
               const rawDate = selectedDate.toLocaleDateString(
                 i18n.language || "en",
@@ -670,7 +660,7 @@ export default function AnalyticsScreen() {
                 {t("paymentMethodBreakdown", "Payment Method Breakdown")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {selectedMonth.label} {selectedMonth.year} ·{" "}
+                {selectedMonth.label} {selectedMonth.year} •{" "}
                 {t("cardVsCash", "Card vs. Cash")}
               </Text>
 
@@ -714,17 +704,19 @@ export default function AnalyticsScreen() {
                       {t("cardExpenses", "Card Expenses")}
                     </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.paymentValueText,
-                      { color: colors.textPrimary },
-                    ]}
-                  >
-                    ${formatAmount(paymentTypeBreakdown.card, i18n.language)}
-                  </Text>
-                  <Text style={styles.paymentPercentageText}>
-                    {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
-                  </Text>
+                  <View style={{ alignItems: "center" }}>
+                    <Text
+                      style={[
+                        styles.paymentValueText,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {formatCurrency(paymentTypeBreakdown.card, currency)}
+                    </Text>
+                    <Text style={styles.paymentPercentageText}>
+                      {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
+                    </Text>
+                  </View>
                 </View>
 
                 <View
@@ -745,17 +737,20 @@ export default function AnalyticsScreen() {
                       {t("cashExpenses", "Cash Expenses")}
                     </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.paymentValueText,
-                      { color: colors.textPrimary },
-                    ]}
-                  >
-                    ${formatAmount(paymentTypeBreakdown.cash, i18n.language)}
-                  </Text>
-                  <Text style={styles.paymentPercentageText}>
-                    {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
-                  </Text>
+
+                  <View style={{ alignItems: "center" }}>
+                    <Text
+                      style={[
+                        styles.paymentValueText,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {formatCurrency(paymentTypeBreakdown.cash, currency)}
+                    </Text>
+                    <Text style={styles.paymentPercentageText}>
+                      {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -799,7 +794,7 @@ export default function AnalyticsScreen() {
                               { color: colors.textPrimary },
                             ]}
                           >
-                            ${formatAmount(totalSpent, i18n.language)}
+                            {formatCurrency(totalSpent, currency)}
                           </Text>
                         </View>
                         <View
@@ -833,9 +828,9 @@ export default function AnalyticsScreen() {
                 {t("spendingByCategory", "Spending by Category")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {selectedMonth.label} {selectedMonth.year} ·{" "}
-                {t("total", "Total")}: $
-                {formatAmount(categorySpending.totalSpending, i18n.language)}
+                {selectedMonth.label} {selectedMonth.year} •{" "}
+                {t("total", "Total")}:{" "}
+                {formatCurrency(categorySpending.totalSpending, currency)}
               </Text>
 
               <View style={styles.donutWrapper}>
@@ -924,7 +919,7 @@ export default function AnalyticsScreen() {
                         { color: colors.textPrimary },
                       ]}
                     >
-                      ${formatAmount(item.amount, i18n.language)}{" "}
+                      {formatCurrency(item.amount, currency)}{" "}
                       <Text style={styles.categoryPercentage}>
                         ({item.percentage}%)
                       </Text>
@@ -942,7 +937,7 @@ export default function AnalyticsScreen() {
                 {t("netSavingsTrend", "Net Savings Trend")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {selectedMonth.label} {selectedMonth.year} ·{" "}
+                {selectedMonth.label} {selectedMonth.year} •{" "}
                 {t("income", "Incomes")} – {t("expenses", "Expenses")}
               </Text>
 
@@ -954,25 +949,29 @@ export default function AnalyticsScreen() {
                   ]}
                 >
                   <Text
-                    numberOfLines={1}
+                    numberOfLines={2}
                     adjustsFontSizeToFit
                     minimumFontScale={0.75}
                     style={styles.netMetricLabel}
                   >
                     {t("income", "Incomes")}
                   </Text>
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    style={[
-                      styles.netIncomeText,
-                      {
-                        color: isDark ? COLORS.incomeGreen : colors.primaryTeal,
-                      },
-                    ]}
-                  >
-                    ${formatAmount(currentMonthSummary.income, i18n.language)}
-                  </Text>
+                  <View>
+                    <Text
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      style={[
+                        styles.netIncomeText,
+                        {
+                          color: isDark
+                            ? COLORS.incomeGreen
+                            : colors.primaryTeal,
+                        },
+                      ]}
+                    >
+                      {formatCurrency(currentMonthSummary.income, currency)}
+                    </Text>
+                  </View>
                 </View>
 
                 <View
@@ -981,7 +980,12 @@ export default function AnalyticsScreen() {
                     isDark && { backgroundColor: "#2A2A2A" },
                   ]}
                 >
-                  <Text style={styles.netMetricLabel}>
+                  <Text
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                    style={styles.netMetricLabel}
+                  >
                     {t("expenses", "Expenses")}
                   </Text>
                   <Text
@@ -996,7 +1000,7 @@ export default function AnalyticsScreen() {
                       },
                     ]}
                   >
-                    ${formatAmount(currentMonthSummary.expenses, i18n.language)}
+                    {formatCurrency(currentMonthSummary.expenses, currency)}
                   </Text>
                 </View>
 
@@ -1006,7 +1010,12 @@ export default function AnalyticsScreen() {
                     isDark && { backgroundColor: "#2A2A2A" },
                   ]}
                 >
-                  <Text style={styles.netMetricLabel}>
+                  <Text
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                    style={styles.netMetricLabel}
+                  >
                     {t("netSavings", "Net Savings")}
                   </Text>
                   <Text
@@ -1026,7 +1035,7 @@ export default function AnalyticsScreen() {
                       },
                     ]}
                   >
-                    ${formatAmount(currentMonthSummary.net, i18n.language)}
+                    {formatCurrency(currentMonthSummary.net, currency)}
                   </Text>
                 </View>
               </View>
@@ -1284,18 +1293,20 @@ const styles = StyleSheet.create({
   paymentMetricBox: {
     flex: 1,
     backgroundColor: "#F9F8F5",
-    paddingVertical: verticalScale(16),
+    paddingVertical: verticalScale(10),
     paddingHorizontal: scale(14),
     borderRadius: scale(14),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   paymentHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: scale(8),
     marginBottom: verticalScale(10),
-    flexWrap: "wrap",
+    minHeight: verticalScale(36),
   },
   paymentTypeLabel: {
     fontSize: moderateScale(12),
@@ -1426,21 +1437,20 @@ const styles = StyleSheet.create({
   netMetricBox: {
     flex: 1,
     backgroundColor: "#F9F8F5",
-    paddingVertical: scale(10),
-    paddingHorizontal: scale(4),
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(6),
     borderRadius: scale(12),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
   },
   netMetricLabel: {
     fontSize: moderateScale(11),
     fontWeight: "600",
     color: COLORS.textMuted,
-    marginBottom: verticalScale(4),
     textAlign: "center",
-    flexShrink: 1,
+    minHeight: verticalScale(28),
   },
   netIncomeText: {
     fontSize: moderateScale(12),

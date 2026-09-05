@@ -1,4 +1,5 @@
 import { ThemeProvider } from "@/constants/theme";
+import { CurrencyProvider } from "@/context/CurrencyContext";
 import api, { setOnTokenRefreshed, setOnUnauthenticated } from "@/services/api";
 import "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
@@ -107,9 +108,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.container}>
       <ThemeProvider>
         <AuthContext.Provider value={{ token, isLoading, signIn, signOut }}>
-          <BottomSheetModalProvider>
-            <InitialLayout />
-          </BottomSheetModalProvider>
+          <CurrencyProvider>
+            <BottomSheetModalProvider>
+              <InitialLayout />
+            </BottomSheetModalProvider>
+          </CurrencyProvider>
         </AuthContext.Provider>
       </ThemeProvider>
     </GestureHandlerRootView>

@@ -1,5 +1,7 @@
 import { colors, useAppTheme } from "@/constants/theme";
+import { useCurrency } from "@/context/CurrencyContext";
 import api from "@/services/api";
+import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { parseFlexibleNumber } from "@/utils/storage";
 import {
@@ -9,7 +11,7 @@ import {
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
 import { useFocusEffect } from "expo-router";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -337,21 +339,9 @@ const toLocalISOString = (date: Date): string => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
-const formatCurrencyValue = (val: number, language: string): string => {
-  const lang = (language || "en").toLowerCase();
-
-  // Use European format (1.000,00) for Portuguese and Spanish
-  const isCommaDecimal = lang.startsWith("pt") || lang.startsWith("es");
-  const locale = isCommaDecimal ? "pt-BR" : "en-US";
-
-  return val.toLocaleString(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
-
 export default function TransactionsScreen() {
   const { colors: appColors, isDark } = useAppTheme();
+  const { currency } = useCurrency();
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -376,14 +366,6 @@ export default function TransactionsScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const editSheetRef = useRef<BottomSheetModal>(null);
-
-  useEffect(() => {
-    if (modalVisible) {
-      editSheetRef.current?.present();
-    } else {
-      editSheetRef.current?.dismiss();
-    }
-  }, [modalVisible]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -641,6 +623,7 @@ export default function TransactionsScreen() {
   const handleCardPress = (item: Transaction) => {
     setSelectedTransaction(item);
     setIsEditing(false);
+    setModalVisible(true);
     editSheetRef.current?.present();
   };
 
@@ -674,6 +657,13 @@ export default function TransactionsScreen() {
   };
 
   const formatAmountForInput = (val: number, language: string): string => {
+    const isZeroDecimal = ["JPY", "KRW"].includes(
+      (currency || "").toUpperCase(),
+    );
+    if (isZeroDecimal) {
+      return Math.round(val).toString();
+    }
+
     const lang = (language || "en").toLowerCase();
     const isCommaDecimal = lang.startsWith("pt") || lang.startsWith("es");
 
@@ -758,6 +748,7 @@ export default function TransactionsScreen() {
       );
 
       setIsEditing(false);
+      setModalVisible(false);
       editSheetRef.current?.dismiss();
     } catch (error: any) {
       if (__DEV__) {
@@ -799,6 +790,7 @@ export default function TransactionsScreen() {
               setAllTransactions((prev) =>
                 prev.filter((item) => item.id !== selectedTransaction.id),
               );
+              setModalVisible(false);
               editSheetRef.current?.dismiss();
             } catch (error) {
               if (__DEV__) {
@@ -869,7 +861,7 @@ export default function TransactionsScreen() {
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              +${formatCurrencyValue(totalIn, i18n.language)}
+              +{formatCurrency(totalIn, currency)}
             </Text>
           </View>
 
@@ -882,7 +874,7 @@ export default function TransactionsScreen() {
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              -${formatCurrencyValue(totalOut, i18n.language)}
+              -{formatCurrency(totalOut, currency)}
             </Text>
           </View>
 
@@ -895,8 +887,8 @@ export default function TransactionsScreen() {
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {netBalance >= 0 ? "+" : "-"}$
-              {formatCurrencyValue(Math.abs(netBalance), i18n.language)}
+              {netBalance >= 0 ? "+" : "-"}
+              {formatCurrency(Math.abs(netBalance), currency)}
             </Text>
           </View>
         </View>
@@ -1076,8 +1068,8 @@ export default function TransactionsScreen() {
                     ]}
                   >
                     {isIncome
-                      ? `+${formatCurrencyValue(item.amount, i18n.language)}`
-                      : `-${formatCurrencyValue(item.amount, i18n.language)}`}
+                      ? `+${formatCurrency(item.amount, currency)}`
+                      : `-${formatCurrency(item.amount, currency)}`}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1098,6 +1090,7 @@ export default function TransactionsScreen() {
         onDismiss={() => {
           setModalVisible(false);
           setIsEditing(false);
+          setSelectedTransaction(null);
         }}
       >
         <BottomSheetScrollView
@@ -1126,11 +1119,7 @@ export default function TransactionsScreen() {
                       { color: appColors.primaryTeal },
                     ]}
                   >
-                    $
-                    {formatCurrencyValue(
-                      selectedTransaction.amount,
-                      i18n.language,
-                    )}
+                    {formatCurrency(selectedTransaction.amount, currency)}
                   </Text>
 
                   <View style={styles.modalDetailRow}>
@@ -1249,7 +1238,7 @@ export default function TransactionsScreen() {
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>
-                      {t("amount", "Amount")}
+                      {t("amount", "Amount")} ({currency})
                     </Text>
                     <BottomSheetTextInput
                       style={[
@@ -1261,6 +1250,15 @@ export default function TransactionsScreen() {
                       ]}
                       value={editAmount}
                       onChangeText={(text) => {
+                        const isZeroDecimal = ["JPY", "KRW"].includes(
+                          (currency || "").toUpperCase(),
+                        );
+                        if (isZeroDecimal) {
+                          // Strip out any non-digit characters for whole-number currencies
+                          setEditAmount(text.replace(/\D/g, ""));
+                          return;
+                        }
+
                         const lang = (i18n.language || "en").toLowerCase();
                         const isCommaDecimal =
                           lang.startsWith("pt") || lang.startsWith("es");
@@ -1278,12 +1276,18 @@ export default function TransactionsScreen() {
 
                         setEditAmount(normalized);
                       }}
-                      keyboardType="decimal-pad"
+                      keyboardType={
+                        ["JPY", "KRW"].includes((currency || "").toUpperCase())
+                          ? "number-pad"
+                          : "decimal-pad"
+                      }
                       placeholder={
-                        i18n.language.startsWith("pt") ||
-                        i18n.language.startsWith("es")
-                          ? "0,00"
-                          : "0.00"
+                        ["JPY", "KRW"].includes((currency || "").toUpperCase())
+                          ? "0"
+                          : i18n.language.startsWith("pt") ||
+                              i18n.language.startsWith("es")
+                            ? "0,00"
+                            : "0.00"
                       }
                       placeholderTextColor={
                         appColors.textMuted || appColors.textSecondary
@@ -1662,7 +1666,11 @@ export default function TransactionsScreen() {
                         styles.cancelBtn,
                         { backgroundColor: appColors.iconBoxBg },
                       ]}
-                      onPress={() => setIsEditing(false)}
+                      onPress={() => {
+                        setIsEditing(false);
+                        setModalVisible(false);
+                        editSheetRef.current?.dismiss();
+                      }}
                     >
                       <Text
                         style={[
@@ -1696,6 +1704,7 @@ export default function TransactionsScreen() {
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
