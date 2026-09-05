@@ -99,7 +99,9 @@ export default function SettingsScreen() {
       const res = await api.get<UserProfile>("/api/v1/users/me");
       setUserProfile(res.data);
     } catch (error: any) {
-      console.error("Failed to fetch settings user profile:", error);
+      if (__DEV__) {
+        console.error("Failed to fetch settings user profile:", error);
+      }
       if (error?.response?.status === 401) {
         Alert.alert(
           t("sessionExpired", "Session Expired"),

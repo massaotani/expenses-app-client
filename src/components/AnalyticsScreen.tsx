@@ -97,6 +97,8 @@ const COLORS = {
   borderColor: "#EAE6DF",
   textDark: "#1C1C1E",
   textMuted: "#8E8E93",
+  incomeGreen: "#23c960",
+  expenseRed: "#EF4444",
   categoryColors: {
     Housing: "#284E4C",
     Food: "#C86D51",
@@ -111,18 +113,6 @@ const COLORS = {
     Others: "#9A8B85",
   } as Record<string, string>,
 };
-
-const FALLBACK_PALETTE = [
-  "#204B4C",
-  "#D87A53",
-  "#7A9A95",
-  "#E5A982",
-  "#4E8773",
-  "#D1B28C",
-  "#6C5B7B",
-  "#356566",
-  "#A26B6B",
-];
 
 const getCategoryColor = (cat: string, isDark: boolean = false): string => {
   switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
@@ -150,6 +140,10 @@ const getCategoryColor = (cat: string, isDark: boolean = false): string => {
       return isDark ? "#565aa0" : "#cc3399";
   }
 };
+const CARD_COLOR_LIGHT = "#1E4D4F";
+const CASH_COLOR_LIGHT = COLORS.expenseOrange;
+const CARD_COLOR_DARK = "#00D2FF";
+const CASH_COLOR_DARK = "#FF4081";
 
 export default function AnalyticsScreen() {
   const { colors, isDark } = useAppTheme();
@@ -196,7 +190,9 @@ export default function AnalyticsScreen() {
         setBaseMonthlyIncome(parseAmount(userRes.value.data.monthlyIncome));
       }
     } catch (error) {
-      console.error("Error fetching analytics data:", error);
+      if (__DEV__) {
+        console.error("Error fetching analytics data:", error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -213,6 +209,11 @@ export default function AnalyticsScreen() {
     setRefreshing(true);
     fetchData();
   }, []);
+
+  const incomeColor = isDark ? COLORS.incomeGreen : colors.primaryTeal;
+  const expenseColor = isDark ? COLORS.expenseRed : COLORS.expenseOrange;
+  const cardColor = isDark ? CARD_COLOR_DARK : CARD_COLOR_LIGHT;
+  const cashColor = isDark ? CASH_COLOR_DARK : CASH_COLOR_LIGHT;
 
   const last6Months = useMemo(() => {
     const months = [];
@@ -457,19 +458,19 @@ export default function AnalyticsScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.primaryTeal }]}
+      style={[styles.container, { backgroundColor: colors.headerBackground }]}
       edges={["top", "left", "right"]}
     >
       <StatusBar
-        barStyle="light-content"
-        backgroundColor={colors.primaryTeal}
+        barStyle={colors.statusBarStyle}
+        backgroundColor={colors.headerBackground}
       />
 
       {/* Fixed Header */}
       <View
         style={[
           styles.headerContainer,
-          { backgroundColor: colors.primaryTeal },
+          { backgroundColor: colors.headerBackground },
         ]}
       >
         <Text style={styles.headerTitle}>{t("analytics", "Analytics")}</Text>
@@ -563,7 +564,7 @@ export default function AnalyticsScreen() {
                           y={verticalScale(160) - incomeH}
                           width={scale(6)}
                           height={Math.max(incomeH, verticalScale(2))}
-                          fill={colors.primaryTeal}
+                          fill={incomeColor}
                           rx={scale(3)}
                         />
                         <Rect
@@ -571,7 +572,7 @@ export default function AnalyticsScreen() {
                           y={verticalScale(160) - expenseH}
                           width={scale(6)}
                           height={Math.max(expenseH, verticalScale(2))}
-                          fill={COLORS.expenseOrange}
+                          fill={expenseColor}
                           rx={scale(3)}
                         />
                         <SvgText
@@ -593,20 +594,20 @@ export default function AnalyticsScreen() {
                     <View
                       style={[
                         styles.legendBox,
-                        { backgroundColor: colors.primaryTeal },
+                        { backgroundColor: incomeColor },
                       ]}
                     />
                     <Text
                       style={[styles.legendText, { color: colors.textPrimary }]}
                     >
-                      {t("income", "Income")}
+                      {t("income", "Incomes")}
                     </Text>
                   </View>
                   <View style={styles.legendItem}>
                     <View
                       style={[
                         styles.legendBox,
-                        { backgroundColor: COLORS.expenseOrange },
+                        { backgroundColor: expenseColor },
                       ]}
                     />
                     <Text
@@ -645,7 +646,7 @@ export default function AnalyticsScreen() {
                     styles.stackedSegment,
                     {
                       width: `${paymentTypeBreakdown.cardPct}%`,
-                      backgroundColor: colors.primaryTeal,
+                      backgroundColor: cardColor,
                     },
                   ]}
                 />
@@ -654,7 +655,7 @@ export default function AnalyticsScreen() {
                     styles.stackedSegment,
                     {
                       width: `${paymentTypeBreakdown.cashPct}%`,
-                      backgroundColor: COLORS.cashColor,
+                      backgroundColor: cashColor,
                     },
                   ]}
                 />
@@ -669,10 +670,7 @@ export default function AnalyticsScreen() {
                 >
                   <View style={styles.paymentHeader}>
                     <View
-                      style={[
-                        styles.legendBox,
-                        { backgroundColor: colors.primaryTeal },
-                      ]}
+                      style={[styles.legendBox, { backgroundColor: cardColor }]}
                     />
                     <Text style={styles.paymentTypeLabel}>
                       {t("cardExpenses", "Card Expenses")}
@@ -699,10 +697,7 @@ export default function AnalyticsScreen() {
                 >
                   <View style={styles.paymentHeader}>
                     <View
-                      style={[
-                        styles.legendBox,
-                        { backgroundColor: COLORS.cashColor },
-                      ]}
+                      style={[styles.legendBox, { backgroundColor: cashColor }]}
                     />
                     <Text style={styles.paymentTypeLabel}>
                       {t("cashExpenses", "Cash Expenses")}
@@ -759,7 +754,7 @@ export default function AnalyticsScreen() {
                           <Text
                             style={[
                               styles.cardSpentText,
-                              { color: colors.primaryTeal },
+                              { color: colors.textPrimary },
                             ]}
                           >
                             ${formatAmount(totalSpent, i18n.language)}
@@ -913,7 +908,7 @@ export default function AnalyticsScreen() {
                 {t("netSavingsTrend", "Net Savings Trend")}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {t("income", "Income")} – {t("expenses", "Expenses")} (
+                {t("income", "Incomes")} – {t("expenses", "Expenses")} (
                 {currentMonthSummary.month}.)
               </Text>
 
@@ -925,12 +920,14 @@ export default function AnalyticsScreen() {
                   ]}
                 >
                   <Text style={styles.netMetricLabel}>
-                    {t("income", "Income")}
+                    {t("income", "Incomes")}
                   </Text>
                   <Text
                     style={[
                       styles.netIncomeText,
-                      { color: colors.primaryTeal },
+                      {
+                        color: isDark ? COLORS.incomeGreen : colors.primaryTeal,
+                      },
                     ]}
                   >
                     ${formatAmount(currentMonthSummary.income, i18n.language)}
@@ -946,7 +943,16 @@ export default function AnalyticsScreen() {
                   <Text style={styles.netMetricLabel}>
                     {t("expenses", "Expenses")}
                   </Text>
-                  <Text style={styles.netExpenseText}>
+                  <Text
+                    style={[
+                      styles.netExpenseText,
+                      {
+                        color: isDark
+                          ? COLORS.expenseRed
+                          : COLORS.expenseOrange,
+                      },
+                    ]}
+                  >
                     ${formatAmount(currentMonthSummary.expenses, i18n.language)}
                   </Text>
                 </View>
@@ -966,8 +972,12 @@ export default function AnalyticsScreen() {
                       {
                         color:
                           currentMonthSummary.net >= 0
-                            ? colors.primaryTeal
-                            : COLORS.expenseOrange,
+                            ? isDark
+                              ? COLORS.incomeGreen
+                              : colors.primaryTeal
+                            : isDark
+                              ? COLORS.expenseRed
+                              : COLORS.expenseOrange,
                       },
                     ]}
                   >

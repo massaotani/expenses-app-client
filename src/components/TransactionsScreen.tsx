@@ -8,6 +8,7 @@ import {
   BottomSheetScrollView,
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
+import { useFocusEffect } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -470,16 +471,20 @@ export default function TransactionsScreen() {
         setUserCards(cardsRes.value.data);
       }
     } catch (error) {
-      console.error("Error fetching transactions:", error);
+      if (__DEV__) {
+        console.error("Error fetching transactions:", error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedDate]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [selectedDate]),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -755,10 +760,12 @@ export default function TransactionsScreen() {
       setIsEditing(false);
       editSheetRef.current?.dismiss();
     } catch (error: any) {
-      console.error(
-        "Failed to update transaction:",
-        error.response?.data || error.message,
-      );
+      if (__DEV__) {
+        console.error(
+          "Failed to update transaction:",
+          error.response?.data || error.message,
+        );
+      }
       Alert.alert(
         t("error", "Error"),
         t("updateFailed", "Failed to update transaction."),
@@ -794,7 +801,9 @@ export default function TransactionsScreen() {
               );
               editSheetRef.current?.dismiss();
             } catch (error) {
-              console.error("Failed to delete transaction:", error);
+              if (__DEV__) {
+                console.error("Failed to delete transaction:", error);
+              }
               Alert.alert(
                 t("error", "Error"),
                 t("deleteFailed", "Failed to delete transaction."),

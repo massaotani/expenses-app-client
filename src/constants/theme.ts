@@ -57,6 +57,7 @@ export const lightColors = {
   monthlyAmount: "#1A1A1A",
   neutral: "#FFFFFF",
   statusBarStyle: "light-content" as const,
+  seeAll: "#C86D51",
 };
 
 export const darkColors = {
@@ -76,6 +77,7 @@ export const darkColors = {
   monthlyAmount: "#FFFFFF",
   neutral: "#EFECE6",
   statusBarStyle: "light-content" as const,
+  seeAll: "#FF8C00",
 };
 
 export const colors = {

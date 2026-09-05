@@ -17,7 +17,7 @@ export const resources = {
       emailLabel: "EMAIL",
       monthlyIncomeLabel: "MONTHLY INCOME (SALARY / WAGE)",
       passwordLabel: "PASSWORD",
-      confirmPasswordLabel: "CONFIRM PASSWORD",
+      confirmPasswordLabel: "CONFIRMER PASSWORD",
       hide: "hide",
       show: "show",
       agreeTo: "I agree to the ",
@@ -27,8 +27,8 @@ export const resources = {
       createAccount: "Create Account",
       alreadyHaveAccount: "Already have an account? ",
       signIn: "Sign In",
-      welcome: "Welcome.\n",
-      signInToAccount: "Sign in to your Ledger account",
+      welcome: "Ledger\n",
+      signInToAccount: "Personal Financial Management & Expense Tracking",
       forgotPassword: "Forgot password?",
       orContinueWith: "or continue with",
       dontHaveAccount: "Don't have an account? ",
@@ -39,6 +39,25 @@ export const resources = {
       passwordPlaceholder: "Min. 8 characters",
       loginPasswordPlaceholder: "Enter your password",
       confirmPasswordPlaceholder: "Repeat your password",
+      forgotPasswordSubtitle:
+        "Enter your email address to receive a password reset code.",
+      resetCodeSent:
+        "If an account exists, a password reset link/code has been sent.",
+      genericError: "Something went wrong. Please try again.",
+      sendResetCode: "Send Reset Code",
+      ok: "OK",
+
+      // Reset Password Flow
+      resetPassword: "Reset Password",
+      setNewPassword: "Set New Password",
+      resetPasswordSubtitle: "Enter the 6-digit code sent to your email.",
+      setNewPasswordSubtitle: "Code verified! Enter your new password below.",
+      verificationCode: "VERIFICATION CODE",
+      enterVerificationCode: "Please enter the verification code.",
+      enterNewPassword: "Please enter your new password.",
+      passwordResetSuccess: "Password updated successfully!",
+      verifyCode: "Verify Code",
+      rememberPassword: "Remember your password?",
 
       // Settings & Preferences
       settings: "Settings",
@@ -224,8 +243,8 @@ export const resources = {
       createAccount: "Criar Conta",
       alreadyHaveAccount: "Já tem uma conta? ",
       signIn: "Entrar",
-      welcome: "Bem-vindo.\n",
-      signInToAccount: "Entre na sua conta Ledger",
+      welcome: "Ledger\n",
+      signInToAccount: "Gestão Financeira Pessoal e Controle de Despesas",
       forgotPassword: "Esqueceu a senha?",
       orContinueWith: "ou continue com",
       dontHaveAccount: "Não tem uma conta? ",
@@ -236,6 +255,27 @@ export const resources = {
       passwordPlaceholder: "Mín. 8 caracteres",
       loginPasswordPlaceholder: "Digite sua senha",
       confirmPasswordPlaceholder: "Repita sua senha",
+      forgotPasswordSubtitle:
+        "Informe seu endereço de e-mail para receber um código de redefinição de senha.",
+      resetCodeSent:
+        "Se existir uma conta associada, um link/código de redefinição de senha foi enviado.",
+      genericError: "Algo deu errado. Por favor, tente novamente.",
+      sendResetCode: "Enviar Código de Redefinição",
+      ok: "OK",
+
+      // Redefinição de Senha
+      resetPassword: "Redefinir Senha",
+      setNewPassword: "Definir Nova Senha",
+      resetPasswordSubtitle:
+        "Digite o código de 6 dígitos enviado ao seu e-mail.",
+      setNewPasswordSubtitle:
+        "Código verificado! Digite sua nova senha abaixo.",
+      verificationCode: "CÓDIGO DE VERIFICAÇÃO",
+      enterVerificationCode: "Por favor, digite o código de verificação.",
+      enterNewPassword: "Por favor, digite sua nova senha.",
+      passwordResetSuccess: "Senha atualizada com sucesso!",
+      verifyCode: "Verificar Código",
+      rememberPassword: "Lembrou da sua senha?",
 
       // Configurações e Preferências
       settings: "Configurações",
@@ -354,7 +394,7 @@ export const resources = {
       saveExpense: "Salvar Despesa",
       none: "Nenhum",
       weekly: "Semanal",
-      monthly: "Mensal",
+      monthly: "Mensual",
       yearly: "Anual",
       date: "Data",
 
@@ -385,7 +425,7 @@ export const resources = {
       total: "Total",
       noExpenses: "Sem Despesas",
       netSavingsTrend: "Tendência de Economia Líquida",
-      netSavings: "ECONOMIA LÍQUIDA",
+      netSavings: "ECONOMIA",
       health: "Saúde",
       shopping: "Compras",
       general: "Geral",
@@ -421,8 +461,8 @@ export const resources = {
       createAccount: "Crear Cuenta",
       alreadyHaveAccount: "¿Ya tienes una cuenta? ",
       signIn: "Iniciar Sesión",
-      welcome: "Bienvenido.\n",
-      signInToAccount: "Inicia sesión en tu cuenta de Ledger",
+      welcome: "Ledger\n",
+      signInToAccount: "Gestión Financiera Personal y Control de Gastos",
       forgotPassword: "¿Olvidaste tu contraseña?",
       orContinueWith: "o continúa con",
       dontHaveAccount: "¿No tienes una cuenta? ",
@@ -433,6 +473,27 @@ export const resources = {
       passwordPlaceholder: "Mín. 8 caracteres",
       loginPasswordPlaceholder: "Ingresa tu contraseña",
       confirmPasswordPlaceholder: "Repite tu contraseña",
+      forgotPasswordSubtitle:
+        "Ingresa tu correo electrónico para recibir un código de restablecimiento de contraseña.",
+      resetCodeSent:
+        "Si existe una cuenta, se ha enviado un enlace/código de restablecimiento de contraseña.",
+      genericError: "Algo salió mal. Por favor, inténtalo de nuevo.",
+      sendResetCode: "Enviar Código de Restablecimiento",
+      ok: "Aceptar",
+
+      // Restablecer Contraseña
+      resetPassword: "Restablecer Contraseña",
+      setNewPassword: "Establecer Nueva Contraseña",
+      resetPasswordSubtitle:
+        "Ingresa el código de 6 dígitos enviado a tu correo.",
+      setNewPasswordSubtitle:
+        "¡Código verificado! Ingresa tu nueva contraseña a continuación.",
+      verificationCode: "CÓDIGO DE VERIFICACIÓN",
+      enterVerificationCode: "Por favor, ingresa el código de verificación.",
+      enterNewPassword: "Por favor, ingresa tu nueva contraseña.",
+      passwordResetSuccess: "¡Contraseña actualizada con éxito!",
+      verifyCode: "Verificar Código",
+      rememberPassword: "¿Recuerdas tu contraseña?",
 
       // Ajustes y Preferencias
       settings: "Ajustes",
@@ -618,8 +679,8 @@ export const resources = {
       createAccount: "アカウント作成",
       alreadyHaveAccount: "すでにアカウントをお持ちですか？ ",
       signIn: "ログイン",
-      welcome: "おかえりなさい\n",
-      signInToAccount: "Ledgerアカウントにログイン",
+      welcome: "Ledger\n",
+      signInToAccount: "個人財務管理・支出トラッキング",
       forgotPassword: "パスワードをお忘れですか？",
       orContinueWith: "または以下で継続",
       dontHaveAccount: "アカウントをお持ちでないですか？ ",
@@ -630,6 +691,27 @@ export const resources = {
       passwordPlaceholder: "8文字以上",
       loginPasswordPlaceholder: "パスワードを入力",
       confirmPasswordPlaceholder: "パスワードを再入力",
+      forgotPasswordSubtitle:
+        "パスワード再設定コードを受け取るためにメールアドレスを入力してください。",
+      resetCodeSent:
+        "アカウントが存在する場合、パスワード再設定のリンク/コードが送信されました。",
+      genericError: "エラーが発生しました。もう一度お試しください。",
+      sendResetCode: "再設定コードを送信",
+      ok: "OK",
+
+      // パスワード再設定
+      resetPassword: "パスワードの再設定",
+      setNewPassword: "新しいパスワードの設定",
+      resetPasswordSubtitle:
+        "メールに送信された6桁のコードを入力してください。",
+      setNewPasswordSubtitle:
+        "コードが確認されました。新しいパスワードを入力してください。",
+      verificationCode: "認証コード",
+      enterVerificationCode: "認証コードを入力してください。",
+      enterNewPassword: "新しいパスワードを入力してください。",
+      passwordResetSuccess: "パスワードが正常に更新されました！",
+      verifyCode: "コードを検証",
+      rememberPassword: "パスワードを覚えていますか？",
 
       // 設定と環境設定
       settings: "設定",
@@ -812,8 +894,8 @@ export const resources = {
       createAccount: "계정 생성",
       alreadyHaveAccount: "이미 계정이 있으신가요? ",
       signIn: "로그인",
-      welcome: "환영합니다.\n",
-      signInToAccount: "Ledger 계정에 로그인하세요",
+      welcome: "Ledger\n",
+      signInToAccount: "개인 자산 관리 및 지출 추적",
       forgotPassword: "비밀번호를 잊으셨나요?",
       orContinueWith: "또는 다음으로 계속",
       dontHaveAccount: "계정이 없으신가요? ",
@@ -824,6 +906,26 @@ export const resources = {
       passwordPlaceholder: "최소 8자 이상",
       loginPasswordPlaceholder: "비밀번호 입력",
       confirmPasswordPlaceholder: "비밀번호 재입력",
+      forgotPasswordSubtitle:
+        "비밀번호 재설정 코드를 받으려면 이메일 주소를 입력해 주세요.",
+      resetCodeSent:
+        "계정이 존재하는 경우, 비밀번호 재설정 링크/코드가 전송되었습니다.",
+      genericError: "문제가 발생했습니다. 다시 시도해 주세요.",
+      sendResetCode: "재설정 코드 전송",
+      ok: "확인",
+
+      // 비밀번호 재설정
+      resetPassword: "비밀번호 재설정",
+      setNewPassword: "새 비밀번호 설정",
+      resetPasswordSubtitle: "이메일로 전송된 6자리 코드를 입력해 주세요.",
+      setNewPasswordSubtitle:
+        "인증되었습니다! 아래에 새 비밀번호를 입력해 주세요.",
+      verificationCode: "인증 코드",
+      enterVerificationCode: "인증 코드를 입력해 주세요.",
+      enterNewPassword: "새 비밀번호를 입력해 주세요.",
+      passwordResetSuccess: "비밀번호가 성공적으로 업데이트되었습니다!",
+      verifyCode: "코드 인증",
+      rememberPassword: "비밀번호가 기억나셨나요?",
 
       // Settings & Preferences
       settings: "설정",
@@ -1005,8 +1107,8 @@ export const resources = {
       createAccount: "创建账户",
       alreadyHaveAccount: "已有账户？ ",
       signIn: "登录",
-      welcome: "欢迎。\n",
-      signInToAccount: "登录您的 Ledger 账户",
+      welcome: "Ledger\n",
+      signInToAccount: "个人财务管理与支出跟踪",
       forgotPassword: "忘记密码？",
       orContinueWith: "或通过以下方式继续",
       dontHaveAccount: "还没有账户？ ",
@@ -1017,6 +1119,23 @@ export const resources = {
       passwordPlaceholder: "至少 8 个字符",
       loginPasswordPlaceholder: "请输入密码",
       confirmPasswordPlaceholder: "再次输入密码",
+      forgotPasswordSubtitle: "请输入您的电子邮箱以接收密码重置验证码。",
+      resetCodeSent: "如果账户存在，重置密码的链接/验证码已发送。",
+      genericError: "出错了，请重试。",
+      sendResetCode: "发送重置验证码",
+      ok: "确定",
+
+      // 重置密码
+      resetPassword: "重置密码",
+      setNewPassword: "设置新密码",
+      resetPasswordSubtitle: "请输入发送至您邮箱的 6 位数验证码。",
+      setNewPasswordSubtitle: "验证码已确认！请在下方输入您的新密码。",
+      verificationCode: "验证码",
+      enterVerificationCode: "请输入验证码。",
+      enterNewPassword: "请输入您的新密码。",
+      passwordResetSuccess: "密码更新成功！",
+      verifyCode: "验证验证码",
+      rememberPassword: "想起密码了？",
 
       // Settings & Preferences
       settings: "设置",
@@ -1198,8 +1317,8 @@ export const resources = {
       createAccount: "Créer un compte",
       alreadyHaveAccount: "Vous avez déjà un compte ? ",
       signIn: "Se connecter",
-      welcome: "Bienvenue.\n",
-      signInToAccount: "Connectez-vous à votre compte Ledger",
+      welcome: "Ledger\n",
+      signInToAccount: "Gestion Financière Personnelle et Suivi des Dépenses",
       forgotPassword: "Mot de passe oublié ?",
       orContinueWith: "ou continuer avec",
       dontHaveAccount: "Vous n'avez pas de compte ? ",
@@ -1210,6 +1329,27 @@ export const resources = {
       passwordPlaceholder: "Min. 8 caractères",
       loginPasswordPlaceholder: "Entrez votre mot de passe",
       confirmPasswordPlaceholder: "Répétez votre mot de passe",
+      forgotPasswordSubtitle:
+        "Entrez votre adresse e-mail pour recevoir un code de réinitialisation de mot de passe.",
+      resetCodeSent:
+        "Si un compte existe, un lien/code de réinitialisation de mot de passe a été envoyé.",
+      genericError: "Une erreur s'est produite. Veuillez réessayer.",
+      sendResetCode: "Envoyer le code de réinitialisation",
+      ok: "OK",
+
+      // Réinitialisation du mot de passe
+      resetPassword: "Réinitialiser le mot de passe",
+      setNewPassword: "Définir un nouveau mot de passe",
+      resetPasswordSubtitle:
+        "Entrez le code à 6 chiffres envoyé à votre adresse e-mail.",
+      setNewPasswordSubtitle:
+        "Code vérifié ! Entrez votre nouveau mot de passe ci-dessous.",
+      verificationCode: "CODE DE VÉRIFICATION",
+      enterVerificationCode: "Veuillez entrer le code de vérification.",
+      enterNewPassword: "Veuillez entrer votre nouveau mot de passe.",
+      passwordResetSuccess: "Mot de passe mis à jour avec succès !",
+      verifyCode: "Vérifier le code",
+      rememberPassword: "Vous vous souvenez de votre mot de passe ?",
 
       // Settings & Preferences
       settings: "Paramètres",

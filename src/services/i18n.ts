@@ -54,7 +54,9 @@ const languageDetector = {
     try {
       await AsyncStorage.setItem(LANGUAGE_KEY, lng);
     } catch (e) {
-      console.error(e);
+      if (__DEV__) {
+        console.error(e);
+      }
     }
   },
 };

@@ -92,7 +92,9 @@ export default function RootLayout() {
           setToken(storedToken);
         }
       } catch (error) {
-        console.error("Error reading auth token:", error);
+        if (__DEV__) {
+          console.error("Error reading auth token:", error);
+        }
       } finally {
         setIsLoading(false);
       }

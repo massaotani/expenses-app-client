@@ -23,13 +23,13 @@ export const setOnTokenRefreshed = (callback: (newToken: string) => void) => {
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
-  timeout: 45000,
+  timeout: 180500,
 });
 
 const refreshApi: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
-  timeout: 45000,
+  timeout: 180500,
 });
 
 let isRefreshing = false;

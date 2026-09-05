@@ -83,7 +83,9 @@ export default function PaymentMethodsScreen() {
       const fetchedCards = res.data || [];
       setCards(fetchedCards);
     } catch (error) {
-      console.error("Error fetching cards:", error);
+      if (__DEV__) {
+        console.error("Error fetching cards:", error);
+      }
       Alert.alert(
         t("error", "Error"),
         t("failedToFetchCards", "Failed to fetch registered cards."),
@@ -142,7 +144,9 @@ export default function PaymentMethodsScreen() {
       modalRef.current?.dismiss();
       clearFields();
     } catch (error: any) {
-      console.error("Error saving card:", error);
+      if (__DEV__) {
+        console.error("Error saving card:", error);
+      }
       Alert.alert(
         t("error", "Error"),
         error?.response?.data?.message ||

@@ -58,7 +58,9 @@ export default function PersonalInfoScreen({ navigation }: any) {
       setName(userData.name || "");
       setEmail(userData.email || "");
     } catch (error) {
-      console.error("Failed to fetch user info:", error);
+      if (__DEV__) {
+        console.error("Failed to fetch user info:", error);
+      }
     } finally {
       setLoading(false);
     }

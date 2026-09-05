@@ -80,7 +80,9 @@ export default function LoginScreen() {
         setErrorMessage("Invalid server response. Missing security tokens.");
       }
     } catch (error: any) {
-      console.error("Login failed:", error);
+      if (__DEV__) {
+        console.error("Login failed:", error);
+      }
 
       let userFriendlyMessage =
         "Unable to connect to server. Please try again.";
@@ -88,6 +90,12 @@ export default function LoginScreen() {
       if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
         userFriendlyMessage =
           "Waking up the server. Please try again in a few seconds!";
+      } else if (
+        error.response?.status === 401 ||
+        error.response?.status === 404 ||
+        error.response?.data?.message?.includes("Bad credentials")
+      ) {
+        userFriendlyMessage = "No User Found or Password Incorrect";
       } else if (error.response?.data?.message) {
         userFriendlyMessage = error.response.data.message;
       }
@@ -153,11 +161,19 @@ export default function LoginScreen() {
                 color={themeColors.textLight}
               />
             </TouchableOpacity>
-            <Text
-              style={[styles.headerTitle, { color: themeColors.textLight }]}
-            >
-              {t("welcome")}
-            </Text>
+            <View style={styles.brandTitleRow}>
+              <View
+                style={[
+                  styles.brandIndicator,
+                  { backgroundColor: themeColors.accentOrange },
+                ]}
+              />
+              <Text
+                style={[styles.headerTitle, { color: themeColors.textLight }]}
+              >
+                LEDGER
+              </Text>
+            </View>
             <Text
               style={[
                 styles.headerSubtitle,
@@ -192,6 +208,7 @@ export default function LoginScreen() {
                     backgroundColor: themeColors.cardBackground,
                     borderColor: themeColors.inputBorder,
                     color: themeColors.textDark,
+                    letterSpacing: 0,
                   },
                 ]}
                 value={email}
@@ -242,7 +259,11 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.forgotContainer} disabled={loading}>
+            <TouchableOpacity
+              style={styles.forgotContainer}
+              onPress={() => router.push("/forgotpassword")}
+              disabled={loading}
+            >
               <Text
                 style={[styles.forgotText, { color: themeColors.accentOrange }]}
               >
@@ -397,6 +418,16 @@ const styles = StyleSheet.create({
     height: scale(160),
     borderRadius: scale(80),
   },
+  brandTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: scale(10),
+  },
+  brandIndicator: {
+    width: scale(5),
+    height: verticalScale(28),
+    borderRadius: scale(3),
+  },
   themeToggle: {
     alignSelf: "flex-end",
     padding: scale(8),
@@ -405,13 +436,14 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(12),
   },
   headerTitle: {
-    fontSize: moderateScale(34),
-    fontWeight: "700",
+    fontSize: moderateScale(32),
+    fontWeight: "800",
     lineHeight: moderateScale(40),
+    letterSpacing: scale(3),
   },
   headerSubtitle: {
     fontSize: moderateScale(14),
-    marginTop: verticalScale(8),
+    marginTop: verticalScale(30),
   },
   form: {
     paddingHorizontal: scale(24),

@@ -314,23 +314,24 @@ export default function OverviewScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === "android" && event.type === "dismissed") {
-      setShowDatePicker(false);
-      return;
-    }
-
-    const date =
-      selectedDate ||
-      (event?.nativeEvent?.timestamp
-        ? new Date(event.nativeEvent.timestamp)
-        : null);
-
-    if (Platform.OS === "android" && event.type === "set") {
+    if (Platform.OS === "android") {
       setShowDatePicker(false);
     }
+    if (selectedDate) {
+      setExpenseDate(selectedDate);
+    } else if (event?.nativeEvent?.timestamp) {
+      setExpenseDate(new Date(event.nativeEvent.timestamp));
+    }
+  };
 
-    if (date) {
-      setExpenseDate(date);
+  const openExpenseDatePicker = () => {
+    Keyboard.dismiss();
+    if (Platform.OS === "android") {
+      setTimeout(() => {
+        setShowDatePicker(true);
+      }, 100);
+    } else {
+      setShowDatePicker(true);
     }
   };
 
@@ -393,7 +394,10 @@ export default function OverviewScreen() {
 
       processFigmaData(fetchedExpenses, fetchedIncomes);
     } catch (error) {
-      if (isMounted) console.error("API Error fetching dashboard data:", error);
+      if (__DEV__) {
+        if (isMounted)
+          console.error("API Error fetching dashboard data:", error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -519,23 +523,25 @@ export default function OverviewScreen() {
     (1.1).toLocaleString(i18n.language).replace(/\d/g, "") || ".";
 
   const handleIncomeDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === "android" && event.type === "dismissed") {
-      setShowIncomeDatePicker(false);
-      return;
-    }
-
-    const date =
-      selectedDate ||
-      (event?.nativeEvent?.timestamp
-        ? new Date(event.nativeEvent.timestamp)
-        : null);
-
-    if (Platform.OS === "android" && event.type === "set") {
+    if (Platform.OS === "android") {
       setShowIncomeDatePicker(false);
     }
 
-    if (date) {
-      setIncomeDate(date);
+    if (selectedDate) {
+      setIncomeDate(selectedDate);
+    } else if (event?.nativeEvent?.timestamp) {
+      setIncomeDate(new Date(event.nativeEvent.timestamp));
+    }
+  };
+
+  const openIncomeDatePicker = () => {
+    Keyboard.dismiss();
+    if (Platform.OS === "android") {
+      setTimeout(() => {
+        setShowIncomeDatePicker(true);
+      }, 100);
+    } else {
+      setShowIncomeDatePicker(true);
     }
   };
 
@@ -605,7 +611,9 @@ export default function OverviewScreen() {
 
       await fetchAllData();
     } catch (error) {
-      console.error("Error creating income record:", error);
+      if (__DEV__) {
+        console.error("Error creating income record:", error);
+      }
       Alert.alert("Error", "Failed to save income deposit.");
     } finally {
       setSubmittingIncome(false);
@@ -728,7 +736,9 @@ export default function OverviewScreen() {
 
       await fetchAllData();
     } catch (error) {
-      console.error("Error creating expense:", error);
+      if (__DEV__) {
+        console.error("Error creating expense:", error);
+      }
       Alert.alert("Error", "Failed to save expense.");
     } finally {
       setSubmitting(false);
@@ -755,7 +765,9 @@ export default function OverviewScreen() {
       setCardModalMode("LIST");
       await fetchAllData();
     } catch (error) {
-      console.error("Error adding card:", error);
+      if (__DEV__) {
+        console.error("Error adding card:", error);
+      }
       Alert.alert("Error", "Failed to add card.");
     } finally {
       setSubmittingCard(false);
@@ -789,7 +801,9 @@ export default function OverviewScreen() {
       setCardModalMode("LIST");
       await fetchAllData();
     } catch (error) {
-      console.error("Error updating card:", error);
+      if (__DEV__) {
+        console.error("Error updating card:", error);
+      }
       Alert.alert(t("error", "Error"), "Failed to update card.");
     } finally {
       setSubmittingCard(false);
@@ -1004,7 +1018,7 @@ export default function OverviewScreen() {
             onPress={handleOpenIncomeModal}
           >
             <View style={styles.rowContainer}>
-              <Text style={styles.miniCardLabel}>{t("income", "INCOME")}</Text>
+              <Text style={styles.miniCardLabel}>{t("income", "INCOMES")}</Text>
               <Text style={styles.miniCardAdd}>+</Text>
             </View>
 
@@ -1181,9 +1195,7 @@ export default function OverviewScreen() {
                 {t("recent", "Recent")}
               </Text>
               <TouchableOpacity onPress={() => router.push("/transactions")}>
-                <Text
-                  style={[styles.seeAllText, { color: colors.primaryTeal }]}
-                >
+                <Text style={[styles.seeAllText, { color: colors.seeAll }]}>
                   {t("seeAll", "See all")} →
                 </Text>
               </TouchableOpacity>
@@ -1265,7 +1277,13 @@ export default function OverviewScreen() {
         >
           <Pressable style={{ flex: 1 }} onPress={() => Keyboard.dismiss()}>
             {cardModalMode === "LIST" && (
-              <>
+              <BottomSheetScrollView
+                nestedScrollEnabled={true}
+                contentContainerStyle={{
+                  paddingHorizontal: 20,
+                  paddingBottom: 40,
+                }}
+              >
                 <View style={styles.modalHeaderRow}>
                   <Text
                     style={[styles.modalTitle, { color: colors.textPrimary }]}
@@ -1306,7 +1324,7 @@ export default function OverviewScreen() {
                     </Text>
                   </View>
                 ) : (
-                  <ScrollView style={{ maxHeight: 240, marginVertical: 12 }}>
+                  <View style={{ marginVertical: 12 }}>
                     {userCards.map((c) => (
                       <TouchableOpacity
                         key={c.id}
@@ -1348,7 +1366,7 @@ export default function OverviewScreen() {
                         </Text>
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
+                  </View>
                 )}
 
                 <View style={styles.modalActions}>
@@ -1370,7 +1388,7 @@ export default function OverviewScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </>
+              </BottomSheetScrollView>
             )}
 
             {cardModalMode === "DETAILS" && selectedCardForAction && (
@@ -1669,7 +1687,7 @@ export default function OverviewScreen() {
                 styles.datePickerButton,
                 { backgroundColor: colors.iconBoxBg },
               ]}
-              onPress={() => setShowIncomeDatePicker(true)}
+              onPress={openIncomeDatePicker}
             >
               <Ionicons
                 name="calendar-outline"
@@ -2111,7 +2129,7 @@ export default function OverviewScreen() {
                 styles.datePickerButton,
                 { backgroundColor: colors.iconBoxBg },
               ]}
-              onPress={() => setShowDatePicker(true)}
+              onPress={openExpenseDatePicker}
             >
               <Ionicons
                 name="calendar-outline"
@@ -2340,7 +2358,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: moderateScale(18),
     fontWeight: "700",
-    marginBottom: verticalScale(12),
+    marginBottom: 0,
   },
   chartContainer: {
     alignItems: "center",
@@ -2380,6 +2398,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: verticalScale(12),
   },
   seeAllText: {
     fontSize: moderateScale(13),

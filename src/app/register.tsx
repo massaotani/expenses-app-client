@@ -123,7 +123,55 @@ export default function RegisterScreen() {
           translucent
         />
 
+        {/* Fixed Header */}
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: insets.top + verticalScale(16),
+              backgroundColor: themeColors.headerBackground,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.headerCircle,
+              { backgroundColor: themeColors.headerCircleOverlay },
+            ]}
+          />
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            disabled={loading}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={moderateScale(16)}
+              color={themeColors.textLight}
+            />
+            <Text
+              style={[styles.backButtonText, { color: themeColors.textLight }]}
+            >
+              {t("back")}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.headerTitle, { color: themeColors.textLight }]}>
+            {t("createYourAccount")}
+          </Text>
+          <Text
+            style={[
+              styles.headerSubtitle,
+              { color: themeColors.textLightMuted },
+            ]}
+          >
+            {t("startTrackingExpenses")}
+          </Text>
+        </View>
+
+        {/* Scrollable Form Body */}
         <KeyboardAwareScrollView
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}
           enableOnAndroid
@@ -133,56 +181,6 @@ export default function RegisterScreen() {
             { paddingBottom: insets.bottom + verticalScale(24) },
           ]}
         >
-          <View
-            style={[
-              styles.header,
-              {
-                paddingTop: insets.top + verticalScale(16),
-                backgroundColor: themeColors.headerBackground,
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.headerCircle,
-                { backgroundColor: themeColors.headerCircleOverlay },
-              ]}
-            />
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-              disabled={loading}
-            >
-              <Ionicons
-                name="arrow-back"
-                size={moderateScale(16)}
-                color={themeColors.textLight}
-              />
-              <Text
-                style={[
-                  styles.backButtonText,
-                  { color: themeColors.textLight },
-                ]}
-              >
-                {t("back")}
-              </Text>
-            </TouchableOpacity>
-
-            <Text
-              style={[styles.headerTitle, { color: themeColors.textLight }]}
-            >
-              {t("createYourAccount")}
-            </Text>
-            <Text
-              style={[
-                styles.headerSubtitle,
-                { color: themeColors.textLightMuted },
-              ]}
-            >
-              {t("startTrackingExpenses")}
-            </Text>
-          </View>
-
           <View style={styles.form}>
             {errorMessage !== "" && (
               <View style={styles.errorContainer}>
@@ -239,32 +237,6 @@ export default function RegisterScreen() {
                 editable={!loading}
               />
             </View>
-
-            {/*<View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: themeColors.textMuted }]}>
-                {t("monthlyIncomeLabel")}
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: themeColors.cardBackground,
-                    borderColor: themeColors.inputBorder,
-                    color: themeColors.textDark,
-                  },
-                ]}
-                value={monthlyIncome}
-                onChangeText={(text) =>
-                  setMonthlyIncome(
-                    text.replace(/\./g, ",").replace(/(,\d{2})\d+$/, "$1"),
-                  )
-                }
-                placeholder={t("incomePlaceholder")}
-                placeholderTextColor={themeColors.textMuted}
-                keyboardType="decimal-pad"
-                editable={!loading}
-              />
-            </View>*/}
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: themeColors.textMuted }]}>
@@ -368,13 +340,13 @@ export default function RegisterScreen() {
               <Text
                 style={[styles.checkboxText, { color: themeColors.textDark }]}
               >
-                {t("agreeTo")}
+                {t("agreeTo")}{" "}
                 <Text
                   style={[styles.linkText, { color: themeColors.accentOrange }]}
                 >
                   {t("termsOfService")}
-                </Text>
-                {t("and")}
+                </Text>{" "}
+                {t("and")}{" "}
                 <Text
                   style={[styles.linkText, { color: themeColors.accentOrange }]}
                 >
@@ -418,7 +390,7 @@ export default function RegisterScreen() {
               <Text
                 style={[styles.footerText, { color: themeColors.textMuted }]}
               >
-                {t("alreadyHaveAccount")}
+                {t("alreadyHaveAccount")}{" "}
               </Text>
               <TouchableOpacity
                 onPress={() => router.back()}
@@ -455,6 +427,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: scale(36),
     position: "relative",
     overflow: "hidden",
+    zIndex: 10,
   },
   headerCircle: {
     position: "absolute",
