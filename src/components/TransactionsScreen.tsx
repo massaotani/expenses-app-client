@@ -248,11 +248,16 @@ const resolvePaymentMethod = (item: ExpenseItem, cards: UserCard[]): string => {
     return item.card.name;
   }
 
-  // 2. If card is an ID string, look up in userCards
-  const rawCardId = typeof item.card === "string" ? item.card : null;
-  if (rawCardId) {
-    const match = cards.find((c) => c.id === rawCardId);
-    if (match) return match.name;
+  // 2. Look up card ID across item.card, item.cardId, item.card_id, or item.card.id
+  const rawCardId =
+    (typeof item.card === "string" ? item.card : null) ||
+    (item as any).cardId ||
+    (item as any).card_id ||
+    (item.card && typeof item.card === "object" ? item.card.id : null);
+
+  if (rawCardId !== null && rawCardId !== undefined) {
+    const match = cards.find((c) => String(c.id) === String(rawCardId));
+    if (match && match.name) return match.name;
   }
 
   // 3. Fallback to generic payment method/type
@@ -665,10 +670,22 @@ export default function TransactionsScreen() {
         });
       }
 
+      if (normalized === "cash" || normalized === "dinheiro") {
+        return t("cash", { defaultValue: "Cash" });
+      }
+
+      if (
+        normalized === "card" ||
+        normalized === "cartao" ||
+        normalized === "cartão"
+      ) {
+        return t("card", { defaultValue: "Card" });
+      }
+
       const keyWithUnderscores = normalized.replace(/\s+/g, "_");
-      return t(keyWithUnderscores, {
-        defaultValue: t(normalized, { defaultValue: method }),
-      });
+      const translated = t(keyWithUnderscores, { defaultValue: method });
+
+      return translated || method;
     },
     [t],
   );
@@ -700,7 +717,7 @@ export default function TransactionsScreen() {
     const currentMethod = (selectedTransaction.paymentMethod || "Cash").trim();
     const matchingCard = userCards.find(
       (c) =>
-        c.id === currentMethod ||
+        String(c.id) === String(currentMethod) ||
         c.name.toLowerCase() === currentMethod.toLowerCase(),
     );
 
@@ -765,9 +782,11 @@ export default function TransactionsScreen() {
 
     if (!isIncome) {
       if (paymentType === "CARD") {
-        const card = userCards.find((c) => c.id === selectedCardId);
+        const card = userCards.find(
+          (c) => String(c.id) === String(selectedCardId),
+        );
         finalPaymentMethod = card ? card.name : "Card";
-        cardIdPayload = selectedCardId;
+        cardIdPayload = card ? card.id : selectedCardId;
       } else {
         finalPaymentMethod = "Cash";
       }
