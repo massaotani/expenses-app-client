@@ -242,6 +242,23 @@ const extractStringValue = (val: any, fallback = "Cash"): string => {
   return String(val);
 };
 
+const resolvePaymentMethod = (item: ExpenseItem, cards: UserCard[]): string => {
+  // 1. If card is a populated object with a name
+  if (item.card && typeof item.card === "object" && item.card.name) {
+    return item.card.name;
+  }
+
+  // 2. If card is an ID string, look up in userCards
+  const rawCardId = typeof item.card === "string" ? item.card : null;
+  if (rawCardId) {
+    const match = cards.find((c) => c.id === rawCardId);
+    if (match) return match.name;
+  }
+
+  // 3. Fallback to generic payment method/type
+  return extractStringValue(item.paymentMethod || item.paymentType, "Cash");
+};
+
 const getPaymentIcon = (method?: string): string => {
   if (!method) return "💵";
   const m = method.toLowerCase();
@@ -462,9 +479,9 @@ export default function TransactionsScreen() {
         rawDate: parseRawDate(item.dueDate || item.paidAt || item.date || ""),
         type: "EXPENSE",
         icon: getCategoryIcon(item.category || "General", "EXPENSE"),
-        paymentMethod: extractStringValue(
-          item.paymentMethod || item.card || item.paymentType,
-          "Cash",
+        paymentMethod: resolvePaymentMethod(
+          item,
+          cardsRes.status === "fulfilled" ? cardsRes.value.data : [],
         ),
       }));
 
@@ -615,13 +632,19 @@ export default function TransactionsScreen() {
   const translateCategory = useCallback(
     (category: string) => {
       if (!category) return "";
-      const normalized = String(category).toLowerCase().trim();
+      const normalizedKey = String(category)
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "_");
 
-      if (normalized === "income" || normalized === "income_transaction") {
+      if (
+        normalizedKey === "income" ||
+        normalizedKey === "income_transaction"
+      ) {
         return t("income_transaction", { defaultValue: "Income" });
       }
 
-      return t(normalized, { defaultValue: category });
+      return t(normalizedKey, { defaultValue: category });
     },
     [t],
   );
@@ -800,6 +823,16 @@ export default function TransactionsScreen() {
         t("updateFailed", "Failed to update transaction."),
       );
     }
+  };
+
+  const isCategoryMatch = (cat1: string, cat2: string): boolean => {
+    const norm1 = (cat1 || "").toLowerCase().replace(/_/g, " ").trim();
+    const norm2 = (cat2 || "").toLowerCase().replace(/_/g, " ").trim();
+
+    // Compare directly or with trailing 's' stripped for singular/plural matching
+    return (
+      norm1 === norm2 || norm1.replace(/s$/, "") === norm2.replace(/s$/, "")
+    );
   };
 
   const handleDelete = async () => {
@@ -1349,9 +1382,10 @@ export default function TransactionsScreen() {
                               0,
                               Math.ceil(CATEGORIES.length / 2),
                             ).map((cat) => {
-                              const isSelected =
-                                editCategory.toLowerCase() ===
-                                cat.toLowerCase();
+                              const isSelected = isCategoryMatch(
+                                editCategory,
+                                cat,
+                              );
                               return (
                                 <TouchableOpacity
                                   key={cat}
