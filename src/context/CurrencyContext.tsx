@@ -24,7 +24,6 @@ export const CurrencyProvider = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Load persisted currency on app startup
     const loadCurrency = async () => {
       try {
         const storedCurrency = await AsyncStorage.getItem(CURRENCY_STORAGE_KEY);

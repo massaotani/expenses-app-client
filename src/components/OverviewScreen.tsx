@@ -163,7 +163,6 @@ function parseAmount(value: string | number | undefined | null): number {
   if (typeof value === "number") return value;
   if (!value) return 0;
 
-  // Remove non-numeric characters except decimal points and negative signs
   const cleaned = String(value).replace(/[^0-9.-]+/g, "");
   const parsed = parseFloat(cleaned);
 
@@ -513,7 +512,6 @@ export default function OverviewScreen() {
       const offset = targetIndex * itemSpacing;
 
       setTimeout(() => {
-        // Handles both ScrollView and FlatList refs
         if (typeof chartRef.current.scrollTo === "function") {
           chartRef.current.scrollTo({ x: offset, animated: true });
         } else if (typeof chartRef.current.scrollToOffset === "function") {
@@ -529,11 +527,20 @@ export default function OverviewScreen() {
     return t(key, { defaultValue: cat.replace(/_/g, " ") });
   };
 
-  const formatDateDDMMYYYY = (date: Date) => {
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+  const formatSystemDate = (date: Date) => {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(date);
+    } catch {
+      // Fallback if Intl is unsupported on an older environment
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -817,7 +824,7 @@ export default function OverviewScreen() {
         description: incomeSource.trim(),
         amount: deposit,
         value: deposit,
-        createdAt: toLocalISOString(fullLocalDateTime), // Selected date formatted
+        createdAt: toLocalISOString(fullLocalDateTime),
       });
 
       setIncomeSource("");
@@ -1220,7 +1227,12 @@ export default function OverviewScreen() {
               { backgroundColor: colors.cardBackground },
             ]}
           >
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+            <Text
+              style={[
+                styles.cardTitle,
+                { color: colors.textPrimary, marginBottom: verticalScale(15) },
+              ]}
+            >
               {t("spendingTrend", "Spending Trend")}
             </Text>
 
@@ -1253,12 +1265,12 @@ export default function OverviewScreen() {
                   fontSize: 11,
                 }}
                 formatYLabel={(val) => `${Number(val)}`}
-                areaChart={false}
-                adjustToWidth={false}
-                startFillColor="transparent"
-                endFillColor="transparent"
-                startOpacity={0}
-                endOpacity={0}
+                areaChart
+                startFillColor={colors.graphicLine}
+                endFillColor={colors.graphicLine}
+                startOpacity={0.3}
+                endOpacity={0.01}
+                gradientDirection="vertical"
                 curveType={1}
               />
             </View>
@@ -1270,7 +1282,12 @@ export default function OverviewScreen() {
               { backgroundColor: colors.cardBackground },
             ]}
           >
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+            <Text
+              style={[
+                styles.cardTitle,
+                { color: colors.textPrimary, marginBottom: verticalScale(15) },
+              ]}
+            >
               {t("monthlyBudget", "Monthly Budget")}
             </Text>
             {budgetItems.map((item) => {
@@ -1434,26 +1451,6 @@ export default function OverviewScreen() {
                   >
                     {t("registeredCards", "Registered Cards")}
                   </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.addCardHeaderButton,
-                      { backgroundColor: colors.addButtonBg },
-                    ]}
-                    onPress={() => {
-                      setNewCardName("");
-                      setNewCardType("CREDIT");
-                      setCardModalMode("FORM");
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.addCardHeaderButtonText,
-                        { color: colors.cardBackground },
-                      ]}
-                    >
-                      + {t("addCard", "Add Card")}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
                 {userCards.length === 0 ? (
@@ -1513,11 +1510,34 @@ export default function OverviewScreen() {
                   </View>
                 )}
 
-                <View style={styles.modalActions}>
+                <View
+                  style={[styles.modalActions, { flexDirection: "column" }]}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.dashedAddButton,
+                      { borderColor: colors.primaryTeal },
+                    ]}
+                    onPress={() => {
+                      setNewCardName("");
+                      setNewCardType("CREDIT");
+                      setCardModalMode("FORM");
+                    }}
+                  >
+                    <Ionicons name="add" size={16} color={colors.primaryTeal} />
+                    <Text
+                      style={[
+                        styles.dashedAddButtonText,
+                        { color: colors.primaryTeal },
+                      ]}
+                    >
+                      {t("addCard", "Add Card")}
+                    </Text>
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     style={[
                       styles.modalButton,
-                      styles.cancelButton,
                       { backgroundColor: colors.iconBoxBg },
                     ]}
                     onPress={handleCloseCardModal}
@@ -1584,7 +1604,6 @@ export default function OverviewScreen() {
                   <TouchableOpacity
                     style={[
                       styles.modalButton,
-                      styles.cancelButton,
                       { backgroundColor: colors.iconBoxBg },
                     ]}
                     onPress={handleStartEditCard}
@@ -1658,9 +1677,9 @@ export default function OverviewScreen() {
                       color: colors.textPrimary,
                     },
                   ]}
-                  placeholder="e.g. Chase Sapphire, Nubank"
+                  placeholder={t("cardNamePlaceholder")}
                   placeholderTextColor={colors.textSecondary}
-                  value={newCardName}
+                  defaultValue={newCardName}
                   onChangeText={setNewCardName}
                 />
 
@@ -1705,7 +1724,6 @@ export default function OverviewScreen() {
                   <TouchableOpacity
                     style={[
                       styles.modalButton,
-                      styles.cancelButton,
                       { backgroundColor: colors.iconBoxBg },
                     ]}
                     onPress={() =>
@@ -1783,7 +1801,7 @@ export default function OverviewScreen() {
                   color: colors.textPrimary,
                 },
               ]}
-              placeholder="e.g. Monthly Salary, Freelance"
+              placeholder={t("cardNamePlaceholder")}
               placeholderTextColor={colors.textSecondary}
               value={incomeSource}
               onChangeText={setIncomeSource}
@@ -1807,22 +1825,18 @@ export default function OverviewScreen() {
               }
               value={incomeValue}
               onChangeText={(text) => {
-                // If the currency is JPY or KRW, strip out all non-digits
                 if (["JPY", "KRW"].includes(currency)) {
                   setIncomeValue(text.replace(/\D/g, ""));
                   return;
                 }
 
-                // Replace alternative separators (, or .) with the active locale's separator
                 let sanitized = text.replace(/[.,]/g, decimalSeparator);
 
-                // Prevent multiple decimal separators
                 const parts = sanitized.split(decimalSeparator);
                 if (parts.length > 2) {
                   sanitized = `${parts[0]}${decimalSeparator}${parts.slice(1).join("")}`;
                 }
 
-                // Restrict to 2 decimal places
                 if (parts[1] && parts[1].length > 2) {
                   sanitized = `${parts[0]}${decimalSeparator}${parts[1].slice(0, 2)}`;
                 }
@@ -1849,7 +1863,7 @@ export default function OverviewScreen() {
               <Text
                 style={[styles.datePickerText, { color: colors.textPrimary }]}
               >
-                {formatDateDDMMYYYY(incomeDate)}
+                {formatSystemDate(incomeDate)}
               </Text>
             </TouchableOpacity>
 
@@ -1917,7 +1931,6 @@ export default function OverviewScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalButton,
-                  styles.cancelButton,
                   { backgroundColor: colors.iconBoxBg },
                 ]}
                 onPress={handleCloseIncomeModal}
@@ -1991,7 +2004,7 @@ export default function OverviewScreen() {
                   color: colors.textPrimary,
                 },
               ]}
-              placeholder="e.g. Grocery Shopping"
+              placeholder={t("descriptionPlaceholder")}
               placeholderTextColor={colors.textSecondary}
               value={description}
               onChangeText={setDescription}
@@ -2015,22 +2028,18 @@ export default function OverviewScreen() {
               }
               value={value}
               onChangeText={(text) => {
-                // If the currency is JPY or KRW, strip out all non-digits
                 if (["JPY", "KRW"].includes(currency)) {
                   setValue(text.replace(/\D/g, ""));
                   return;
                 }
 
-                // Replace alternative separators (, or .) with the active locale's separator
                 let sanitized = text.replace(/[.,]/g, decimalSeparator);
 
-                // Prevent multiple decimal separators
                 const parts = sanitized.split(decimalSeparator);
                 if (parts.length > 2) {
                   sanitized = `${parts[0]}${decimalSeparator}${parts.slice(1).join("")}`;
                 }
 
-                // Restrict to 2 decimal places
                 if (parts[1] && parts[1].length > 2) {
                   sanitized = `${parts[0]}${decimalSeparator}${parts[1].slice(0, 2)}`;
                 }
@@ -2299,7 +2308,7 @@ export default function OverviewScreen() {
               <Text
                 style={[styles.datePickerText, { color: colors.textPrimary }]}
               >
-                {formatDateDDMMYYYY(expenseDate)}
+                {formatSystemDate(expenseDate)}
               </Text>
             </TouchableOpacity>
 
@@ -2367,7 +2376,6 @@ export default function OverviewScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalButton,
-                  styles.cancelButton,
                   { backgroundColor: colors.iconBoxBg },
                 ]}
                 onPress={handleCloseExpensesModal}
@@ -2518,7 +2526,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: moderateScale(18),
     fontWeight: "700",
-    marginBottom: 0,
   },
   chartContainer: {
     alignItems: "center",
@@ -2628,14 +2635,20 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(20),
     fontWeight: "700",
   },
-  addCardHeaderButton: {
-    paddingHorizontal: scale(12),
-    paddingVertical: verticalScale(6),
+  dashedAddButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderStyle: "dashed",
     borderRadius: scale(12),
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(12),
   },
-  addCardHeaderButtonText: {
-    fontWeight: "600",
+  dashedAddButtonText: {
     fontSize: moderateScale(13),
+    fontWeight: "600",
+    marginLeft: scale(4),
   },
   emptyCardsContainer: {
     paddingVertical: verticalScale(20),
@@ -2729,7 +2742,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: scale(12),
-    marginTop: verticalScale(24),
+    marginTop: verticalScale(20),
   },
   modalButton: {
     flex: 1,
@@ -2737,7 +2750,6 @@ const styles = StyleSheet.create({
     borderRadius: scale(12),
     alignItems: "center",
   },
-  cancelButton: {},
   cancelButtonText: {
     fontWeight: "700",
     fontSize: moderateScale(14),

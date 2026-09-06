@@ -47,14 +47,12 @@ export default function PaymentMethodsScreen() {
   const [cards, setCards] = useState<UserCard[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Modal State
   const modalRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["65%"], []);
   const [modalMode, setModalMode] = useState<"ADD" | "EDIT">("ADD");
   const [selectedCardForAction, setSelectedCardForAction] =
     useState<UserCard | null>(null);
 
-  // Form Fields
   const [cardName, setCardName] = useState("");
   const [cardType, setCardType] = useState<"CREDIT" | "DEBIT">("CREDIT");
   const [submittingCard, setSubmittingCard] = useState(false);
@@ -375,7 +373,7 @@ export default function PaymentMethodsScreen() {
                   borderColor: colors.divider,
                 },
               ]}
-              placeholder="e.g. Chase Sapphire, Nubank"
+              placeholder={t("cardNamePlaceholder")}
               placeholderTextColor={colors.textSecondary}
               value={cardName}
               onChangeText={setCardName}

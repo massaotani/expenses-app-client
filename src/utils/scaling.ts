@@ -2,7 +2,6 @@ import { Dimensions } from "react-native";
 
 const { width, height } = Dimensions.get("window");
 
-// Baseline screen size (standard design draft size)
 const GUIDELINE_BASE_WIDTH = 375;
 const GUIDELINE_BASE_HEIGHT = 812;
 

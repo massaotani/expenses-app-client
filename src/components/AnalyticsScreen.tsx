@@ -4,10 +4,12 @@ import api from "@/services/api";
 import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
   Dimensions,
   RefreshControl,
   ScrollView,
@@ -132,10 +134,46 @@ export default function AnalyticsScreen() {
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [baseMonthlyIncome, setBaseMonthlyIncome] = useState<number>(0);
 
-  // Reference date for dynamic month navigation
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  // Selected index within the calculated 6-month window (5 is the focused active month)
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(2);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, []),
+  );
+
+  useEffect(() => {
+    const checkMidnightRollover = () => {
+      const now = new Date();
+      setSelectedDate((prev) => {
+        const realYear = now.getFullYear();
+        const realMonth = now.getMonth();
+
+        if (prev.getFullYear() === realYear && prev.getMonth() !== realMonth) {
+          return new Date(realYear, realMonth, 1);
+        }
+        return prev;
+      });
+    };
+
+    const subscription = AppState.addEventListener(
+      "change",
+      (status: AppStateStatus) => {
+        if (status === "active") {
+          checkMidnightRollover();
+          fetchData();
+        }
+      },
+    );
+
+    const interval = setInterval(checkMidnightRollover, 60000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -180,12 +218,6 @@ export default function AnalyticsScreen() {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, []),
-  );
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
@@ -202,13 +234,11 @@ export default function AnalyticsScreen() {
   const cardColor = isDark ? CARD_COLOR_DARK : CARD_COLOR_LIGHT;
   const cashColor = isDark ? CASH_COLOR_DARK : CASH_COLOR_LIGHT;
 
-  // Generates 6 months ending at selectedDate
   const calculated6Months = useMemo(() => {
     const months = [];
     const targetYear = selectedDate.getFullYear();
     const targetMonth = selectedDate.getMonth();
 
-    // Generate 6 months centered around selectedDate (e.g., 2 months before, active month, 3 months after)
     for (let i = -2; i <= 3; i++) {
       const d = new Date(targetYear, targetMonth + i, 1);
       const rawLabel = d.toLocaleDateString(i18n.language || "en", {
@@ -1182,7 +1212,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.tealDark,
     paddingHorizontal: scale(20),
     paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(28),
+    paddingBottom: verticalScale(20),
     borderBottomLeftRadius: scale(32),
     borderBottomRightRadius: scale(32),
     zIndex: 10,
@@ -1201,7 +1231,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: verticalScale(8),
+    marginTop: verticalScale(20),
   },
   monthNavButton: {
     paddingHorizontal: scale(12),
@@ -1323,7 +1353,6 @@ const styles = StyleSheet.create({
   paymentPercentageText: {
     fontSize: moderateScale(11),
     color: COLORS.textMuted,
-    // marginTop: verticalScale(2),
   },
   cardBreakdownContainer: {
     marginTop: verticalScale(16),

@@ -1,6 +1,12 @@
 import api from "@/services/api";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  GoogleSignin,
+  isCancelledResponse,
+  isErrorWithCode,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -110,6 +117,73 @@ export default function LoginScreen() {
     }
   };
 
+  // 1. Configure Google Sign-In with your credentials
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId:
+        "1081635959519-p7eelusfog4vvt28cu0dd7d9jgescsdo.apps.googleusercontent.com",
+      iosClientId:
+        "1081635959519-e3g6vbna6eb51mc6idutgtuaj3hfalln.apps.googleusercontent.com",
+    });
+  }, []);
+
+  // 2. Google Sign-In Handler
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+
+      if (!idToken) {
+        throw new Error("No Google ID token retrieved.");
+      }
+
+      const apiRes = await api.post("/api/v1/auth/google", { idToken });
+      const { token, accessToken, refreshToken } = apiRes.data;
+      const jwtToken = token || accessToken;
+
+      if (jwtToken && refreshToken) {
+        await signIn(jwtToken, refreshToken);
+      } else {
+        setErrorMessage("Invalid server response. Missing security tokens.");
+      }
+    } catch (error: any) {
+      if (isCancelledResponse(error)) {
+        setLoading(false);
+        return;
+      }
+
+      if (__DEV__) {
+        console.error("Google Sign-In Error:", error);
+      }
+
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            setErrorMessage("Sign in is in progress.");
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            setErrorMessage("Google Play Services are not available.");
+            break;
+          default:
+            setErrorMessage("Google Sign-In failed. Please try again.");
+        }
+      } else {
+        setErrorMessage(
+          error.response?.data?.message || "Google Sign-In failed.",
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View
@@ -149,7 +223,6 @@ export default function LoginScreen() {
                 { backgroundColor: themeColors.headerCircleOverlay },
               ]}
             />
-            {/* Theme Toggle Button */}
             <TouchableOpacity
               style={styles.themeToggle}
               onPress={toggleTheme}
@@ -315,6 +388,7 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.socialRow}>
+              {/* 3. Updated Google Button */}
               <TouchableOpacity
                 style={[
                   styles.socialButton,
@@ -323,6 +397,7 @@ export default function LoginScreen() {
                     borderColor: themeColors.inputBorder,
                   },
                 ]}
+                onPress={handleGoogleSignIn}
                 disabled={loading}
               >
                 <Ionicons
@@ -341,31 +416,36 @@ export default function LoginScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.socialButton,
-                  {
-                    backgroundColor: themeColors.cardBackground,
-                    borderColor: themeColors.inputBorder,
-                  },
-                ]}
-                disabled={loading}
-              >
-                <Ionicons
-                  name="logo-apple"
-                  size={moderateScale(20)}
-                  color={themeColors.textDark}
-                  style={styles.socialIcon}
-                />
-                <Text
+              {Platform.OS === "ios" && (
+                <TouchableOpacity
                   style={[
-                    styles.socialButtonText,
-                    { color: themeColors.textDark },
+                    styles.socialButton,
+                    {
+                      backgroundColor: themeColors.cardBackground,
+                      borderColor: themeColors.inputBorder,
+                    },
                   ]}
+                  onPress={() => {
+                    console.log("Apple Sign-In pressed");
+                  }}
+                  disabled={loading}
                 >
-                  Apple
-                </Text>
-              </TouchableOpacity>
+                  <Ionicons
+                    name="logo-apple"
+                    size={moderateScale(20)}
+                    color={themeColors.textDark}
+                    style={styles.socialIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.socialButtonText,
+                      { color: themeColors.textDark },
+                    ]}
+                  >
+                    Apple
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.footerRow}>

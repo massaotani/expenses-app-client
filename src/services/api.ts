@@ -13,7 +13,6 @@ export const setOnUnauthenticated = (callback: () => void) => {
   onUnauthenticatedCallback = callback;
 };
 
-// 1. ADD DECLARATION AND SETTER HERE:
 let onTokenRefreshedCallback: ((newToken: string) => void) | null = null;
 
 export const setOnTokenRefreshed = (callback: (newToken: string) => void) => {
@@ -49,7 +48,6 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request Interceptor: Ensure token presence before sending
 api.interceptors.request.use(
   async (config) => {
     if (!config.headers.has("Authorization")) {
@@ -63,7 +61,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Response Interceptor
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -127,7 +124,6 @@ api.interceptors.response.use(
         api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
         originalRequest.headers.set("Authorization", `Bearer ${accessToken}`);
 
-        // 2. ADD TRIGGER HERE (Right after updating headers and before processing the queue):
         if (onTokenRefreshedCallback) {
           onTokenRefreshedCallback(accessToken);
         }

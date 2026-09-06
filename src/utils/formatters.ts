@@ -1,4 +1,3 @@
-// Map each currency code to a locale that enforces its native formatting convention
 const CURRENCY_LOCALE_MAP: Record<string, string> = {
   USD: "en-US", // Uses '.' for decimal separator
   GBP: "en-GB", // Uses '.' for decimal separator
@@ -15,7 +14,6 @@ export const formatCurrency = (
   locale?: string,
 ) => {
   try {
-    // Resolve locale from currency map; fallback to provided locale or default 'en-US'
     const targetLocale = CURRENCY_LOCALE_MAP[currencyCode] || locale || "en-US";
 
     return new Intl.NumberFormat(targetLocale, {

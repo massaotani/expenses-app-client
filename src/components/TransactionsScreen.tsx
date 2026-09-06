@@ -11,11 +11,13 @@ import {
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
 import { useFocusEffect } from "expo-router";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
+  AppStateStatus,
   FlatList,
   PanResponder,
   RefreshControl,
@@ -133,7 +135,14 @@ const FilterListHeader = memo(
                     { backgroundColor: appColors.primaryTeal },
                   ],
                 ]}
-                onPress={() => setSelectedFilter(String(item))}
+                onPress={() => {
+                  const filterValue = String(item);
+                  setSelectedFilter(filterValue);
+
+                  if (filterValue.toLowerCase() === "income") {
+                    setSelectedCardFilter("All Payment Methods");
+                  }
+                }}
                 activeOpacity={0.7}
               >
                 <Text
@@ -367,6 +376,44 @@ export default function TransactionsScreen() {
 
   const editSheetRef = useRef<BottomSheetModal>(null);
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [selectedDate]),
+  );
+
+  useEffect(() => {
+    const checkMidnightRollover = () => {
+      const now = new Date();
+      setSelectedDate((prev) => {
+        if (
+          prev.getFullYear() === now.getFullYear() &&
+          prev.getMonth() !== now.getMonth()
+        ) {
+          return new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+        return prev;
+      });
+    };
+
+    const subscription = AppState.addEventListener(
+      "change",
+      (status: AppStateStatus) => {
+        if (status === "active") {
+          checkMidnightRollover();
+          fetchData();
+        }
+      },
+    );
+
+    const interval = setInterval(checkMidnightRollover, 60000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, []);
+
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop
@@ -462,12 +509,6 @@ export default function TransactionsScreen() {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [selectedDate]),
-  );
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
@@ -489,10 +530,8 @@ export default function TransactionsScreen() {
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dx < -50) {
-          // Swiped left -> Next month
           changeMonth(1);
         } else if (gestureState.dx > 50) {
-          // Swiped right -> Previous month
           changeMonth(-1);
         }
       },
@@ -667,7 +706,6 @@ export default function TransactionsScreen() {
     const lang = (language || "en").toLowerCase();
     const isCommaDecimal = lang.startsWith("pt") || lang.startsWith("es");
 
-    // Ensure 2 decimal places fixed formatting
     const fixedVal = val.toFixed(2);
 
     if (isCommaDecimal) {
@@ -1254,7 +1292,6 @@ export default function TransactionsScreen() {
                           (currency || "").toUpperCase(),
                         );
                         if (isZeroDecimal) {
-                          // Strip out any non-digit characters for whole-number currencies
                           setEditAmount(text.replace(/\D/g, ""));
                           return;
                         }

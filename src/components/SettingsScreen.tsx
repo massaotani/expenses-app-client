@@ -7,7 +7,6 @@ import {
   BottomSheetScrollView,
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
-import * as Localization from "expo-localization";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -56,15 +55,6 @@ const CURRENCIES = [
   { code: "CNY", symbol: "¥", label: "CNY (¥)" },
 ];
 
-// Helper to determine system currency or fallback to USD
-const getDefaultCurrency = (): string => {
-  const currencyCode = Localization.getLocales()?.[0]?.currencyCode;
-  if (currencyCode && CURRENCIES.some((c) => c.code === currencyCode)) {
-    return currencyCode;
-  }
-  return "USD";
-};
-
 export default function SettingsScreen() {
   const { currency, setCurrency } = useCurrency();
   const { t, i18n } = useTranslation();
@@ -73,18 +63,15 @@ export default function SettingsScreen() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const router = useRouter();
 
-  // Form states
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Toggle state for password visibility
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Gorhom Bottom Sheet Refs & Snap Points
   const languageModalRef = useRef<BottomSheetModal>(null);
   const passwordModalRef = useRef<BottomSheetModal>(null);
   const currencyModalRef = useRef<BottomSheetModal>(null);
@@ -139,7 +126,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // Handlers for opening modals
   const handleOpenLanguageModal = () => languageModalRef.current?.present();
   const handleOpenCurrencyModal = () => currencyModalRef.current?.present();
   const handleOpenPasswordModal = () => {
@@ -162,7 +148,6 @@ export default function SettingsScreen() {
     currencyModalRef.current?.dismiss();
   };
 
-  // Change Password API Call
   const handleSavePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       Alert.alert(

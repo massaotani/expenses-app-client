@@ -20,7 +20,7 @@ export default function TabLayout() {
           styles.tabBar,
           {
             backgroundColor: colors.cardBackground,
-            height: verticalScale(50) + bottomPadding,
+            height: verticalScale(40) + bottomPadding,
             paddingBottom: insets.bottom,
             shadowColor: isDark ? "#000000" : "#000000",
             borderTopColor: colors.divider,
@@ -169,6 +169,6 @@ const styles = StyleSheet.create({
     width: scale(5),
     height: scale(5),
     borderRadius: scale(3),
-    marginTop: verticalScale(4),
+    marginTop: verticalScale(8),
   },
 });

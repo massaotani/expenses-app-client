@@ -6,13 +6,12 @@ import { resources } from "../locales/translations";
 
 const LANGUAGE_KEY = "@user_language";
 
-// Get device language without any native module packages
 const getDeviceLanguage = (): string => {
   let appLocale: string | undefined;
 
   if (Platform.OS === "ios") {
     const settings = NativeModules.SettingsManager?.settings;
-    // iOS 13+ uses AppleLanguages array primary entry
+
     appLocale = settings?.AppleLanguages?.[0] || settings?.AppleLocale;
   } else {
     appLocale = NativeModules.I18nManager?.localeIdentifier;
@@ -20,11 +19,9 @@ const getDeviceLanguage = (): string => {
 
   if (!appLocale) return "en";
 
-  // Standardize formats like "en_US", "ja-JP", "es-ES" -> "en", "ja", "es"
   const cleanLocale = appLocale.replace("_", "-");
   const langCode = cleanLocale.split("-")[0].toLowerCase();
 
-  // Match supported languages in your resources map, fallback to "en"
   const supportedLanguages = Object.keys(resources);
   if (supportedLanguages.includes(langCode)) {
     return langCode;
