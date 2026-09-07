@@ -52,7 +52,7 @@
     "extra": {
       "router": {},
       "eas": {
-        
+        "projectId": "547b8ce1-78b8-4e58-9b23-6983b1aa820a"
       }
     },
     "owner": "massaotani"

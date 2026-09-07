@@ -687,14 +687,24 @@ export default function TransactionsScreen() {
   const translatePaymentMethod = useCallback(
     (method: string) => {
       if (!method) return "";
+
       const normalized = String(method).toLowerCase().trim();
+
+      if (
+        normalized === "all payment methods" ||
+        normalized === "all_payment_methods"
+      ) {
+        return t("allPaymentMethods", { defaultValue: "All Payment Methods" });
+      }
 
       if (normalized === "deleted card" || normalized === "deleted_card") {
         return t("deletedCard", { defaultValue: "Deleted Card" });
       }
+
       if (normalized === "cash" || normalized === "dinheiro") {
         return t("cash", { defaultValue: "Cash" });
       }
+
       if (
         normalized === "card" ||
         normalized === "cartao" ||
@@ -703,7 +713,6 @@ export default function TransactionsScreen() {
         return t("card", { defaultValue: "Card" });
       }
 
-      // Return user's custom card name directly
       return method;
     },
     [t],

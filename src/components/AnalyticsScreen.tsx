@@ -3,8 +3,19 @@ import { useCurrency } from "@/context/CurrencyContext";
 import api from "@/services/api";
 import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+} from "@gorhom/bottom-sheet";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -29,6 +40,13 @@ import Svg, {
 } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+type ModalType =
+  | "INCOME_VS_EXPENSES"
+  | "PAYMENT_METHODS"
+  | "CATEGORY_SPENDING"
+  | "NET_SAVINGS"
+  | null;
 
 interface UserCard {
   id: string;
@@ -136,6 +154,32 @@ export default function AnalyticsScreen() {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(2);
+
+  // Bottom sheet modal ref and state
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const snapPoints = useMemo(() => ["80%"], []);
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
+
+  const handleOpenModal = useCallback((type: ModalType) => {
+    setActiveModal(type);
+    bottomSheetModalRef.current?.present();
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    bottomSheetModalRef.current?.dismiss();
+  }, []);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        pressBehavior="close"
+      />
+    ),
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -318,6 +362,41 @@ export default function AnalyticsScreen() {
       }
     );
   }, [monthlyData, selectedMonthIndex]);
+
+  const overallSavingsSummary = useMemo(() => {
+    const totalNet6Months = monthlyData.reduce((acc, m) => acc + m.net, 0);
+    const totalIncome6Months = monthlyData.reduce(
+      (acc, m) => acc + m.income,
+      0,
+    );
+    const totalExpense6Months = monthlyData.reduce(
+      (acc, m) => acc + m.expenses,
+      0,
+    );
+    const avgMonthlySavings = totalNet6Months / (monthlyData.length || 1);
+    const currentSavingsRate =
+      currentMonthSummary.income > 0
+        ? Math.round(
+            (currentMonthSummary.net / currentMonthSummary.income) * 100,
+          )
+        : 0;
+
+    let bestSavingsMonth = monthlyData[0];
+    monthlyData.forEach((m) => {
+      if (m.net > (bestSavingsMonth?.net ?? -Infinity)) {
+        bestSavingsMonth = m;
+      }
+    });
+
+    return {
+      totalNet6Months,
+      totalIncome6Months,
+      totalExpense6Months,
+      avgMonthlySavings,
+      currentSavingsRate,
+      bestSavingsMonth,
+    };
+  }, [monthlyData, currentMonthSummary]);
 
   const categorySpending = useMemo(() => {
     const targetMonth = selectedMonth.monthIndex;
@@ -553,15 +632,23 @@ export default function AnalyticsScreen() {
         >
           <View style={styles.cardsWrapper}>
             {/* 1. Income vs. Expenses Bar Chart */}
-            <View
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => handleOpenModal("INCOME_VS_EXPENSES")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
-              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                {t("incomeVsExpenses", "Income vs. Expenses")}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {selectedMonth.label} {selectedMonth.year}
-              </Text>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.textPrimary }]}
+                  >
+                    {t("incomeVsExpenses", "Income vs. Expenses")}
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    {selectedMonth.label} {selectedMonth.year}
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.chartWrapper}>
                 <Svg height={verticalScale(200)} width={chartWidth}>
@@ -680,19 +767,27 @@ export default function AnalyticsScreen() {
                   </View>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* 2. Cash vs. Card Breakdown */}
-            <View
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => handleOpenModal("PAYMENT_METHODS")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
-              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                {t("paymentMethodBreakdown", "Payment Method Breakdown")}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {selectedMonth.label} {selectedMonth.year} •{" "}
-                {t("cardVsCash", "Card vs. Cash")}
-              </Text>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.textPrimary }]}
+                  >
+                    {t("paymentMethodBreakdown", "Payment Method Breakdown")}
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    {selectedMonth.label} {selectedMonth.year} •{" "}
+                    {t("cardVsCash", "Card vs. Cash")}
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.stackedBarContainer}>
                 <View
@@ -848,20 +943,28 @@ export default function AnalyticsScreen() {
                   )}
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
 
             {/* 3. Spending by Category */}
-            <View
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => handleOpenModal("CATEGORY_SPENDING")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
-              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                {t("spendingByCategory", "Spending by Category")}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {selectedMonth.label} {selectedMonth.year} •{" "}
-                {t("total", "Total")}:{" "}
-                {formatCurrency(categorySpending.totalSpending, currency)}
-              </Text>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.textPrimary }]}
+                  >
+                    {t("spendingByCategory", "Spending by Category")}
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    {selectedMonth.label} {selectedMonth.year} •{" "}
+                    {t("total", "Total")}:{" "}
+                    {formatCurrency(categorySpending.totalSpending, currency)}
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.donutWrapper}>
                 <Svg
@@ -957,19 +1060,27 @@ export default function AnalyticsScreen() {
                   </View>
                 ))}
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* 4. Net Savings Trend Line Chart */}
-            <View
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => handleOpenModal("NET_SAVINGS")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
-              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                {t("netSavingsTrend", "Net Savings Trend")}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {selectedMonth.label} {selectedMonth.year} •{" "}
-                {t("income", "Incomes")} – {t("expenses", "Expenses")}
-              </Text>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text
+                    style={[styles.cardTitle, { color: colors.textPrimary }]}
+                  >
+                    {t("netSavingsTrend", "Net Savings Trend")}
+                  </Text>
+                  <Text style={styles.cardSubtitle}>
+                    {selectedMonth.label} {selectedMonth.year} •{" "}
+                    {t("income", "Incomes")} – {t("expenses", "Expenses")}
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.netMetricRow}>
                 <View
@@ -1134,7 +1245,6 @@ export default function AnalyticsScreen() {
                           const isSelected = i === selectedMonthIndex;
                           return (
                             <React.Fragment key={i}>
-                              {/* Background ring for active month to make it stand out */}
                               {isSelected && (
                                 <Circle
                                   cx={p.x}
@@ -1178,10 +1288,358 @@ export default function AnalyticsScreen() {
                   })()}
                 </Svg>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
+
+      {/* GRAPHIC DETAILS BOTTOM SHEET MODAL */}
+      <BottomSheetModal
+        ref={bottomSheetModalRef}
+        snapPoints={snapPoints}
+        onDismiss={() => setActiveModal(null)}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: colors.cardBackground }}
+        handleIndicatorStyle={{ backgroundColor: colors.textMuted }}
+      >
+        <View
+          style={[
+            styles.modalContent,
+            { backgroundColor: colors.cardBackground },
+          ]}
+        >
+          {/* Modal Header */}
+          <View style={styles.modalHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                {activeModal === "NET_SAVINGS" &&
+                  t("savingsAnalysis", "Savings & Financial Summary")}
+                {activeModal === "INCOME_VS_EXPENSES" &&
+                  t("incomeVsExpenseDetails", "Income vs. Expense Insights")}
+                {activeModal === "PAYMENT_METHODS" &&
+                  t("paymentAnalysis", "Payment Methods Deep Dive")}
+                {activeModal === "CATEGORY_SPENDING" &&
+                  t("categoryAnalysis", "Category Breakdown Insights")}
+              </Text>
+              <Text style={styles.modalSubtitle}>
+                {selectedMonth.label} {selectedMonth.year}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={handleCloseModal}
+              style={styles.modalCloseButton}
+            >
+              <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Modal Content Details */}
+          <BottomSheetScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: verticalScale(20) }}
+          >
+            {activeModal === "NET_SAVINGS" && (
+              <View style={styles.modalSectionGap}>
+                {/* Highlight Banner: How much saved so far */}
+                <View style={styles.highlightCard}>
+                  <Text style={styles.highlightTitle}>
+                    {t("savedSoFar", "Total Saved So Far (6 Months)")}
+                  </Text>
+                  <Text style={styles.highlightValue}>
+                    {formatCurrency(
+                      overallSavingsSummary.totalNet6Months,
+                      currency,
+                    )}
+                  </Text>
+                  <Text style={styles.highlightSubtext}>
+                    {t("avgPerMonth", "Average monthly savings")}:{" "}
+                    {formatCurrency(
+                      overallSavingsSummary.avgMonthlySavings,
+                      currency,
+                    )}
+                  </Text>
+                </View>
+
+                {/* Month-by-month Savings Breakdown */}
+                <Text
+                  style={[styles.sectionHeading, { color: colors.textPrimary }]}
+                >
+                  {t("monthlySavingsHistory", "6-Month Savings History")}
+                </Text>
+                {monthlyData.map((m) => (
+                  <View key={`${m.month}-${m.year}`} style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailRowLabel,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {m.month} {m.year}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.detailRowValue,
+                        {
+                          color:
+                            m.net >= 0 ? COLORS.incomeGreen : COLORS.expenseRed,
+                        },
+                      ]}
+                    >
+                      {formatCurrency(m.net, currency)}
+                    </Text>
+                  </View>
+                ))}
+
+                <View style={styles.infoBadgeBox}>
+                  <Text style={styles.infoBadgeText}>
+                    💡 {t("savingsTip", "Savings Rate")}:{" "}
+                    {overallSavingsSummary.currentSavingsRate}%{" "}
+                    {t("ofIncomeSavedThisMonth", "of income saved this month.")}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {activeModal === "INCOME_VS_EXPENSES" && (
+              <View style={styles.modalSectionGap}>
+                <View style={styles.highlightCard}>
+                  <Text style={styles.highlightTitle}>
+                    {t("currentMonthNet", "Selected Month Net Balance")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.highlightValue,
+                      {
+                        color:
+                          currentMonthSummary.net >= 0
+                            ? COLORS.incomeGreen
+                            : COLORS.expenseRed,
+                      },
+                    ]}
+                  >
+                    {formatCurrency(currentMonthSummary.net, currency)}
+                  </Text>
+                </View>
+
+                <Text
+                  style={[styles.sectionHeading, { color: colors.textPrimary }]}
+                >
+                  {t("comparisonSummary", "Period Summary")}
+                </Text>
+
+                <View style={styles.detailRow}>
+                  <Text
+                    style={[
+                      styles.detailRowLabel,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {t("totalIncome", "Total Income (6 Months)")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.detailRowValue,
+                      { color: COLORS.incomeGreen },
+                    ]}
+                  >
+                    {formatCurrency(
+                      overallSavingsSummary.totalIncome6Months,
+                      currency,
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text
+                    style={[
+                      styles.detailRowLabel,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {t("totalExpenses", "Total Expenses (6 Months)")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.detailRowValue,
+                      { color: COLORS.expenseOrange },
+                    ]}
+                  >
+                    {formatCurrency(
+                      overallSavingsSummary.totalExpense6Months,
+                      currency,
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text
+                    style={[
+                      styles.detailRowLabel,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {t("highestSavingsMonth", "Best Savings Month")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.detailRowValue,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {overallSavingsSummary.bestSavingsMonth?.month} (
+                    {formatCurrency(
+                      overallSavingsSummary.bestSavingsMonth?.net || 0,
+                      currency,
+                    )}
+                    )
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {activeModal === "PAYMENT_METHODS" && (
+              <View style={styles.modalSectionGap}>
+                <Text
+                  style={[styles.sectionHeading, { color: colors.textPrimary }]}
+                >
+                  {t("methodBreakdown", "Payment Overview")}
+                </Text>
+
+                <View style={styles.detailRow}>
+                  <Text
+                    style={[
+                      styles.detailRowLabel,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    💳 {t("cardExpenses", "Card Payments")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.detailRowValue,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {formatCurrency(paymentTypeBreakdown.card, currency)} (
+                    {paymentTypeBreakdown.cardPct}%)
+                  </Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text
+                    style={[
+                      styles.detailRowLabel,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    💵 {t("cashExpenses", "Cash Payments")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.detailRowValue,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
+                    {formatCurrency(paymentTypeBreakdown.cash, currency)} (
+                    {paymentTypeBreakdown.cashPct}%)
+                  </Text>
+                </View>
+
+                {cardUsageBreakdown.cardsList.length > 0 && (
+                  <>
+                    <Text
+                      style={[
+                        styles.sectionHeading,
+                        {
+                          color: colors.textPrimary,
+                          marginTop: verticalScale(16),
+                        },
+                      ]}
+                    >
+                      {t("registeredCards", "Registered Cards Spending")}
+                    </Text>
+
+                    {cardUsageBreakdown.cardsList.map(
+                      ({ card, totalSpent, percentage }) => (
+                        <View key={card.id} style={styles.detailRow}>
+                          <Text
+                            style={[
+                              styles.detailRowLabel,
+                              { color: colors.textPrimary },
+                            ]}
+                          >
+                            💳 {card.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.detailRowValue,
+                              { color: colors.textPrimary },
+                            ]}
+                          >
+                            {formatCurrency(totalSpent, currency)} ({percentage}
+                            %)
+                          </Text>
+                        </View>
+                      ),
+                    )}
+                  </>
+                )}
+              </View>
+            )}
+
+            {activeModal === "CATEGORY_SPENDING" && (
+              <View style={styles.modalSectionGap}>
+                <Text
+                  style={[styles.sectionHeading, { color: colors.textPrimary }]}
+                >
+                  {t("categoryDistribution", "Category Analysis")}
+                </Text>
+
+                {categorySpending.sortedEntries.length === 0 ? (
+                  <Text style={styles.emptyText}>
+                    {t("noCategoryData", "No category expense records found.")}
+                  </Text>
+                ) : (
+                  categorySpending.sortedEntries.map((item) => (
+                    <View key={item.category} style={styles.detailRow}>
+                      <View style={styles.categoryLeft}>
+                        <View
+                          style={[
+                            styles.chipIndicator,
+                            { backgroundColor: item.color },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.detailRowLabel,
+                            { color: colors.textPrimary },
+                          ]}
+                        >
+                          {String(
+                            t(item.category.toLowerCase(), {
+                              defaultValue: item.category,
+                            }),
+                          )}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.detailRowValue,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
+                        {formatCurrency(item.amount, currency)} (
+                        {item.percentage}%)
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+          </BottomSheetScrollView>
+        </View>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -1250,25 +1708,17 @@ const styles = StyleSheet.create({
     paddingBottom: verticalScale(40),
     gap: verticalScale(16),
   },
-  monthSelectorContainer: {
-    gap: scale(8),
-    paddingBottom: verticalScale(4),
-  },
-  monthChip: {
-    paddingHorizontal: scale(14),
-    paddingVertical: verticalScale(8),
-    borderRadius: scale(20),
-    borderWidth: 1,
-  },
-  monthChipText: {
-    fontSize: moderateScale(13),
-  },
   card: {
     backgroundColor: COLORS.cardWhite,
     borderRadius: scale(24),
     padding: scale(20),
     borderWidth: 1,
     borderColor: COLORS.borderColor,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   cardTitle: {
     fontSize: moderateScale(18),
@@ -1494,5 +1944,102 @@ const styles = StyleSheet.create({
   netValueText: {
     fontSize: moderateScale(12),
     fontWeight: "700",
+  },
+
+  /* Modal Styling */
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(8),
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderColor,
+    paddingBottom: verticalScale(12),
+    marginBottom: verticalScale(16),
+  },
+  modalTitle: {
+    fontSize: moderateScale(18),
+    fontWeight: "700",
+  },
+  modalSubtitle: {
+    fontSize: moderateScale(13),
+    color: COLORS.textMuted,
+    marginTop: verticalScale(2),
+  },
+  modalCloseButton: {
+    padding: scale(6),
+    backgroundColor: "#EFECE6",
+    borderRadius: scale(16),
+  },
+  modalCloseText: {
+    fontSize: moderateScale(14),
+    fontWeight: "700",
+    color: COLORS.textDark,
+  },
+  modalSectionGap: {
+    gap: verticalScale(12),
+  },
+  highlightCard: {
+    backgroundColor: COLORS.tealDark,
+    borderRadius: scale(16),
+    padding: scale(16),
+    alignItems: "center",
+  },
+  highlightTitle: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: moderateScale(12),
+    fontWeight: "600",
+  },
+  highlightValue: {
+    color: "#FFFFFF",
+    fontSize: moderateScale(24),
+    fontWeight: "800",
+    marginVertical: verticalScale(4),
+  },
+  highlightSubtext: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: moderateScale(12),
+  },
+  sectionHeading: {
+    fontSize: moderateScale(15),
+    fontWeight: "700",
+    marginTop: verticalScale(8),
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: verticalScale(8),
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderColor,
+  },
+  detailRowLabel: {
+    fontSize: moderateScale(14),
+    fontWeight: "600",
+  },
+  detailRowValue: {
+    fontSize: moderateScale(14),
+    fontWeight: "700",
+  },
+  infoBadgeBox: {
+    backgroundColor: "rgba(32, 75, 76, 0.08)",
+    padding: scale(12),
+    borderRadius: scale(12),
+    marginTop: verticalScale(12),
+  },
+  infoBadgeText: {
+    fontSize: moderateScale(13),
+    color: COLORS.tealDark,
+    fontWeight: "600",
+  },
+  emptyText: {
+    fontSize: moderateScale(13),
+    color: COLORS.textMuted,
+    textAlign: "center",
+    marginVertical: verticalScale(12),
   },
 });
