@@ -11,7 +11,6 @@ const getDeviceLanguage = (): string => {
 
   if (Platform.OS === "ios") {
     const settings = NativeModules.SettingsManager?.settings;
-
     appLocale = settings?.AppleLanguages?.[0] || settings?.AppleLocale;
   } else {
     appLocale = NativeModules.I18nManager?.localeIdentifier;
@@ -40,7 +39,6 @@ const languageDetector = {
         callback(savedLang);
         return;
       }
-
       callback(getDeviceLanguage());
     } catch {
       callback("en");
@@ -51,9 +49,7 @@ const languageDetector = {
     try {
       await AsyncStorage.setItem(LANGUAGE_KEY, lng);
     } catch (e) {
-      if (__DEV__) {
-        console.error(e);
-      }
+      if (__DEV__) console.error(e);
     }
   },
 };
@@ -67,5 +63,18 @@ i18n
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
   });
+
+export const initLanguage = async () => {
+  try {
+    const savedLang = await AsyncStorage.getItem(LANGUAGE_KEY);
+    if (savedLang) {
+      await i18n.changeLanguage(savedLang);
+    } else {
+      await i18n.changeLanguage(getDeviceLanguage());
+    }
+  } catch (e) {
+    if (__DEV__) console.error("Language hydration error:", e);
+  }
+};
 
 export default i18n;

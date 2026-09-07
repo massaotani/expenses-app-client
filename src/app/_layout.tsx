@@ -1,14 +1,17 @@
-import { ThemeProvider } from "@/constants/theme";
-import { CurrencyProvider } from "@/context/CurrencyContext";
+import {
+  colors_sign_register,
+  ThemeProvider,
+  useAppTheme,
+} from "@/constants/theme";
+import { CurrencyProvider, useCurrency } from "@/context/CurrencyContext";
 import api, { setOnTokenRefreshed, setOnUnauthenticated } from "@/services/api";
-import "@/services/i18n";
+import { initLanguage } from "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { colors_sign_register } from "../constants/theme";
 
 type AuthContextType = {
   token: string | null;
@@ -27,12 +30,23 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 function InitialLayout() {
-  const { token, isLoading } = useAuth();
+  const { token, isLoading: authLoading } = useAuth();
+  const { isLoading: currencyLoading } = useCurrency();
+  const { isLoading: themeLoading } = useAppTheme();
+  const [isI18nReady, setIsI18nReady] = useState(false);
+
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    initLanguage().finally(() => setIsI18nReady(true));
+  }, []);
+
+  const isAppReady =
+    !authLoading && !currencyLoading && !themeLoading && isI18nReady;
+
+  useEffect(() => {
+    if (!isAppReady) return;
 
     const inTabsGroup = segments[0] === "(tabs)";
 
@@ -41,9 +55,9 @@ function InitialLayout() {
     } else if (!token && inTabsGroup) {
       router.replace("/");
     }
-  }, [token, isLoading, segments]);
+  }, [token, isAppReady, segments]);
 
-  if (isLoading) {
+  if (!isAppReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator

@@ -19,6 +19,7 @@ import {
   AppState,
   AppStateStatus,
   FlatList,
+  Keyboard,
   PanResponder,
   RefreshControl,
   ScrollView,
@@ -243,12 +244,6 @@ const extractStringValue = (val: any, fallback = "Cash"): string => {
 };
 
 const resolvePaymentMethod = (item: ExpenseItem, cards: UserCard[]): string => {
-  // 1. If card is a populated object with a name
-  if (item.card && typeof item.card === "object" && item.card.name) {
-    return item.card.name;
-  }
-
-  // 2. Look up card ID across item.card, item.cardId, item.card_id, or item.card.id
   const rawCardId =
     (typeof item.card === "string" ? item.card : null) ||
     (item as any).cardId ||
@@ -258,15 +253,48 @@ const resolvePaymentMethod = (item: ExpenseItem, cards: UserCard[]): string => {
   if (rawCardId !== null && rawCardId !== undefined) {
     const match = cards.find((c) => String(c.id) === String(rawCardId));
     if (match && match.name) return match.name;
+
+    return "Deleted Card";
   }
 
-  // 3. Fallback to generic payment method/type
-  return extractStringValue(item.paymentMethod || item.paymentType, "Cash");
+  if (item.card && typeof item.card === "object" && item.card.name) {
+    const match = cards.find(
+      (c) => c.name.toLowerCase() === item.card.name.toLowerCase(),
+    );
+    if (match) return match.name;
+
+    return "Deleted Card";
+  }
+
+  const rawMethod = extractStringValue(
+    item.paymentMethod || item.paymentType,
+    "Cash",
+  );
+  const normalized = rawMethod.trim().toLowerCase();
+
+  if (
+    normalized === "card" ||
+    normalized === "cartao" ||
+    normalized === "cartão" ||
+    normalized.includes("deleted")
+  ) {
+    return "Deleted Card";
+  }
+
+  return rawMethod;
 };
 
 const getPaymentIcon = (method?: string): string => {
   if (!method) return "💵";
   const m = method.toLowerCase();
+  if (
+    m.includes("deleted") ||
+    m.includes("deletad") ||
+    m.includes("exclu") ||
+    m.includes("eliminad")
+  ) {
+    return "🚫";
+  }
   if (m.includes("cash") || m.includes("money") || m.includes("dinheiro")) {
     return "💵";
   }
@@ -395,8 +423,10 @@ export default function TransactionsScreen() {
   const [paymentType, setPaymentType] = useState<"CASH" | "CARD">("CASH");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   const editSheetRef = useRef<BottomSheetModal>(null);
+  const snapPoints = useMemo(() => ["75%"], []);
 
   useFocusEffect(
     useCallback(() => {
@@ -659,6 +689,10 @@ export default function TransactionsScreen() {
       if (!method) return "";
       const normalized = String(method).toLowerCase().trim();
 
+      if (normalized === "deleted card" || normalized === "deleted_card") {
+        return t("deletedCard", { defaultValue: "Deleted Card" });
+      }
+
       if (
         normalized === "all payment methods" ||
         normalized === "all_payment_methods"
@@ -703,7 +737,10 @@ export default function TransactionsScreen() {
     setSelectedTransaction(item);
     setIsEditing(false);
     setModalVisible(true);
-    editSheetRef.current?.present();
+
+    requestAnimationFrame(() => {
+      editSheetRef.current?.present();
+    });
   };
 
   const handleStartEdit = () => {
@@ -733,6 +770,13 @@ export default function TransactionsScreen() {
     }
 
     setIsEditing(true);
+  };
+
+  const handleCloseExpensesModal = () => {
+    Keyboard.dismiss();
+    editSheetRef.current?.dismiss();
+    setIsEditing(false);
+    setSelectedTransaction(null);
   };
 
   const formatAmountForInput = (val: number, language: string): string => {
@@ -771,6 +815,8 @@ export default function TransactionsScreen() {
       );
       return;
     }
+
+    setSubmitting(true);
 
     const rawDateObj = new Date(selectedTransaction.rawDate);
     const formattedDate = !isNaN(rawDateObj.getTime())
@@ -821,6 +867,10 @@ export default function TransactionsScreen() {
                 title: editDescription,
                 amount: parsedAmount,
                 category: isIncome ? item.category : editCategory,
+                icon: getCategoryIcon(
+                  isIncome ? item.category : editCategory,
+                  item.type,
+                ),
                 paymentMethod: isIncome ? undefined : finalPaymentMethod,
               }
             : item,
@@ -841,6 +891,8 @@ export default function TransactionsScreen() {
         t("error", "Error"),
         t("updateFailed", "Failed to update transaction."),
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1170,6 +1222,7 @@ export default function TransactionsScreen() {
 
       <BottomSheetModal
         ref={editSheetRef}
+        snapPoints={snapPoints}
         enableDynamicSizing
         enablePanDownToClose
         keyboardBehavior="interactive"
@@ -1452,9 +1505,10 @@ export default function TransactionsScreen() {
                             {CATEGORIES.slice(
                               Math.ceil(CATEGORIES.length / 2),
                             ).map((cat) => {
-                              const isSelected =
-                                editCategory.toLowerCase() ===
-                                cat.toLowerCase();
+                              const isSelected = isCategoryMatch(
+                                editCategory,
+                                cat,
+                              );
                               return (
                                 <TouchableOpacity
                                   key={cat}
@@ -1752,19 +1806,14 @@ export default function TransactionsScreen() {
                   <View style={styles.modalActions}>
                     <TouchableOpacity
                       style={[
-                        styles.actionBtn,
-                        styles.cancelBtn,
+                        styles.modalButton,
                         { backgroundColor: appColors.iconBoxBg },
                       ]}
-                      onPress={() => {
-                        setIsEditing(false);
-                        setModalVisible(false);
-                        editSheetRef.current?.dismiss();
-                      }}
+                      onPress={handleCloseExpensesModal}
                     >
                       <Text
                         style={[
-                          styles.cancelBtnText,
+                          styles.cancelButtonText,
                           { color: appColors.textPrimary },
                         ]}
                       >
@@ -1774,15 +1823,20 @@ export default function TransactionsScreen() {
 
                     <TouchableOpacity
                       style={[
-                        styles.actionBtn,
-                        styles.editBtn,
+                        styles.modalButton,
+                        styles.saveButton,
                         { backgroundColor: appColors.primaryTeal },
                       ]}
                       onPress={handleSaveEdit}
+                      disabled={submitting}
                     >
-                      <Text style={styles.btnText}>
-                        {t("saveExpense", "Save")}
-                      </Text>
+                      {submitting ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={styles.saveButtonText}>
+                          {t("saveExpense", "Save Expense")}
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                 </>
@@ -2035,6 +2089,22 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     backgroundColor: "#EBE6DD",
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: verticalScale(12),
+    borderRadius: scale(12),
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontWeight: "700",
+    fontSize: moderateScale(14),
+  },
+  saveButton: {},
+  saveButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: moderateScale(14),
   },
   btnText: {
     color: "#FFFFFF",

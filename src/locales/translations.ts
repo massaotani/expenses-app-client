@@ -126,6 +126,7 @@ export const resources = {
       cardInUseWarning:
         "This card is associated with other expenses. Are you sure you want to delete it?",
       deleteCardConfirmation: "Are you sure you want to delete this card?",
+      deletedCard: "Deleted Card",
 
       // Categories
       food: "Food",
@@ -345,6 +346,7 @@ export const resources = {
       cardInUseWarning:
         "Este cartão está associado a outras despesas. Tem certeza de que deseja excluí-lo?",
       deleteCardConfirmation: "Tem certeza de que deseja excluir este cartão?",
+      deletedCard: "Cartão Excluído",
 
       // Categorias
       food: "Alimentação",
@@ -565,6 +567,7 @@ export const resources = {
         "Esta tarjeta está asociada a otros gastos. ¿Estás seguro de que deseas eliminarla?",
       deleteCardConfirmation:
         "¿Estás seguro de que deseas eliminar esta tarjeta?",
+      deletedCard: "Tarjeta Eliminada",
 
       // Categorías
       food: "Alimentación",
@@ -781,6 +784,7 @@ export const resources = {
       cardInUseWarning:
         "このカードは他の支出に関連付けられています。本当に削除しますか？",
       deleteCardConfirmation: "本当にこのカードを削除しますか？",
+      deletedCard: "削除されたカード",
 
       // カテゴリ
       food: "食費",
@@ -996,6 +1000,7 @@ export const resources = {
       cardInUseWarning:
         "이 카드는 다른 지출 내역과 연결되어 있습니다. 정말 삭제하시겠습니까?",
       deleteCardConfirmation: "정말 이 카드를 삭제하시겠습니까?",
+      deletedCard: "삭제된 카드",
 
       // Categories
       food: "식비",
@@ -1205,6 +1210,7 @@ export const resources = {
       noCardsAvailable: "（无可用银行卡）",
       cardInUseWarning: "该银行卡已关联其他支出记录。确定要删除吗？",
       deleteCardConfirmation: "确定要删除张银行卡吗？",
+      deletedCard: "已删除的银行卡",
 
       // Categories
       food: "餐饮",
@@ -1425,6 +1431,7 @@ export const resources = {
         "Cette carte est associée à d'autres dépenses. Êtes-vous sûr de vouloir la supprimer ?",
       deleteCardConfirmation:
         "Êtes-vous sûr de vouloir supprimer cette carte ?",
+      deletedCard: "Carte supprimée",
 
       // Categories
       food: "Alimentation",

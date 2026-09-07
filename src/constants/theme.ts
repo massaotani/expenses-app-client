@@ -1,10 +1,15 @@
-import React, { createContext, useContext, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { useColorScheme } from "react-native";
+
+const THEME_STORAGE_KEY = "@user_theme_preference";
+
 interface ThemeContextType {
   colors: typeof lightColors;
   isDark: boolean;
-  setDarkMode: (isDark: boolean) => void;
-  toggleTheme: () => void;
+  isLoading: boolean;
+  setDarkMode: (isDark: boolean) => Promise<void>;
+  toggleTheme: () => Promise<void>;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -14,20 +19,49 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const systemScheme = useColorScheme();
   const [isDark, setIsDark] = useState(systemScheme === "dark");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const setDarkMode = (value: boolean) => {
-    setIsDark(value);
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (savedTheme !== null) {
+          setIsDark(savedTheme === "dark");
+        } else {
+          setIsDark(systemScheme === "dark");
+        }
+      } catch (error) {
+        if (__DEV__) {
+          console.error("Failed to load theme preference", error);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTheme();
+  }, [systemScheme]);
+
+  const setDarkMode = async (value: boolean) => {
+    try {
+      setIsDark(value);
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, value ? "dark" : "light");
+    } catch (error) {
+      if (__DEV__) {
+        console.error("Failed to save theme preference", error);
+      }
+    }
   };
 
-  const toggleTheme = () => {
-    setIsDark((prev) => !prev);
+  const toggleTheme = async () => {
+    await setDarkMode(!isDark);
   };
 
   const colors = isDark ? darkColors : lightColors;
 
   return React.createElement(
     ThemeContext.Provider,
-    { value: { colors, isDark, setDarkMode, toggleTheme } },
+    { value: { colors, isDark, isLoading, setDarkMode, toggleTheme } },
     children,
   );
 };
