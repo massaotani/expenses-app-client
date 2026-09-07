@@ -13,7 +13,7 @@ const getDeviceLanguage = (): string => {
     const settings = NativeModules.SettingsManager?.settings;
     appLocale = settings?.AppleLanguages?.[0] || settings?.AppleLocale;
   } else {
-    appLocale = NativeModules.I18nManager?.localeIdentifier;
+    appLocale = Intl.DateTimeFormat().resolvedOptions().locale;
   }
 
   if (!appLocale) return "en";

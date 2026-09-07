@@ -692,22 +692,9 @@ export default function TransactionsScreen() {
       if (normalized === "deleted card" || normalized === "deleted_card") {
         return t("deletedCard", { defaultValue: "Deleted Card" });
       }
-
-      if (
-        normalized === "all payment methods" ||
-        normalized === "all_payment_methods"
-      ) {
-        return t("allPaymentMethods", {
-          defaultValue: t("all_payment_methods", {
-            defaultValue: "All Payment Methods",
-          }),
-        });
-      }
-
       if (normalized === "cash" || normalized === "dinheiro") {
         return t("cash", { defaultValue: "Cash" });
       }
-
       if (
         normalized === "card" ||
         normalized === "cartao" ||
@@ -716,10 +703,8 @@ export default function TransactionsScreen() {
         return t("card", { defaultValue: "Card" });
       }
 
-      const keyWithUnderscores = normalized.replace(/\s+/g, "_");
-      const translated = t(keyWithUnderscores, { defaultValue: method });
-
-      return translated || method;
+      // Return user's custom card name directly
+      return method;
     },
     [t],
   );
@@ -1179,7 +1164,7 @@ export default function TransactionsScreen() {
                         style={[
                           styles.paymentBadge,
                           isIncome && styles.incomeBadge,
-                          isDark && { backgroundColor: appColors.textMuted },
+                          isDark && { backgroundColor: appColors.iconBoxBg },
                         ]}
                       >
                         <Text
@@ -1702,6 +1687,7 @@ export default function TransactionsScreen() {
                                           isDark && {
                                             backgroundColor:
                                               appColors.iconBoxBg,
+                                            alignItems: "flex-start",
                                           },
                                           isSelected && [
                                             styles.categoryChipSelected,
@@ -1757,6 +1743,7 @@ export default function TransactionsScreen() {
                                           isDark && {
                                             backgroundColor:
                                               appColors.iconBoxBg,
+                                            alignItems: "flex-start",
                                           },
                                           isSelected && [
                                             styles.categoryChipSelected,

@@ -2217,7 +2217,10 @@ export default function OverviewScreen() {
                           key={card.id}
                           style={[
                             styles.categoryChip,
-                            { backgroundColor: colors.iconBoxBg },
+                            {
+                              backgroundColor: colors.iconBoxBg,
+                              alignItems: "flex-start",
+                            },
                             selectedCardId === card.id && {
                               backgroundColor: colors.primaryTeal,
                             },
@@ -2256,7 +2259,10 @@ export default function OverviewScreen() {
                           key={card.id}
                           style={[
                             styles.categoryChip,
-                            { backgroundColor: colors.iconBoxBg },
+                            {
+                              backgroundColor: colors.iconBoxBg,
+                              alignItems: "flex-start",
+                            },
                             selectedCardId === card.id && {
                               backgroundColor: colors.primaryTeal,
                             },
