@@ -9,6 +9,7 @@ import { initLanguage } from "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Slot, useRouter, useSegments } from "expo-router";
+import * as Updates from "expo-updates";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -37,6 +38,24 @@ function InitialLayout() {
 
   const segments = useSegments();
   const router = useRouter();
+
+  useEffect(() => {
+    async function forceUpdate() {
+      if (__DEV__) return;
+
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync(); // Instantly reloads the app with the new code
+        }
+      } catch (error) {
+        console.log("Update fetch failed:", error);
+      }
+    }
+
+    forceUpdate();
+  }, []);
 
   useEffect(() => {
     initLanguage().finally(() => setIsI18nReady(true));
