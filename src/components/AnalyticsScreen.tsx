@@ -363,17 +363,76 @@ export default function AnalyticsScreen() {
     );
   }, [monthlyData, selectedMonthIndex]);
 
+  // // Computes historical data for the last 6 months up to and including selectedDate (offsets -5 to 0)
+  const last6MonthsData = useMemo(() => {
+    const targetYear = selectedDate.getFullYear();
+    const targetMonth = selectedDate.getMonth();
+    const months = [];
+
+    for (let i = -5; i <= 0; i++) {
+      const d = new Date(targetYear, targetMonth + i, 1);
+      const mIdx = d.getMonth();
+      const yr = d.getFullYear();
+      const rawLabel = d.toLocaleDateString(i18n.language || "en", {
+        month: "short",
+      });
+      const capitalizedLabel =
+        rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+
+      let registeredIncome = 0;
+      let monthExpense = 0;
+
+      incomes.forEach((inc) => {
+        const rawDate = inc.createdAt || inc.date || "";
+        const incDate = new Date(rawDate);
+        if (
+          !isNaN(incDate.getTime()) &&
+          incDate.getMonth() === mIdx &&
+          incDate.getFullYear() === yr
+        ) {
+          registeredIncome += parseAmount(inc.value ?? inc.amount);
+        }
+      });
+
+      const monthIncome = baseMonthlyIncome + registeredIncome;
+
+      expenses.forEach((exp) => {
+        const rawDate =
+          exp.dueDate || exp.paidAt || exp.date || exp.createdAt || "";
+        const expDate = new Date(rawDate);
+        if (
+          !isNaN(expDate.getTime()) &&
+          expDate.getMonth() === mIdx &&
+          expDate.getFullYear() === yr
+        ) {
+          monthExpense += parseAmount(exp.value ?? exp.amount);
+        }
+      });
+
+      months.push({
+        month: capitalizedLabel,
+        income: monthIncome,
+        expenses: monthExpense,
+        net: monthIncome - monthExpense,
+        monthIndex: mIdx,
+        year: yr,
+      });
+    }
+
+    return months;
+  }, [selectedDate, incomes, expenses, baseMonthlyIncome, i18n.language]);
+
   const overallSavingsSummary = useMemo(() => {
-    const totalNet6Months = monthlyData.reduce((acc, m) => acc + m.net, 0);
-    const totalIncome6Months = monthlyData.reduce(
+    const totalNet6Months = last6MonthsData.reduce((acc, m) => acc + m.net, 0);
+    const totalIncome6Months = last6MonthsData.reduce(
       (acc, m) => acc + m.income,
       0,
     );
-    const totalExpense6Months = monthlyData.reduce(
+    const totalExpense6Months = last6MonthsData.reduce(
       (acc, m) => acc + m.expenses,
       0,
     );
-    const avgMonthlySavings = totalNet6Months / (monthlyData.length || 1);
+    const avgMonthlySavings = totalNet6Months / (last6MonthsData.length || 1);
     const currentSavingsRate =
       currentMonthSummary.income > 0
         ? Math.round(
@@ -381,8 +440,8 @@ export default function AnalyticsScreen() {
           )
         : 0;
 
-    let bestSavingsMonth = monthlyData[0];
-    monthlyData.forEach((m) => {
+    let bestSavingsMonth = last6MonthsData[0];
+    last6MonthsData.forEach((m) => {
       if (m.net > (bestSavingsMonth?.net ?? -Infinity)) {
         bestSavingsMonth = m;
       }
@@ -396,7 +455,7 @@ export default function AnalyticsScreen() {
       currentSavingsRate,
       bestSavingsMonth,
     };
-  }, [monthlyData, currentMonthSummary]);
+  }, [last6MonthsData, currentMonthSummary]);
 
   const categorySpending = useMemo(() => {
     const targetMonth = selectedMonth.monthIndex;
@@ -709,7 +768,6 @@ export default function AnalyticsScreen() {
                           height={Math.max(incomeH, verticalScale(2))}
                           fill={incomeColor}
                           rx={scale(3)}
-                          onPress={() => setSelectedMonthIndex(index)}
                         />
                         <Rect
                           x={groupX + scale(8)}
@@ -718,7 +776,6 @@ export default function AnalyticsScreen() {
                           height={Math.max(expenseH, verticalScale(2))}
                           fill={expenseColor}
                           rx={scale(3)}
-                          onPress={() => setSelectedMonthIndex(index)}
                         />
                         <SvgText
                           x={groupX + scale(7)}
@@ -729,7 +786,6 @@ export default function AnalyticsScreen() {
                           fontSize={moderateScale(11)}
                           fontWeight={isSelected ? "700" : "400"}
                           textAnchor="middle"
-                          onPress={() => setSelectedMonthIndex(index)}
                         >
                           {d.month}
                         </SvgText>
@@ -1296,10 +1352,13 @@ export default function AnalyticsScreen() {
       {/* GRAPHIC DETAILS BOTTOM SHEET MODAL */}
       <BottomSheetModal
         ref={bottomSheetModalRef}
+        enableDynamicSizing={true}
         snapPoints={snapPoints}
         onDismiss={() => setActiveModal(null)}
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: colors.cardBackground }}
+        backgroundStyle={{
+          backgroundColor: colors.cardBackground,
+        }}
         handleIndicatorStyle={{ backgroundColor: colors.textMuted }}
       >
         <View
@@ -1326,12 +1385,12 @@ export default function AnalyticsScreen() {
               </Text>
             </View>
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={handleCloseModal}
               style={styles.modalCloseButton}
             >
               <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
           {/* Modal Content Details */}
@@ -1342,7 +1401,16 @@ export default function AnalyticsScreen() {
             {activeModal === "NET_SAVINGS" && (
               <View style={styles.modalSectionGap}>
                 {/* Highlight Banner: How much saved so far */}
-                <View style={styles.highlightCard}>
+                <View
+                  style={[
+                    styles.highlightCard,
+                    {
+                      backgroundColor: isDark
+                        ? COLORS.expenseOrange
+                        : COLORS.tealDark,
+                    },
+                  ]}
+                >
                   <Text style={styles.highlightTitle}>
                     {t("savedSoFar", "Total Saved So Far (6 Months)")}
                   </Text>
@@ -1391,7 +1459,16 @@ export default function AnalyticsScreen() {
                   </View>
                 ))}
 
-                <View style={styles.infoBadgeBox}>
+                <View
+                  style={[
+                    styles.infoBadgeBox,
+                    {
+                      backgroundColor: isDark
+                        ? COLORS.expenseOrange
+                        : COLORS.tealDark,
+                    },
+                  ]}
+                >
                   <Text style={styles.infoBadgeText}>
                     💡 {t("savingsTip", "Savings Rate")}:{" "}
                     {overallSavingsSummary.currentSavingsRate}%{" "}
@@ -1403,7 +1480,16 @@ export default function AnalyticsScreen() {
 
             {activeModal === "INCOME_VS_EXPENSES" && (
               <View style={styles.modalSectionGap}>
-                <View style={styles.highlightCard}>
+                <View
+                  style={[
+                    styles.highlightCard,
+                    {
+                      backgroundColor: isDark
+                        ? COLORS.expenseOrange
+                        : COLORS.tealDark,
+                    },
+                  ]}
+                >
                   <Text style={styles.highlightTitle}>
                     {t("currentMonthNet", "Selected Month Net Balance")}
                   </Text>
@@ -1590,11 +1676,11 @@ export default function AnalyticsScreen() {
 
             {activeModal === "CATEGORY_SPENDING" && (
               <View style={styles.modalSectionGap}>
-                <Text
+                {/* <Text
                   style={[styles.sectionHeading, { color: colors.textPrimary }]}
                 >
                   {t("categoryDistribution", "Category Analysis")}
-                </Text>
+                </Text> */}
 
                 {categorySpending.sortedEntries.length === 0 ? (
                   <Text style={styles.emptyText}>
@@ -2033,7 +2119,7 @@ const styles = StyleSheet.create({
   },
   infoBadgeText: {
     fontSize: moderateScale(13),
-    color: COLORS.tealDark,
+    color: COLORS.cardWhite,
     fontWeight: "600",
   },
   emptyText: {
