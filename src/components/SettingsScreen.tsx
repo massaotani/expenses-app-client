@@ -888,11 +888,10 @@ const styles = StyleSheet.create({
     paddingBottom: verticalScale(28),
   },
   headerTitle: {
-    fontSize: moderateScale(32),
-    fontWeight: "bold",
+    fontSize: moderateScale(28),
+    paddingBottom: scale(20),
+    fontWeight: "700",
     color: "#FFFFFF",
-    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
-    marginBottom: verticalScale(16),
   },
   profileCard: {
     flexDirection: "row",

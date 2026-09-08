@@ -16,6 +16,7 @@
         "backgroundColor": "#204B4C",
         "foregroundImage": "./assets/images/ledger-icon.png"
       },
+      "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "package": "com.massaotani.ledgerapp"
@@ -46,8 +47,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},

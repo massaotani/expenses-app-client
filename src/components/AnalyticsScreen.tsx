@@ -41,6 +41,23 @@ import Svg, {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+const InfoIcon = ({ color, size = 14 }: { color: string; size?: number }) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Circle cx="12" cy="12" r="10" />
+    <Line x1="12" y1="16" x2="12" y2="12" />
+    <Line x1="12" y1="8" x2="12.01" y2="8" />
+  </Svg>
+);
+
 type ModalType =
   | "INCOME_VS_EXPENSES"
   | "PAYMENT_METHODS"
@@ -141,6 +158,106 @@ const CASH_COLOR_LIGHT = COLORS.expenseOrange;
 const CARD_COLOR_DARK = "#00D2FF";
 const CASH_COLOR_DARK = "#FF4081";
 
+const CategoryRowItem = React.memo(
+  ({
+    item,
+    currency,
+  }: {
+    item: {
+      category: string;
+      amount: number;
+      percentage: number;
+      color: string;
+    };
+    currency: string;
+  }) => {
+    const { colors } = useAppTheme();
+    const { t } = useTranslation();
+
+    return (
+      <View style={styles.categoryRow}>
+        <View style={styles.categoryLeft}>
+          <View
+            style={[styles.chipIndicator, { backgroundColor: item.color }]}
+          />
+          <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
+            {String(
+              t(
+                (item.category || "").toLowerCase().trim().replace(/\s+/g, "_"),
+                { defaultValue: item.category },
+              ) || item.category,
+            )}
+          </Text>
+        </View>
+        <Text style={[styles.categoryValue, { color: colors.textPrimary }]}>
+          {formatCurrency(item.amount, currency)}{" "}
+          <Text style={styles.categoryPercentage}>({item.percentage}%)</Text>
+        </Text>
+      </View>
+    );
+  },
+);
+
+const CardUsageRowItem = React.memo(
+  ({
+    card,
+    totalSpent,
+    percentage,
+    currency,
+  }: {
+    card: UserCard;
+    totalSpent: number;
+    percentage: number;
+    currency: string;
+  }) => {
+    const { colors } = useAppTheme();
+    const { t } = useTranslation();
+
+    return (
+      <View style={styles.cardUsageRow}>
+        <View style={styles.cardUsageHeader}>
+          <View style={styles.cardNameContainer}>
+            <Text style={styles.cardIcon}>💳</Text>
+            <Text style={[styles.cardNameText, { color: colors.textPrimary }]}>
+              {card.name}
+            </Text>
+            <View style={styles.cardTypeBadge}>
+              <Text style={styles.cardTypeBadgeText}>
+                {String(
+                  t((card.cardType || "").toLowerCase(), {
+                    defaultValue: card.cardType || "CARD",
+                  }) ||
+                    card.cardType ||
+                    "CARD",
+                )}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.cardSpentText, { color: colors.textPrimary }]}>
+            {formatCurrency(totalSpent, currency)}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.cardProgressBarTrack,
+            { backgroundColor: colors.iconBoxBg },
+          ]}
+        >
+          <View
+            style={[
+              styles.cardProgressBarFill,
+              {
+                width: `${percentage}%`,
+                backgroundColor: colors.primaryTeal,
+              },
+            ]}
+          />
+        </View>
+      </View>
+    );
+  },
+);
+
 export default function AnalyticsScreen() {
   const { currency } = useCurrency();
   const { colors, isDark } = useAppTheme();
@@ -155,18 +272,13 @@ export default function AnalyticsScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(2);
 
-  // Bottom sheet modal ref and state
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["80%"], []);
+  const snapPoints = useMemo(() => ["77%"], []);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
 
   const handleOpenModal = useCallback((type: ModalType) => {
     setActiveModal(type);
     bottomSheetModalRef.current?.present();
-  }, []);
-
-  const handleCloseModal = useCallback(() => {
-    bottomSheetModalRef.current?.dismiss();
   }, []);
 
   const renderBackdrop = useCallback(
@@ -187,18 +299,32 @@ export default function AnalyticsScreen() {
     }, []),
   );
 
+  const currentSystemDateRef = useRef(new Date());
+
   useEffect(() => {
     const checkMidnightRollover = () => {
       const now = new Date();
-      setSelectedDate((prev) => {
-        const realYear = now.getFullYear();
-        const realMonth = now.getMonth();
+      const prevSystem = currentSystemDateRef.current;
 
-        if (prev.getFullYear() === realYear && prev.getMonth() !== realMonth) {
-          return new Date(realYear, realMonth, 1);
-        }
-        return prev;
-      });
+      // Check if the system time moved to a new month/year
+      const hasSystemMonthChanged =
+        prevSystem.getFullYear() !== now.getFullYear() ||
+        prevSystem.getMonth() !== now.getMonth();
+
+      if (hasSystemMonthChanged) {
+        // Only update selectedDate if the user was on the active current month
+        setSelectedDate((prevSelected) => {
+          if (
+            prevSelected.getFullYear() === prevSystem.getFullYear() &&
+            prevSelected.getMonth() === prevSystem.getMonth()
+          ) {
+            return new Date(now.getFullYear(), now.getMonth(), 1);
+          }
+          return prevSelected;
+        });
+
+        currentSystemDateRef.current = now;
+      }
     };
 
     const subscription = AppState.addEventListener(
@@ -288,11 +414,17 @@ export default function AnalyticsScreen() {
       const rawLabel = d.toLocaleDateString(i18n.language || "en", {
         month: "short",
       });
+      const rawFullLabel = d.toLocaleDateString(i18n.language || "en", {
+        month: "long",
+      });
       const capitalizedLabel =
         rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+      const capitalizedFullLabel =
+        rawFullLabel.charAt(0).toUpperCase() + rawFullLabel.slice(1);
 
       months.push({
         label: capitalizedLabel,
+        fullLabel: capitalizedFullLabel,
         year: d.getFullYear(),
         monthIndex: d.getMonth(),
       });
@@ -342,6 +474,7 @@ export default function AnalyticsScreen() {
 
       return {
         month: m.label,
+        fullMonth: m.fullLabel,
         income: monthIncome,
         expenses: monthExpense,
         net: monthIncome - monthExpense,
@@ -363,7 +496,6 @@ export default function AnalyticsScreen() {
     );
   }, [monthlyData, selectedMonthIndex]);
 
-  // // Computes historical data for the last 6 months up to and including selectedDate (offsets -5 to 0)
   const last6MonthsData = useMemo(() => {
     const targetYear = selectedDate.getFullYear();
     const targetMonth = selectedDate.getMonth();
@@ -376,8 +508,13 @@ export default function AnalyticsScreen() {
       const rawLabel = d.toLocaleDateString(i18n.language || "en", {
         month: "short",
       });
+      const rawFullLabel = d.toLocaleDateString(i18n.language || "en", {
+        month: "long",
+      });
       const capitalizedLabel =
         rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+      const capitalizedFullLabel =
+        rawFullLabel.charAt(0).toUpperCase() + rawFullLabel.slice(1);
 
       let registeredIncome = 0;
       let monthExpense = 0;
@@ -411,6 +548,7 @@ export default function AnalyticsScreen() {
 
       months.push({
         month: capitalizedLabel,
+        fullMonth: capitalizedFullLabel,
         income: monthIncome,
         expenses: monthExpense,
         net: monthIncome - monthExpense,
@@ -632,14 +770,15 @@ export default function AnalyticsScreen() {
         backgroundColor={colors.headerBackground}
       />
 
-      {/* Fixed Header with Navigation Controls */}
       <View
         style={[
           styles.headerContainer,
           { backgroundColor: colors.headerBackground },
         ]}
       >
-        <Text style={styles.headerTitle}>{t("analytics", "Analytics")}</Text>
+        <Text style={styles.headerTitle}>
+          {t("analytics", "Analytics") || "Analytics"}
+        </Text>
         <View style={styles.monthSelectorRow}>
           <TouchableOpacity
             onPress={() => changeMonth(-1)}
@@ -649,7 +788,8 @@ export default function AnalyticsScreen() {
           </TouchableOpacity>
 
           <Text style={styles.headerSubtitle}>
-            {t("spendingInsights", "Spending insights")} •{" "}
+            {t("spendingInsights", "Spending insights") || "Spending insights"}{" "}
+            •{" "}
             {(() => {
               const rawDate = selectedDate.toLocaleDateString(
                 i18n.language || "en",
@@ -671,7 +811,6 @@ export default function AnalyticsScreen() {
         </View>
       </View>
 
-      {/* Body Container */}
       <View
         style={[
           styles.bodyContainer,
@@ -690,21 +829,37 @@ export default function AnalyticsScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.cardsWrapper}>
-            {/* 1. Income vs. Expenses Bar Chart */}
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => handleOpenModal("INCOME_VS_EXPENSES")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
               <View style={styles.cardHeaderRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.cardTitle, { color: colors.textPrimary }]}
                   >
-                    {t("incomeVsExpenses", "Income vs. Expenses")}
+                    {t("incomeVsExpenses", "Income vs. Expenses") ||
+                      "Income vs. Expenses"}
                   </Text>
                   <Text style={styles.cardSubtitle}>
                     {selectedMonth.label} {selectedMonth.year}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.detailsBadge,
+                    { backgroundColor: isDark ? "#2A2A2A" : "#F4F1EA" },
+                  ]}
+                >
+                  <InfoIcon color={colors.primaryTeal} size={scale(13)} />
+                  <Text
+                    style={[
+                      styles.detailsBadgeText,
+                      { color: colors.primaryTeal },
+                    ]}
+                  >
+                    {t("details", "Details") || "Details"}
                   </Text>
                 </View>
               </View>
@@ -805,7 +960,7 @@ export default function AnalyticsScreen() {
                     <Text
                       style={[styles.legendText, { color: colors.textPrimary }]}
                     >
-                      {t("income", "Incomes")}
+                      {t("income", "Incomes") || "Incomes"}
                     </Text>
                   </View>
                   <View style={styles.legendItem}>
@@ -818,29 +973,45 @@ export default function AnalyticsScreen() {
                     <Text
                       style={[styles.legendText, { color: colors.textPrimary }]}
                     >
-                      {t("expenses", "Expenses")}
+                      {t("expenses", "Expenses") || "Expenses"}
                     </Text>
                   </View>
                 </View>
               </View>
             </TouchableOpacity>
 
-            {/* 2. Cash vs. Card Breakdown */}
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => handleOpenModal("PAYMENT_METHODS")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
               <View style={styles.cardHeaderRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.cardTitle, { color: colors.textPrimary }]}
                   >
-                    {t("paymentMethodBreakdown", "Payment Method Breakdown")}
+                    {t("paymentMethodBreakdown", "Payment Method Breakdown") ||
+                      "Payment Method Breakdown"}
                   </Text>
                   <Text style={styles.cardSubtitle}>
                     {selectedMonth.label} {selectedMonth.year} •{" "}
-                    {t("cardVsCash", "Card vs. Cash")}
+                    {t("cardVsCash", "Card vs. Cash") || "Card vs. Cash"}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.detailsBadge,
+                    { backgroundColor: isDark ? "#2A2A2A" : "#F4F1EA" },
+                  ]}
+                >
+                  <InfoIcon color={colors.primaryTeal} size={scale(13)} />
+                  <Text
+                    style={[
+                      styles.detailsBadgeText,
+                      { color: colors.primaryTeal },
+                    ]}
+                  >
+                    {t("details", "Details") || "Details"}
                   </Text>
                 </View>
               </View>
@@ -882,7 +1053,7 @@ export default function AnalyticsScreen() {
                       adjustsFontSizeToFit
                       style={styles.paymentTypeLabel}
                     >
-                      {t("cardExpenses", "Card Expenses")}
+                      {t("cardExpenses", "Card Expenses") || "Card Expenses"}
                     </Text>
                   </View>
                   <View style={{ alignItems: "center" }}>
@@ -895,7 +1066,8 @@ export default function AnalyticsScreen() {
                       {formatCurrency(paymentTypeBreakdown.card, currency)}
                     </Text>
                     <Text style={styles.paymentPercentageText}>
-                      {paymentTypeBreakdown.cardPct}% {t("ofTotal", "of total")}
+                      {paymentTypeBreakdown.cardPct}%{" "}
+                      {t("ofTotal", "of total") || "of total"}
                     </Text>
                   </View>
                 </View>
@@ -915,7 +1087,7 @@ export default function AnalyticsScreen() {
                       adjustsFontSizeToFit
                       style={styles.paymentTypeLabel}
                     >
-                      {t("cashExpenses", "Cash Expenses")}
+                      {t("cashExpenses", "Cash Expenses") || "Cash Expenses"}
                     </Text>
                   </View>
 
@@ -929,7 +1101,8 @@ export default function AnalyticsScreen() {
                       {formatCurrency(paymentTypeBreakdown.cash, currency)}
                     </Text>
                     <Text style={styles.paymentPercentageText}>
-                      {paymentTypeBreakdown.cashPct}% {t("ofTotal", "of total")}
+                      {paymentTypeBreakdown.cashPct}%{" "}
+                      {t("ofTotal", "of total") || "of total"}
                     </Text>
                   </View>
                 </View>
@@ -943,7 +1116,7 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    {t("cardsUsage", "Card Breakdown")}
+                    {t("cardsUsage", "Card Breakdown") || "Card Breakdown"}
                   </Text>
                   {cardUsageBreakdown.cardsList.map(
                     ({ card, totalSpent, percentage }) => (
@@ -962,9 +1135,11 @@ export default function AnalyticsScreen() {
                             <View style={styles.cardTypeBadge}>
                               <Text style={styles.cardTypeBadgeText}>
                                 {String(
-                                  t(card.cardType.toLowerCase(), {
-                                    defaultValue: card.cardType,
-                                  }),
+                                  t((card.cardType || "").toLowerCase(), {
+                                    defaultValue: card.cardType || "CARD",
+                                  }) ||
+                                    card.cardType ||
+                                    "CARD",
                                 )}
                               </Text>
                             </View>
@@ -1001,23 +1176,39 @@ export default function AnalyticsScreen() {
               )}
             </TouchableOpacity>
 
-            {/* 3. Spending by Category */}
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => handleOpenModal("CATEGORY_SPENDING")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
               <View style={styles.cardHeaderRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.cardTitle, { color: colors.textPrimary }]}
                   >
-                    {t("spendingByCategory", "Spending by Category")}
+                    {t("spendingByCategory", "Spending by Category") ||
+                      "Spending by Category"}
                   </Text>
                   <Text style={styles.cardSubtitle}>
                     {selectedMonth.label} {selectedMonth.year} •{" "}
-                    {t("total", "Total")}:{" "}
+                    {t("total", "Total") || "Total"}:{" "}
                     {formatCurrency(categorySpending.totalSpending, currency)}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.detailsBadge,
+                    { backgroundColor: isDark ? "#2A2A2A" : "#F4F1EA" },
+                  ]}
+                >
+                  <InfoIcon color={colors.primaryTeal} size={scale(13)} />
+                  <Text
+                    style={[
+                      styles.detailsBadgeText,
+                      { color: colors.primaryTeal },
+                    ]}
+                  >
+                    {t("details", "Details") || "Details"}
                   </Text>
                 </View>
               </View>
@@ -1046,7 +1237,7 @@ export default function AnalyticsScreen() {
                         fontWeight="600"
                         textAnchor="middle"
                       >
-                        {t("noExpenses", "No Expenses")}
+                        {t("noExpenses", "No Expenses") || "No Expenses"}
                       </SvgText>
                     </>
                   ) : (
@@ -1081,59 +1272,48 @@ export default function AnalyticsScreen() {
 
               <View style={styles.categoryListContainer}>
                 {categorySpending.sortedEntries.map((item) => (
-                  <View key={item.category} style={styles.categoryRow}>
-                    <View style={styles.categoryLeft}>
-                      <View
-                        style={[
-                          styles.chipIndicator,
-                          { backgroundColor: item.color },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.categoryName,
-                          { color: colors.textPrimary },
-                        ]}
-                      >
-                        {String(
-                          t(item.category.toLowerCase(), {
-                            defaultValue: item.category,
-                          }),
-                        )}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.categoryValue,
-                        { color: colors.textPrimary },
-                      ]}
-                    >
-                      {formatCurrency(item.amount, currency)}{" "}
-                      <Text style={styles.categoryPercentage}>
-                        ({item.percentage}%)
-                      </Text>
-                    </Text>
-                  </View>
+                  <CategoryRowItem
+                    key={item.category}
+                    item={item}
+                    currency={currency}
+                  />
                 ))}
               </View>
             </TouchableOpacity>
 
-            {/* 4. Net Savings Trend Line Chart */}
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => handleOpenModal("NET_SAVINGS")}
               style={[styles.card, { backgroundColor: colors.cardBackground }]}
             >
               <View style={styles.cardHeaderRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.cardTitle, { color: colors.textPrimary }]}
                   >
-                    {t("netSavingsTrend", "Net Savings Trend")}
+                    {t("netSavingsTrend", "Net Savings Trend") ||
+                      "Net Savings Trend"}
                   </Text>
                   <Text style={styles.cardSubtitle}>
                     {selectedMonth.label} {selectedMonth.year} •{" "}
-                    {t("income", "Incomes")} – {t("expenses", "Expenses")}
+                    {t("income", "Incomes") || "Incomes"} –{" "}
+                    {t("expenses", "Expenses") || "Expenses"}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.detailsBadge,
+                    { backgroundColor: isDark ? "#2A2A2A" : "#F4F1EA" },
+                  ]}
+                >
+                  <InfoIcon color={colors.primaryTeal} size={scale(13)} />
+                  <Text
+                    style={[
+                      styles.detailsBadgeText,
+                      { color: colors.primaryTeal },
+                    ]}
+                  >
+                    {t("details", "Details") || "Details"}
                   </Text>
                 </View>
               </View>
@@ -1151,7 +1331,7 @@ export default function AnalyticsScreen() {
                     minimumFontScale={0.75}
                     style={styles.netMetricLabel}
                   >
-                    {t("income", "Incomes")}
+                    {t("income", "Incomes") || "Incomes"}
                   </Text>
                   <View>
                     <Text
@@ -1183,7 +1363,7 @@ export default function AnalyticsScreen() {
                     minimumFontScale={0.75}
                     style={styles.netMetricLabel}
                   >
-                    {t("expenses", "Expenses")}
+                    {t("expenses", "Expenses") || "Expenses"}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1213,7 +1393,7 @@ export default function AnalyticsScreen() {
                     minimumFontScale={0.75}
                     style={styles.netMetricLabel}
                   >
-                    {t("netSavings", "Net Savings")}
+                    {t("netSavings", "Net Savings") || "Net Savings"}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1349,11 +1529,10 @@ export default function AnalyticsScreen() {
         </ScrollView>
       </View>
 
-      {/* GRAPHIC DETAILS BOTTOM SHEET MODAL */}
       <BottomSheetModal
         ref={bottomSheetModalRef}
-        enableDynamicSizing={true}
         snapPoints={snapPoints}
+        enableDynamicSizing={false}
         onDismiss={() => setActiveModal(null)}
         backdropComponent={renderBackdrop}
         backgroundStyle={{
@@ -1367,40 +1546,34 @@ export default function AnalyticsScreen() {
             { backgroundColor: colors.cardBackground },
           ]}
         >
-          {/* Modal Header */}
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
                 {activeModal === "NET_SAVINGS" &&
-                  t("savingsAnalysis", "Savings & Financial Summary")}
+                  (t("savingsAnalysis", "Savings & Financial Summary") ||
+                    "Savings & Financial Summary")}
                 {activeModal === "INCOME_VS_EXPENSES" &&
-                  t("incomeVsExpenseDetails", "Income vs. Expense Insights")}
+                  (t("incomeVsExpenseDetails", "Income vs. Expense Insights") ||
+                    "Income vs. Expense Insights")}
                 {activeModal === "PAYMENT_METHODS" &&
-                  t("paymentAnalysis", "Payment Methods Deep Dive")}
+                  (t("paymentAnalysis", "Payment Methods Deep Dive") ||
+                    "Payment Methods Deep Dive")}
                 {activeModal === "CATEGORY_SPENDING" &&
-                  t("categoryAnalysis", "Category Breakdown Insights")}
+                  (t("categoryAnalysis", "Category Breakdown Insights") ||
+                    "Category Breakdown Insights")}
               </Text>
               <Text style={styles.modalSubtitle}>
-                {selectedMonth.label} {selectedMonth.year}
+                {selectedMonth.fullLabel} {selectedMonth.year}
               </Text>
             </View>
-
-            {/* <TouchableOpacity
-              onPress={handleCloseModal}
-              style={styles.modalCloseButton}
-            >
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity> */}
           </View>
 
-          {/* Modal Content Details */}
           <BottomSheetScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: verticalScale(20) }}
+            contentContainerStyle={{ paddingBottom: verticalScale(28) }}
           >
             {activeModal === "NET_SAVINGS" && (
               <View style={styles.modalSectionGap}>
-                {/* Highlight Banner: How much saved so far */}
                 <View
                   style={[
                     styles.highlightCard,
@@ -1412,7 +1585,8 @@ export default function AnalyticsScreen() {
                   ]}
                 >
                   <Text style={styles.highlightTitle}>
-                    {t("savedSoFar", "Total Saved So Far (6 Months)")}
+                    {t("savedSoFar", "Total Saved So Far (6 Months)") ||
+                      "Total Saved So Far (6 Months)"}
                   </Text>
                   <Text style={styles.highlightValue}>
                     {formatCurrency(
@@ -1421,7 +1595,9 @@ export default function AnalyticsScreen() {
                     )}
                   </Text>
                   <Text style={styles.highlightSubtext}>
-                    {t("avgPerMonth", "Average monthly savings")}:{" "}
+                    {t("avgPerMonth", "Average monthly savings") ||
+                      "Average monthly savings"}
+                    :{" "}
                     {formatCurrency(
                       overallSavingsSummary.avgMonthlySavings,
                       currency,
@@ -1429,11 +1605,11 @@ export default function AnalyticsScreen() {
                   </Text>
                 </View>
 
-                {/* Month-by-month Savings Breakdown */}
                 <Text
                   style={[styles.sectionHeading, { color: colors.textPrimary }]}
                 >
-                  {t("monthlySavingsHistory", "6-Month Savings History")}
+                  {t("monthlySavingsHistory", "6-Month Savings History") ||
+                    "6-Month Savings History"}
                 </Text>
                 {monthlyData.map((m) => (
                   <View key={`${m.month}-${m.year}`} style={styles.detailRow}>
@@ -1443,7 +1619,7 @@ export default function AnalyticsScreen() {
                         { color: colors.textPrimary },
                       ]}
                     >
-                      {m.month} {m.year}
+                      {m.fullMonth} {m.year}
                     </Text>
                     <Text
                       style={[
@@ -1470,9 +1646,12 @@ export default function AnalyticsScreen() {
                   ]}
                 >
                   <Text style={styles.infoBadgeText}>
-                    💡 {t("savingsTip", "Savings Rate")}:{" "}
+                    💡 {t("savingsTip", "Savings Rate") || "Savings Rate"}:{" "}
                     {overallSavingsSummary.currentSavingsRate}%{" "}
-                    {t("ofIncomeSavedThisMonth", "of income saved this month.")}
+                    {t(
+                      "ofIncomeSavedThisMonth",
+                      "of income saved this month.",
+                    ) || "of income saved this month."}
                   </Text>
                 </View>
               </View>
@@ -1491,7 +1670,8 @@ export default function AnalyticsScreen() {
                   ]}
                 >
                   <Text style={styles.highlightTitle}>
-                    {t("currentMonthNet", "Selected Month Net Balance")}
+                    {t("currentMonthNet", "Selected Month Net Balance") ||
+                      "Selected Month Net Balance"}
                   </Text>
                   <Text
                     style={[
@@ -1511,7 +1691,7 @@ export default function AnalyticsScreen() {
                 <Text
                   style={[styles.sectionHeading, { color: colors.textPrimary }]}
                 >
-                  {t("comparisonSummary", "Period Summary")}
+                  {t("comparisonSummary", "Period Summary") || "Period Summary"}
                 </Text>
 
                 <View style={styles.detailRow}>
@@ -1521,7 +1701,8 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    {t("totalIncome", "Total Income (6 Months)")}
+                    {t("totalIncome", "Total Income (6 Months)") ||
+                      "Total Income (6 Months)"}
                   </Text>
                   <Text
                     style={[
@@ -1543,7 +1724,8 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    {t("totalExpenses", "Total Expenses (6 Months)")}
+                    {t("totalExpenses", "Total Expenses (6 Months)") ||
+                      "Total Expenses (6 Months)"}
                   </Text>
                   <Text
                     style={[
@@ -1565,7 +1747,8 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    {t("highestSavingsMonth", "Best Savings Month")}
+                    {t("highestSavingsMonth", "Best Savings Month") ||
+                      "Best Savings Month"}
                   </Text>
                   <Text
                     style={[
@@ -1573,7 +1756,7 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    {overallSavingsSummary.bestSavingsMonth?.month} (
+                    {overallSavingsSummary.bestSavingsMonth?.fullMonth} (
                     {formatCurrency(
                       overallSavingsSummary.bestSavingsMonth?.net || 0,
                       currency,
@@ -1589,7 +1772,8 @@ export default function AnalyticsScreen() {
                 <Text
                   style={[styles.sectionHeading, { color: colors.textPrimary }]}
                 >
-                  {t("methodBreakdown", "Payment Overview")}
+                  {t("methodBreakdown", "Payment Overview") ||
+                    "Payment Overview"}
                 </Text>
 
                 <View style={styles.detailRow}>
@@ -1599,7 +1783,7 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    💳 {t("cardExpenses", "Card Payments")}
+                    💳 {t("cardExpenses", "Card Payments") || "Card Payments"}
                   </Text>
                   <Text
                     style={[
@@ -1619,7 +1803,7 @@ export default function AnalyticsScreen() {
                       { color: colors.textPrimary },
                     ]}
                   >
-                    💵 {t("cashExpenses", "Cash Payments")}
+                    💵 {t("cashExpenses", "Cash Payments") || "Cash Payments"}
                   </Text>
                   <Text
                     style={[
@@ -1633,58 +1817,94 @@ export default function AnalyticsScreen() {
                 </View>
 
                 {cardUsageBreakdown.cardsList.length > 0 && (
-                  <>
+                  <View style={{ marginTop: verticalScale(16) }}>
                     <Text
                       style={[
                         styles.sectionHeading,
                         {
                           color: colors.textPrimary,
-                          marginTop: verticalScale(16),
+                          marginBottom: verticalScale(12),
                         },
                       ]}
                     >
-                      {t("registeredCards", "Registered Cards Spending")}
+                      {t("registeredCards", "Registered Cards Breakdown") ||
+                        "Registered Cards Breakdown"}
                     </Text>
 
                     {cardUsageBreakdown.cardsList.map(
                       ({ card, totalSpent, percentage }) => (
-                        <View key={card.id} style={styles.detailRow}>
-                          <Text
+                        <View
+                          key={card.id}
+                          style={[
+                            styles.cardUsageRow,
+                            { marginBottom: verticalScale(14) },
+                          ]}
+                        >
+                          <View style={styles.cardUsageHeader}>
+                            <View style={styles.cardNameContainer}>
+                              <Text style={styles.cardIcon}>💳</Text>
+                              <Text
+                                style={[
+                                  styles.cardNameText,
+                                  { color: colors.textPrimary },
+                                ]}
+                              >
+                                {card.name}
+                              </Text>
+                              <View style={styles.cardTypeBadge}>
+                                <Text style={styles.cardTypeBadgeText}>
+                                  {String(
+                                    t((card.cardType || "").toLowerCase(), {
+                                      defaultValue: card.cardType || "CARD",
+                                    }) ||
+                                      card.cardType ||
+                                      "CARD",
+                                  )}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text
+                              style={[
+                                styles.cardSpentText,
+                                { color: colors.textPrimary },
+                              ]}
+                            >
+                              {formatCurrency(totalSpent, currency)} (
+                              {percentage}%)
+                            </Text>
+                          </View>
+                          <View
                             style={[
-                              styles.detailRowLabel,
-                              { color: colors.textPrimary },
+                              styles.cardProgressBarTrack,
+                              { backgroundColor: colors.iconBoxBg },
                             ]}
                           >
-                            💳 {card.name}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.detailRowValue,
-                              { color: colors.textPrimary },
-                            ]}
-                          >
-                            {formatCurrency(totalSpent, currency)} ({percentage}
-                            %)
-                          </Text>
+                            <View
+                              style={[
+                                styles.cardProgressBarFill,
+                                {
+                                  width: `${percentage}%`,
+                                  backgroundColor: colors.primaryTeal,
+                                },
+                              ]}
+                            />
+                          </View>
                         </View>
                       ),
                     )}
-                  </>
+                  </View>
                 )}
               </View>
             )}
 
             {activeModal === "CATEGORY_SPENDING" && (
               <View style={styles.modalSectionGap}>
-                {/* <Text
-                  style={[styles.sectionHeading, { color: colors.textPrimary }]}
-                >
-                  {t("categoryDistribution", "Category Analysis")}
-                </Text> */}
-
                 {categorySpending.sortedEntries.length === 0 ? (
                   <Text style={styles.emptyText}>
-                    {t("noCategoryData", "No category expense records found.")}
+                    {t(
+                      "noCategoryData",
+                      "No category expense records found.",
+                    ) || "No category expense records found."}
                   </Text>
                 ) : (
                   categorySpending.sortedEntries.map((item) => (
@@ -1703,9 +1923,13 @@ export default function AnalyticsScreen() {
                           ]}
                         >
                           {String(
-                            t(item.category.toLowerCase(), {
-                              defaultValue: item.category,
-                            }),
+                            t(
+                              (item.category || "")
+                                .toLowerCase()
+                                .trim()
+                                .replace(/\s+/g, "_"),
+                              { defaultValue: item.category },
+                            ) || item.category,
                           )}
                         </Text>
                       </View>
@@ -1763,7 +1987,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   headerTitle: {
-    fontSize: moderateScale(32),
+    fontSize: moderateScale(28),
     fontWeight: "700",
     color: "#FFFFFF",
   },
@@ -1775,17 +1999,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: verticalScale(20),
+    marginVertical: verticalScale(12),
+    paddingTop: scale(12),
+    paddingBottom: scale(5),
   },
   monthNavButton: {
     paddingHorizontal: scale(12),
-    paddingVertical: verticalScale(4),
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: scale(12),
+    paddingVertical: verticalScale(2),
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: scale(8),
   },
   monthNavText: {
     color: "#FFFFFF",
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(18),
     fontWeight: "bold",
   },
   cardsWrapper: {
@@ -1816,6 +2042,20 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: verticalScale(2),
     marginBottom: verticalScale(16),
+  },
+  detailsBadge: {
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(5),
+    borderRadius: scale(12),
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: scale(8),
+    gap: scale(4),
+  },
+  detailsBadgeText: {
+    fontSize: moderateScale(12),
+    fontWeight: "600",
   },
   chartWrapper: {
     alignItems: "center",
@@ -2031,8 +2271,6 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(12),
     fontWeight: "700",
   },
-
-  /* Modal Styling */
   modalContent: {
     flex: 1,
     paddingHorizontal: scale(20),
@@ -2055,16 +2293,6 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(13),
     color: COLORS.textMuted,
     marginTop: verticalScale(2),
-  },
-  modalCloseButton: {
-    padding: scale(6),
-    backgroundColor: "#EFECE6",
-    borderRadius: scale(16),
-  },
-  modalCloseText: {
-    fontSize: moderateScale(14),
-    fontWeight: "700",
-    color: COLORS.textDark,
   },
   modalSectionGap: {
     gap: verticalScale(12),

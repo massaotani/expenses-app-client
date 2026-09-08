@@ -130,6 +130,7 @@ const FilterListHeader = memo(
                 key={String(item)}
                 style={[
                   styles.filterChip,
+                  styles.cardFilterChip,
                   isDark && { backgroundColor: appColors.cardBackground },
                   isActive && [
                     styles.filterChipActive,
@@ -306,10 +307,13 @@ const formatWithCapitalMonth = (
   locale: string,
   options: Intl.DateTimeFormatOptions,
 ): string => {
+  if (!date || isNaN(date.getTime())) return "";
   const safeLocale = (locale || "en").replace("_", "-");
 
   try {
     const formatted = new Intl.DateTimeFormat(safeLocale, options).format(date);
+    if (!formatted) return date.toLocaleDateString();
+
     const lowercasePrepositions = new Set([
       "de",
       "del",
@@ -332,7 +336,7 @@ const formatWithCapitalMonth = (
       })
       .join(" ");
   } catch {
-    return date.toLocaleDateString();
+    return date.toLocaleDateString() || "";
   }
 };
 
@@ -344,7 +348,7 @@ const getCategoryIcon = (
 
   const cat = (category || "").toLowerCase().trim();
 
-  switch (cat?.toLowerCase()) {
+  switch (cat) {
     case "food":
       return "🛒";
     case "housing":
@@ -434,18 +438,17 @@ export default function TransactionsScreen() {
     }, [selectedDate]),
   );
 
+  const lastCheckedMonthRef = useRef<number>(new Date().getMonth());
+
   useEffect(() => {
     const checkMidnightRollover = () => {
       const now = new Date();
-      setSelectedDate((prev) => {
-        if (
-          prev.getFullYear() === now.getFullYear() &&
-          prev.getMonth() !== now.getMonth()
-        ) {
-          return new Date(now.getFullYear(), now.getMonth(), 1);
-        }
-        return prev;
-      });
+      const currentMonth = now.getMonth();
+
+      if (lastCheckedMonthRef.current !== currentMonth) {
+        lastCheckedMonthRef.current = currentMonth;
+        setSelectedDate(new Date(now.getFullYear(), currentMonth, 1));
+      }
     };
 
     const subscription = AppState.addEventListener(
@@ -676,10 +679,10 @@ export default function TransactionsScreen() {
         normalizedKey === "income" ||
         normalizedKey === "income_transaction"
       ) {
-        return t("income_transaction", { defaultValue: "Income" });
+        return t("income_transaction", { defaultValue: "Income" }) || "Income";
       }
 
-      return t(normalizedKey, { defaultValue: category });
+      return t(normalizedKey, { defaultValue: category }) || category;
     },
     [t],
   );
@@ -694,15 +697,20 @@ export default function TransactionsScreen() {
         normalized === "all payment methods" ||
         normalized === "all_payment_methods"
       ) {
-        return t("allPaymentMethods", { defaultValue: "All Payment Methods" });
+        return (
+          t("allPaymentMethods", { defaultValue: "All Payment Methods" }) ||
+          "All Payment Methods"
+        );
       }
 
       if (normalized === "deleted card" || normalized === "deleted_card") {
-        return t("deletedCard", { defaultValue: "Deleted Card" });
+        return (
+          t("deletedCard", { defaultValue: "Deleted Card" }) || "Deleted Card"
+        );
       }
 
       if (normalized === "cash" || normalized === "dinheiro") {
-        return t("cash", { defaultValue: "Cash" });
+        return t("cash", { defaultValue: "Cash" }) || "Cash";
       }
 
       if (
@@ -710,19 +718,20 @@ export default function TransactionsScreen() {
         normalized === "cartao" ||
         normalized === "cartão"
       ) {
-        return t("card", { defaultValue: "Card" });
+        return t("card", { defaultValue: "Card" }) || "Card";
       }
 
-      return method;
+      return t(normalized, { defaultValue: method }) || method;
     },
     [t],
   );
 
   const getFilterLabel = useCallback(
     (filter: string) => {
-      if (filter === "All") return t("all", "All");
-      if (filter === "Income") return t("income_transaction", "Income");
-      return translateCategory(filter);
+      if (filter === "All") return t("all", "All") || "All";
+      if (filter === "Income")
+        return t("income_transaction", "Income") || "Income";
+      return translateCategory(filter) || filter;
     },
     [t, translateCategory],
   );
@@ -804,8 +813,9 @@ export default function TransactionsScreen() {
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       Alert.alert(
-        t("error", "Error"),
-        t("invalidAmount", "Please enter a valid amount."),
+        t("error", "Error") || "Error",
+        t("invalidAmount", "Please enter a valid amount.") ||
+          "Please enter a valid amount.",
       );
       return;
     }
@@ -882,8 +892,9 @@ export default function TransactionsScreen() {
         );
       }
       Alert.alert(
-        t("error", "Error"),
-        t("updateFailed", "Failed to update transaction."),
+        t("error", "Error") || "Error",
+        t("updateFailed", "Failed to update transaction.") ||
+          "Failed to update transaction.",
       );
     } finally {
       setSubmitting(false);
@@ -894,7 +905,6 @@ export default function TransactionsScreen() {
     const norm1 = (cat1 || "").toLowerCase().replace(/_/g, " ").trim();
     const norm2 = (cat2 || "").toLowerCase().replace(/_/g, " ").trim();
 
-    // Compare directly or with trailing 's' stripped for singular/plural matching
     return (
       norm1 === norm2 || norm1.replace(/s$/, "") === norm2.replace(/s$/, "")
     );
@@ -913,12 +923,13 @@ export default function TransactionsScreen() {
       : `/api/v1/expenses/${rawId}`;
 
     Alert.alert(
-      t("delete", "Delete"),
-      t("confirmDelete", "Are you sure you want to delete this transaction?"),
+      t("delete", "Delete") || "Delete",
+      t("confirmDelete", "Are you sure you want to delete this transaction?") ||
+        "Are you sure you want to delete this transaction?",
       [
-        { text: t("cancel", "Cancel"), style: "cancel" },
+        { text: t("cancel", "Cancel") || "Cancel", style: "cancel" },
         {
-          text: t("delete", "Delete"),
+          text: t("delete", "Delete") || "Delete",
           style: "destructive",
           onPress: async () => {
             try {
@@ -933,8 +944,9 @@ export default function TransactionsScreen() {
                 console.error("Failed to delete transaction:", error);
               }
               Alert.alert(
-                t("error", "Error"),
-                t("deleteFailed", "Failed to delete transaction."),
+                t("error", "Error") || "Error",
+                t("deleteFailed", "Failed to delete transaction.") ||
+                  "Failed to delete transaction.",
               );
             }
           },
@@ -957,7 +969,7 @@ export default function TransactionsScreen() {
         ]}
       >
         <Text style={styles.headerTitle}>
-          {t("transactions", "Transactions")}
+          {t("transactions", "Transactions") || "Transactions"}
         </Text>
 
         <View style={styles.monthSelectorRow}>
@@ -975,7 +987,7 @@ export default function TransactionsScreen() {
               })}
             </Text>
             <Text style={styles.headerSubtitle}>
-              • {allTransactions.length} {t("records", "records")}
+              • {allTransactions.length} {t("records", "records") || "records"}
             </Text>
           </View>
 
@@ -988,9 +1000,8 @@ export default function TransactionsScreen() {
         </View>
 
         <View style={styles.summaryRow}>
-          {/* IN Summary */}
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>{t("in", "IN")}</Text>
+            <Text style={styles.summaryLabel}>{t("in", "IN") || "IN"}</Text>
             <Text
               style={styles.summaryValue}
               numberOfLines={1}
@@ -1001,9 +1012,8 @@ export default function TransactionsScreen() {
             </Text>
           </View>
 
-          {/* OUT Summary */}
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>{t("out", "OUT")}</Text>
+            <Text style={styles.summaryLabel}>{t("out", "OUT") || "OUT"}</Text>
             <Text
               style={styles.summaryValue}
               numberOfLines={1}
@@ -1014,9 +1024,8 @@ export default function TransactionsScreen() {
             </Text>
           </View>
 
-          {/* NET Summary */}
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>{t("net", "NET")}</Text>
+            <Text style={styles.summaryLabel}>{t("net", "NET") || "NET"}</Text>
             <Text
               style={styles.summaryValue}
               numberOfLines={1}
@@ -1058,15 +1067,13 @@ export default function TransactionsScreen() {
         backgroundColor={appColors.headerBackground}
       />
 
-      {/* 1. Fixed Header Container (Stays in place) */}
       {renderHeader()}
 
-      {/* 2. Scrollable Body Container */}
       <View
         style={{
           flex: 1,
           backgroundColor: appColors.screenBackground,
-          paddingBottom: 30,
+          paddingBottom: 45,
         }}
       >
         <FilterListHeader
@@ -1090,7 +1097,10 @@ export default function TransactionsScreen() {
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  {t("noTransactionsRegistered", "No transactions registered.")}
+                  {t(
+                    "noTransactionsRegistered",
+                    "No transactions registered.",
+                  ) || "No transactions registered."}
                 </Text>
               </View>
             }
@@ -1112,7 +1122,7 @@ export default function TransactionsScreen() {
               const formattedDate = formatDate(
                 item.rawDate,
                 i18n.language,
-                t("recent", "Recent"),
+                t("recent", "Recent") || "Recent",
               );
 
               return (
@@ -1158,9 +1168,6 @@ export default function TransactionsScreen() {
                           style={[
                             styles.categoryBadgeText,
                             isDark && { color: appColors.textPrimary },
-                            isIncome && styles.incomeBadgeText,
-                            isDark &&
-                              isIncome && { color: appColors.textPrimary },
                           ]}
                         >
                           {translateCategory(item.category)}
@@ -1172,21 +1179,18 @@ export default function TransactionsScreen() {
                       <View
                         style={[
                           styles.paymentBadge,
-                          isIncome && styles.incomeBadge,
                           isDark && { backgroundColor: appColors.iconBoxBg },
+                          isIncome && styles.incomeBadge,
                         ]}
                       >
                         <Text
                           style={[
                             styles.paymentBadgeText,
                             isDark && { color: appColors.textPrimary },
-                            isIncome && styles.incomeBadgeText,
-                            isDark &&
-                              isIncome && { color: appColors.textPrimary },
                           ]}
                         >
                           {isIncome
-                            ? `💰 ${t("income_transaction", "Deposit")}`
+                            ? `💰 ${t("income_transaction", "Deposit") || "Deposit"}`
                             : `${getPaymentIcon(
                                 paymentMethodName,
                               )} ${translatePaymentMethod(paymentMethodName)}`}
@@ -1261,7 +1265,7 @@ export default function TransactionsScreen() {
 
                   <View style={styles.modalDetailRow}>
                     <Text style={styles.modalDetailLabel}>
-                      {t("category", "Category")}:
+                      {t("category", "Category") || "Category"}:
                     </Text>
                     <Text
                       style={[
@@ -1276,7 +1280,9 @@ export default function TransactionsScreen() {
                   {selectedTransaction.type === "EXPENSE" && (
                     <View style={styles.modalDetailRow}>
                       <Text style={styles.modalDetailLabel}>
-                        {t("paymentMethod", "Payment Method")}:
+                        {t("paymentMethod", "Payment Method") ||
+                          "Payment Method"}
+                        :
                       </Text>
                       <Text
                         style={[
@@ -1296,7 +1302,7 @@ export default function TransactionsScreen() {
 
                   <View style={styles.modalDetailRow}>
                     <Text style={styles.modalDetailLabel}>
-                      {t("date", "Date")}:
+                      {t("date", "Date") || "Date"}:
                     </Text>
                     <Text
                       style={[
@@ -1325,7 +1331,9 @@ export default function TransactionsScreen() {
                       ]}
                       onPress={handleStartEdit}
                     >
-                      <Text style={styles.btnText}>{t("edit", "Edit")}</Text>
+                      <Text style={styles.btnText}>
+                        {t("edit", "Edit") || "Edit"}
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1333,7 +1341,7 @@ export default function TransactionsScreen() {
                       onPress={handleDelete}
                     >
                       <Text style={styles.btnText}>
-                        {t("delete", "Delete")}
+                        {t("delete", "Delete") || "Delete"}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1346,15 +1354,15 @@ export default function TransactionsScreen() {
                       { color: appColors.textPrimary },
                     ]}
                   >
-                    {t("edit", "Edit")}{" "}
+                    {t("edit", "Edit") || "Edit"}{" "}
                     {selectedTransaction.type === "INCOME"
-                      ? t("income_transaction", "Deposit")
-                      : t("expense", "Expense")}
+                      ? t("income_transaction", "Deposit") || "Deposit"
+                      : t("expense", "Expense") || "Expense"}
                   </Text>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>
-                      {t("description", "Description")}
+                      {t("description", "Description") || "Description"}
                     </Text>
                     <BottomSheetTextInput
                       style={[
@@ -1366,7 +1374,9 @@ export default function TransactionsScreen() {
                       ]}
                       value={editDescription}
                       onChangeText={setEditDescription}
-                      placeholder={t("description", "Description")}
+                      placeholder={
+                        t("description", "Description") || "Description"
+                      }
                       placeholderTextColor={
                         appColors.textMuted || appColors.textSecondary
                       }
@@ -1375,7 +1385,7 @@ export default function TransactionsScreen() {
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>
-                      {t("amount", "Amount")} ({currency})
+                      {t("amount", "Amount") || "Amount"} ({currency})
                     </Text>
                     <BottomSheetTextInput
                       style={[
@@ -1440,7 +1450,7 @@ export default function TransactionsScreen() {
                             isDark && { color: appColors.textSecondary },
                           ]}
                         >
-                          {t("category", "Category")}
+                          {t("category", "Category") || "Category"}
                         </Text>
                         <View style={styles.categoryContainer}>
                           <View style={styles.categoryColumn}>
@@ -1487,7 +1497,7 @@ export default function TransactionsScreen() {
                                         {
                                           defaultValue: cat,
                                         },
-                                      ),
+                                      ) || cat,
                                     )}
                                   </Text>
                                 </TouchableOpacity>
@@ -1538,7 +1548,7 @@ export default function TransactionsScreen() {
                                         {
                                           defaultValue: cat,
                                         },
-                                      ),
+                                      ) || cat,
                                     )}
                                   </Text>
                                 </TouchableOpacity>
@@ -1555,7 +1565,8 @@ export default function TransactionsScreen() {
                             isDark && { color: appColors.textSecondary },
                           ]}
                         >
-                          {t("paymentMethod", "Payment Method")}
+                          {t("paymentMethod", "Payment Method") ||
+                            "Payment Method"}
                         </Text>
                         <View style={styles.categoryContainer}>
                           <View style={styles.categoryColumn}>
@@ -1577,9 +1588,7 @@ export default function TransactionsScreen() {
                                       },
                                     ],
                                   ]}
-                                  onPress={() => {
-                                    setPaymentType(type);
-                                  }}
+                                  onPress={() => setPaymentType(type)}
                                 >
                                   <Text
                                     style={[
@@ -1593,9 +1602,8 @@ export default function TransactionsScreen() {
                                     numberOfLines={1}
                                   >
                                     {String(
-                                      t(type.toLowerCase(), {
-                                        defaultValue: "Cash",
-                                      }),
+                                      t("cash", { defaultValue: "Cash" }) ||
+                                        "Cash",
                                     )}
                                   </Text>
                                 </TouchableOpacity>
@@ -1648,189 +1656,100 @@ export default function TransactionsScreen() {
                                     numberOfLines={1}
                                   >
                                     {String(
-                                      t(type.toLowerCase(), {
-                                        defaultValue: "Card",
-                                      }),
+                                      t("card", { defaultValue: "Card" }) ||
+                                        "Card",
                                     )}
-                                    {isDisabled
-                                      ? ` ${String(
-                                          t("noCardsAvailable", {
-                                            defaultValue:
-                                              "(No Cards Available)",
-                                          }),
-                                        )}`
-                                      : ""}
                                   </Text>
                                 </TouchableOpacity>
                               );
                             })()}
                           </View>
                         </View>
-
-                        {paymentType === "CARD" && userCards.length > 0 && (
-                          <>
-                            <Text
-                              style={[
-                                styles.inputLabel,
-                                { marginTop: 12 },
-                                isDark && {
-                                  color: appColors.textSecondary,
-                                },
-                              ]}
-                            >
-                              {t("selectCard", "Select Card")}
-                            </Text>
-                            <View style={styles.categoryContainer}>
-                              <View style={styles.categoryColumn}>
-                                {userCards
-                                  .slice(0, Math.ceil(userCards.length / 2))
-                                  .map((card) => {
-                                    const isSelected =
-                                      selectedCardId === card.id;
-
-                                    return (
-                                      <TouchableOpacity
-                                        key={card.id}
-                                        style={[
-                                          styles.categoryChip,
-                                          isDark && {
-                                            backgroundColor:
-                                              appColors.iconBoxBg,
-                                            alignItems: "flex-start",
-                                          },
-                                          isSelected && [
-                                            styles.categoryChipSelected,
-                                            {
-                                              backgroundColor:
-                                                appColors.primaryTeal,
-                                            },
-                                          ],
-                                        ]}
-                                        onPress={() =>
-                                          setSelectedCardId(card.id)
-                                        }
-                                      >
-                                        <Text
-                                          style={[
-                                            styles.categoryChipText,
-                                            isDark && {
-                                              color: appColors.textPrimary,
-                                            },
-                                            isSelected &&
-                                              styles.categoryChipTextSelected,
-                                          ]}
-                                          numberOfLines={1}
-                                        >
-                                          💳 {card.name} (
-                                          {String(
-                                            t(card.cardType.toLowerCase(), {
-                                              defaultValue:
-                                                card.cardType === "CREDIT"
-                                                  ? "Credit"
-                                                  : "Debit",
-                                            }),
-                                          )}
-                                          )
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                              </View>
-
-                              <View style={styles.categoryColumn}>
-                                {userCards
-                                  .slice(Math.ceil(userCards.length / 2))
-                                  .map((card) => {
-                                    const isSelected =
-                                      selectedCardId === card.id;
-
-                                    return (
-                                      <TouchableOpacity
-                                        key={card.id}
-                                        style={[
-                                          styles.categoryChip,
-                                          isDark && {
-                                            backgroundColor:
-                                              appColors.iconBoxBg,
-                                            alignItems: "flex-start",
-                                          },
-                                          isSelected && [
-                                            styles.categoryChipSelected,
-                                            {
-                                              backgroundColor:
-                                                appColors.primaryTeal,
-                                            },
-                                          ],
-                                        ]}
-                                        onPress={() =>
-                                          setSelectedCardId(card.id)
-                                        }
-                                      >
-                                        <Text
-                                          style={[
-                                            styles.categoryChipText,
-                                            isDark && {
-                                              color: appColors.textPrimary,
-                                            },
-                                            isSelected &&
-                                              styles.categoryChipTextSelected,
-                                          ]}
-                                          numberOfLines={1}
-                                        >
-                                          💳 {card.name} (
-                                          {String(
-                                            t(card.cardType.toLowerCase(), {
-                                              defaultValue:
-                                                card.cardType === "CREDIT"
-                                                  ? "Credit"
-                                                  : "Debit",
-                                            }),
-                                          )}
-                                          )
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                              </View>
-                            </View>
-                          </>
-                        )}
                       </View>
+
+                      {paymentType === "CARD" && userCards.length > 0 && (
+                        <View style={styles.inputGroup}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              isDark && { color: appColors.textSecondary },
+                            ]}
+                          >
+                            {t("selectCard", "Select Card") || "Select Card"}
+                          </Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{
+                              gap: scale(8),
+                              paddingVertical: verticalScale(4),
+                            }}
+                          >
+                            {userCards.map((card) => {
+                              const isCardSelected = selectedCardId === card.id;
+                              return (
+                                <TouchableOpacity
+                                  key={card.id}
+                                  style={[
+                                    styles.categoryChip,
+                                    isDark && {
+                                      backgroundColor: appColors.iconBoxBg,
+                                    },
+                                    isCardSelected && [
+                                      styles.categoryChipSelected,
+                                      {
+                                        backgroundColor: appColors.primaryTeal,
+                                      },
+                                    ],
+                                  ]}
+                                  onPress={() => setSelectedCardId(card.id)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.categoryChipText,
+                                      isDark && {
+                                        color: appColors.textPrimary,
+                                      },
+                                      isCardSelected &&
+                                        styles.categoryChipTextSelected,
+                                    ]}
+                                  >
+                                    💳 {card.name}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                      )}
                     </>
                   )}
 
                   <View style={styles.modalActions}>
                     <TouchableOpacity
-                      style={[
-                        styles.modalButton,
-                        { backgroundColor: appColors.iconBoxBg },
-                      ]}
+                      style={[styles.actionBtn, { backgroundColor: "#8E8E93" }]}
                       onPress={handleCloseExpensesModal}
+                      disabled={submitting}
                     >
-                      <Text
-                        style={[
-                          styles.cancelButtonText,
-                          { color: appColors.textPrimary },
-                        ]}
-                      >
-                        {t("cancel", "Cancel")}
+                      <Text style={styles.btnText}>
+                        {t("cancel", "Cancel") || "Cancel"}
                       </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[
-                        styles.modalButton,
-                        styles.saveButton,
+                        styles.actionBtn,
+                        styles.editBtn,
                         { backgroundColor: appColors.primaryTeal },
                       ]}
                       onPress={handleSaveEdit}
                       disabled={submitting}
                     >
                       {submitting ? (
-                        <ActivityIndicator color="#FFF" />
+                        <ActivityIndicator color="#FFFFFF" size="small" />
                       ) : (
-                        <Text style={styles.saveButtonText}>
-                          {t("saveExpense", "Save Expense")}
+                        <Text style={styles.btnText}>
+                          {t("save", "Save") || "Save"}
                         </Text>
                       )}
                     </TouchableOpacity>
@@ -1848,325 +1767,272 @@ export default function TransactionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#204B4C",
+    backgroundColor: colors.primaryTeal,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F4F1EA",
-  },
-  listContent: {
-    backgroundColor: "#F4F1EA",
-    flexGrow: 1,
-    paddingBottom: verticalScale(60),
   },
   headerWrapper: {
-    backgroundColor: "#F4F1EA",
+    paddingBottom: verticalScale(8),
   },
   greenHeaderContainer: {
-    backgroundColor: "#204B4C",
     paddingHorizontal: scale(20),
     paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(15),
-    borderBottomLeftRadius: scale(32),
-    borderBottomRightRadius: scale(32),
+    paddingBottom: verticalScale(20),
+    borderBottomLeftRadius: scale(28),
+    borderBottomRightRadius: scale(28),
   },
   headerTitle: {
-    fontSize: moderateScale(32),
+    fontSize: moderateScale(28),
     fontWeight: "700",
     color: "#FFFFFF",
-    marginBottom: verticalScale(20),
   },
   headerSubtitle: {
-    fontSize: moderateScale(14),
-    color: "rgba(255, 255, 255, 0.7)",
-    marginTop: verticalScale(4),
-    marginBottom: verticalScale(20),
+    fontSize: moderateScale(13),
+    color: "rgba(255,255,255,0.8)",
+  },
+  monthSelectorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginVertical: verticalScale(12),
+    paddingTop: scale(12),
+    paddingBottom: scale(5),
+  },
+  monthNavButton: {
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(2),
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: scale(8),
+  },
+  monthNavText: {
+    color: "#FFFFFF",
+    fontSize: moderateScale(18),
+    fontWeight: "bold",
   },
   summaryRow: {
     flexDirection: "row",
-    gap: scale(10),
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: scale(20),
-    marginHorizontal: scale(20),
-    marginBottom: verticalScale(12),
-    padding: scale(16),
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#EAE6DF",
-  },
-  cardDetails: {
-    flex: 1,
-    gap: verticalScale(4),
-  },
-  lineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  incomeBadge: {
-    backgroundColor: "#E2F2EE",
+    gap: scale(8),
+    marginTop: verticalScale(8),
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: scale(16),
-    paddingVertical: verticalScale(14),
-    paddingHorizontal: scale(12),
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(10),
+    borderRadius: scale(12),
+    alignItems: "center",
   },
   summaryLabel: {
     fontSize: moderateScale(11),
-    fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.6)",
-    letterSpacing: scale(0.5),
-    marginBottom: verticalScale(4),
+    color: "rgba(255,255,255,0.8)",
+    fontWeight: "600",
   },
   summaryValue: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(13),
     fontWeight: "700",
     color: "#FFFFFF",
+    marginTop: verticalScale(2),
   },
   filterListContainer: {
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(8),
     gap: scale(8),
-    paddingHorizontal: scale(20),
-    paddingVertical: verticalScale(12),
-    backgroundColor: "#F4F1EA",
   },
   filterChip: {
-    backgroundColor: "#EBE6DD",
-    paddingHorizontal: scale(18),
-    paddingVertical: verticalScale(10),
-    borderRadius: scale(20),
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(6),
+    borderRadius: scale(16),
+    backgroundColor: "#EFECE6",
   },
   cardFilterChip: {
-    backgroundColor: "#E0DDD5",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
   },
   filterChipActive: {
-    backgroundColor: "#1C3637",
+    backgroundColor: colors.primaryTeal,
   },
   filterChipText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(12),
     fontWeight: "600",
-    color: "#4A4A4A",
+    color: "#555555",
   },
   filterChipTextActive: {
     color: "#FFFFFF",
   },
+  listContent: {
+    paddingHorizontal: scale(16),
+    paddingBottom: verticalScale(40),
+    gap: verticalScale(10),
+  },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: scale(14),
+    borderRadius: scale(16),
+    borderWidth: 1,
+  },
   iconContainer: {
-    width: scale(48),
-    height: scale(48),
-    borderRadius: scale(14),
-    backgroundColor: "#F2EFE9",
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     justifyContent: "center",
     alignItems: "center",
-    marginRight: scale(14),
+    marginRight: scale(12),
   },
   iconEmoji: {
-    fontSize: moderateScale(22),
+    fontSize: moderateScale(18),
+  },
+  cardDetails: {
+    flex: 1,
   },
   itemTitle: {
-    fontSize: moderateScale(16),
-    fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: verticalScale(6),
+    fontSize: moderateScale(15),
+    fontWeight: "600",
+    marginBottom: verticalScale(2),
+  },
+  lineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: verticalScale(6),
   },
   categoryBadge: {
     backgroundColor: "#EFECE6",
-    paddingHorizontal: scale(8),
-    paddingVertical: verticalScale(3),
-    borderRadius: scale(8),
+    paddingHorizontal: scale(6),
+    paddingVertical: verticalScale(2),
+    borderRadius: scale(4),
   },
   categoryBadgeText: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(10),
     fontWeight: "600",
-    color: "#6E6B64",
+    color: "#666666",
   },
   paymentBadge: {
-    backgroundColor: "#E2ECE9",
-    paddingHorizontal: scale(8),
-    paddingVertical: verticalScale(3),
-    borderRadius: scale(8),
+    backgroundColor: "#EFECE6",
+    paddingHorizontal: scale(6),
+    paddingVertical: verticalScale(2),
+    borderRadius: scale(4),
   },
   paymentBadgeText: {
-    fontSize: moderateScale(11),
+    fontSize: moderateScale(10),
     fontWeight: "600",
-    color: "#204B4C",
+    color: "#666666",
   },
-  incomeBadgeText: {
-    color: "#1E6B5C",
+  incomeBadge: {
+    backgroundColor: "rgba(35, 201, 96, 0.15)",
   },
   dateText: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(11),
     color: "#8E8E93",
-    fontWeight: "500",
+    marginTop: verticalScale(4),
   },
   amountText: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(15),
     fontWeight: "700",
   },
-  expenseAmount: {
-    color: colors.expenseText,
-  },
   incomeAmount: {
-    color: colors.depositText,
+    color: "#23c960",
   },
-  modalScrollViewContent: {
+  expenseAmount: {
+    color: "#C62828",
+  },
+  emptyContainer: {
+    paddingVertical: verticalScale(40),
     alignItems: "center",
-    paddingBottom: verticalScale(16),
+  },
+  emptyText: {
+    fontSize: moderateScale(14),
+    color: "#8E8E93",
   },
   modalTitle: {
     fontSize: moderateScale(20),
     fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: verticalScale(8),
-    textAlign: "center",
+    marginBottom: verticalScale(4),
   },
   modalAmount: {
-    fontSize: moderateScale(28),
-    fontWeight: "700",
-    color: "#204B4C",
-    marginVertical: verticalScale(12),
-    textAlign: "center",
+    fontSize: moderateScale(24),
+    fontWeight: "800",
+    marginBottom: verticalScale(16),
   },
   modalDetailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    width: "100%",
     paddingVertical: verticalScale(8),
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
   },
   modalDetailLabel: {
-    color: "#8E8E93",
     fontSize: moderateScale(14),
+    color: "#8E8E93",
   },
   modalDetailValue: {
-    fontWeight: "600",
     fontSize: moderateScale(14),
-    color: "#1C1C1E",
-  },
-  inputGroup: {
-    width: "100%",
-    marginTop: verticalScale(12),
-  },
-  inputLabel: {
-    fontSize: moderateScale(12),
     fontWeight: "600",
-    color: "#6E6B64",
-    marginBottom: verticalScale(4),
-  },
-  input: {
-    backgroundColor: "#F4F1EA",
-    borderRadius: scale(12),
-    paddingHorizontal: scale(14),
-    paddingVertical: verticalScale(10),
-    fontSize: moderateScale(16),
-    color: "#1C1C1E",
   },
   modalActions: {
     flexDirection: "row",
     gap: scale(12),
     marginTop: verticalScale(20),
-    paddingBottom: verticalScale(20),
-    width: "100%",
   },
   actionBtn: {
     flex: 1,
     paddingVertical: verticalScale(12),
     borderRadius: scale(12),
     alignItems: "center",
+    justifyContent: "center",
   },
   editBtn: {
-    backgroundColor: "#204B4C",
+    backgroundColor: colors.primaryTeal,
   },
   deleteBtn: {
-    backgroundColor: "#D9534F",
-  },
-  cancelBtn: {
-    backgroundColor: "#EBE6DD",
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: verticalScale(12),
-    borderRadius: scale(12),
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontWeight: "700",
-    fontSize: moderateScale(14),
-  },
-  saveButton: {},
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: moderateScale(14),
+    backgroundColor: "#EF4444",
   },
   btnText: {
     color: "#FFFFFF",
-    fontWeight: "700",
     fontSize: moderateScale(14),
-  },
-  cancelBtnText: {
-    color: "#4A4A4A",
     fontWeight: "700",
+  },
+  inputGroup: {
+    marginTop: verticalScale(12),
+  },
+  inputLabel: {
+    fontSize: moderateScale(12),
+    fontWeight: "600",
+    color: "#8E8E93",
+    marginBottom: verticalScale(6),
+  },
+  input: {
+    borderRadius: scale(10),
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(10),
     fontSize: moderateScale(14),
   },
   categoryContainer: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: scale(10),
-    marginTop: verticalScale(6),
+    gap: scale(8),
   },
   categoryColumn: {
     flex: 1,
-    gap: verticalScale(8),
+    gap: verticalScale(6),
   },
   categoryChip: {
-    backgroundColor: "#EBE6DD",
-    paddingHorizontal: scale(12),
-    paddingVertical: verticalScale(10),
-    borderRadius: scale(12),
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(8),
+    borderRadius: scale(8),
+    backgroundColor: "#EFECE6",
     alignItems: "center",
-    justifyContent: "center",
   },
   categoryChipSelected: {
-    backgroundColor: "#204B4C",
+    backgroundColor: colors.primaryTeal,
   },
   categoryChipText: {
-    fontSize: moderateScale(13),
+    fontSize: moderateScale(12),
     fontWeight: "600",
-    color: "#4A4A4A",
+    color: "#555555",
   },
   categoryChipTextSelected: {
     color: "#FFFFFF",
-  },
-  monthSelectorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: verticalScale(6),
-    marginBottom: verticalScale(16),
-  },
-  monthNavButton: {
-    paddingHorizontal: scale(12),
-    paddingVertical: verticalScale(4),
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: scale(12),
-  },
-  monthNavText: {
-    color: "#FFFFFF",
-    fontSize: moderateScale(20),
-    fontWeight: "bold",
-  },
-  emptyContainer: {
-    paddingVertical: verticalScale(40),
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyText: {
-    fontSize: moderateScale(16),
-    color: "#8E8E93",
-    fontWeight: "500",
   },
 });

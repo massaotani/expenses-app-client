@@ -2202,98 +2202,48 @@ export default function OverviewScreen() {
             </View>
 
             {paymentType === "CARD" && userCards.length > 0 && (
-              <>
+              <View>
                 <Text
                   style={[styles.inputLabel, { color: colors.textSecondary }]}
                 >
                   {t("selectCard", "Select Card")}
                 </Text>
-                <View style={styles.categoryContainer}>
-                  <View style={styles.categoryColumn}>
-                    {userCards
-                      .slice(0, Math.ceil(userCards.length / 2))
-                      .map((card) => (
-                        <TouchableOpacity
-                          key={card.id}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    gap: scale(8),
+                    paddingVertical: verticalScale(4),
+                  }}
+                >
+                  {userCards.map((card) => {
+                    const isCardSelected = selectedCardId === card.id;
+                    return (
+                      <TouchableOpacity
+                        key={card.id}
+                        style={[
+                          styles.categoryChip,
+                          { backgroundColor: colors.iconBoxBg },
+                          isCardSelected && {
+                            backgroundColor: colors.primaryTeal,
+                          },
+                        ]}
+                        onPress={() => setSelectedCardId(card.id)}
+                      >
+                        <Text
                           style={[
-                            styles.categoryChip,
-                            {
-                              backgroundColor: colors.iconBoxBg,
-                              alignItems: "flex-start",
-                            },
-                            selectedCardId === card.id && {
-                              backgroundColor: colors.primaryTeal,
-                            },
+                            styles.categoryChipText,
+                            { color: colors.textPrimary },
+                            isCardSelected && styles.categoryChipTextSelected,
                           ]}
-                          onPress={() => setSelectedCardId(card.id)}
                         >
-                          <Text
-                            style={[
-                              styles.categoryChipText,
-                              { color: colors.textPrimary },
-                              selectedCardId === card.id &&
-                                styles.categoryChipTextSelected,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            💳 {card.name} (
-                            {String(
-                              t(card.cardType.toLowerCase(), {
-                                defaultValue:
-                                  card.cardType === "CREDIT"
-                                    ? "Credit"
-                                    : "Debit",
-                              }),
-                            )}
-                            )
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                  </View>
-
-                  <View style={styles.categoryColumn}>
-                    {userCards
-                      .slice(Math.ceil(userCards.length / 2))
-                      .map((card) => (
-                        <TouchableOpacity
-                          key={card.id}
-                          style={[
-                            styles.categoryChip,
-                            {
-                              backgroundColor: colors.iconBoxBg,
-                              alignItems: "flex-start",
-                            },
-                            selectedCardId === card.id && {
-                              backgroundColor: colors.primaryTeal,
-                            },
-                          ]}
-                          onPress={() => setSelectedCardId(card.id)}
-                        >
-                          <Text
-                            style={[
-                              styles.categoryChipText,
-                              { color: colors.textPrimary },
-                              selectedCardId === card.id &&
-                                styles.categoryChipTextSelected,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            💳 {card.name} (
-                            {String(
-                              t(card.cardType.toLowerCase(), {
-                                defaultValue:
-                                  card.cardType === "CREDIT"
-                                    ? "Credit"
-                                    : "Debit",
-                              }),
-                            )}
-                            )
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                  </View>
-                </View>
-              </>
+                          💳 {card.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
             )}
 
             <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
@@ -2586,7 +2536,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: scale(40),
     height: scale(40),
-    borderRadius: scale(12),
+    borderRadius: scale(20),
     justifyContent: "center",
     alignItems: "center",
     marginRight: scale(12),
