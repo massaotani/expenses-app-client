@@ -2380,7 +2380,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: scale(20),
     paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(28),
+    paddingBottom: verticalScale(15),
   },
   monthText: {
     fontSize: moderateScale(12),

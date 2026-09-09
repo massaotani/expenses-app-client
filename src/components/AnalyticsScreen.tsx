@@ -2072,7 +2072,7 @@ const styles = StyleSheet.create({
   bodyContainer: {
     flex: 1,
     backgroundColor: COLORS.backgroundCream,
-    paddingBottom: verticalScale(40),
+    paddingBottom: verticalScale(20),
     marginTop: verticalScale(-20),
     paddingTop: verticalScale(20),
   },

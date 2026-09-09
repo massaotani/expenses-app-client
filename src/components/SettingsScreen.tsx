@@ -63,6 +63,10 @@ export default function SettingsScreen() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const router = useRouter();
 
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -75,10 +79,10 @@ export default function SettingsScreen() {
   const languageModalRef = useRef<BottomSheetModal>(null);
   const passwordModalRef = useRef<BottomSheetModal>(null);
   const currencyModalRef = useRef<BottomSheetModal>(null);
+  const personalInfoModalRef = useRef<BottomSheetModal>(null);
 
-  const langSnapPoints = useMemo(() => ["60%"], []);
-  const passwordSnapPoints = useMemo(() => ["68%"], []);
-  const currencySnapPoints = useMemo(() => ["60%"], []);
+  const langSnapPoints = useMemo(() => ["70%"], []);
+  const currencySnapPoints = useMemo(() => ["70%"], []);
 
   const { colors, isDark, setDarkMode } = useAppTheme();
 
@@ -123,6 +127,60 @@ export default function SettingsScreen() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenPersonalInfoModal = () => {
+    setProfileName(userProfile?.name || "");
+    setProfileEmail(userProfile?.email || "");
+    personalInfoModalRef.current?.present();
+  };
+
+  const handleSavePersonalInfo = async () => {
+    if (!profileName.trim()) {
+      Alert.alert(
+        t("error", "Error"),
+        t("nameRequired", "Name cannot be empty."),
+      );
+      return;
+    }
+
+    if (!profileEmail.trim() || !profileEmail.includes("@")) {
+      Alert.alert(
+        t("error", "Error"),
+        t("invalidEmail", "Please enter a valid email address."),
+      );
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      await api.patch("/api/v1/users/me", {
+        name: profileName.trim(),
+        email: profileEmail.trim().toLowerCase(),
+      });
+
+      Alert.alert(
+        t("success", "Success"),
+        t("profileUpdated", "Personal info updated successfully."),
+      );
+
+      await fetchUserProfile();
+      personalInfoModalRef.current?.dismiss();
+    } catch (error: any) {
+      if (error?.response?.status === 409) {
+        Alert.alert(
+          t("error", "Error"),
+          t("emailInUse", "This email address is already in use."),
+        );
+      } else {
+        Alert.alert(
+          t("error", "Error"),
+          t("couldNotUpdate", "Could not update personal info."),
+        );
+      }
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -318,7 +376,7 @@ export default function SettingsScreen() {
                 >
                   <TouchableOpacity
                     style={styles.row}
-                    onPress={() => router.push("/personalinfo")}
+                    onPress={handleOpenPersonalInfoModal}
                   >
                     <View
                       style={[
@@ -729,11 +787,92 @@ export default function SettingsScreen() {
         </BottomSheetScrollView>
       </BottomSheetModal>
 
+      <BottomSheetModal
+        ref={personalInfoModalRef}
+        backdropComponent={renderBackdrop}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        backgroundStyle={{ backgroundColor: colors.cardBackground }}
+        handleIndicatorStyle={{ backgroundColor: colors.textSecondary }}
+      >
+        <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
+          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+            {t("personalInfo", "Personal Info")}
+          </Text>
+
+          <View style={{ marginVertical: verticalScale(12) }}>
+            {/* NAME INPUT */}
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("currentName", "Full Name")}
+            </Text>
+            <View
+              style={[
+                styles.passwordContainer,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  borderColor: colors.divider,
+                },
+              ]}
+            >
+              <BottomSheetTextInput
+                style={[styles.passwordInput, { color: colors.textPrimary }]}
+                value={profileName}
+                onChangeText={setProfileName}
+                placeholder={t("fullNamePlaceholder", "Enter full name")}
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+
+            {/* EMAIL INPUT */}
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+              {t("currentMail", "Email Address")}
+            </Text>
+            <View
+              style={[
+                styles.passwordContainer,
+                {
+                  backgroundColor: colors.iconBoxBg,
+                  borderColor: colors.divider,
+                },
+              ]}
+            >
+              <BottomSheetTextInput
+                style={[styles.passwordInput, { color: colors.textPrimary }]}
+                value={profileEmail}
+                onChangeText={setProfileEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder={t("emailPlaceholder", "Enter email address")}
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              { backgroundColor: colors.primaryTeal },
+            ]}
+            onPress={handleSavePersonalInfo}
+            disabled={isSavingProfile}
+          >
+            {isSavingProfile ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryButtonText}>
+                {t("save", "Save Changes")}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
+
       {/* CHANGE PASSWORD BOTTOM SHEET MODAL */}
       <BottomSheetModal
         ref={passwordModalRef}
-        snapPoints={passwordSnapPoints}
         backdropComponent={renderBackdrop}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
         backgroundStyle={{ backgroundColor: colors.cardBackground }}
         handleIndicatorStyle={{ backgroundColor: colors.textSecondary }}
       >
@@ -953,8 +1092,8 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     paddingHorizontal: scale(20),
-    paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(80),
+    paddingTop: verticalScale(2),
+    paddingBottom: verticalScale(60),
     borderTopLeftRadius: scale(24),
     borderTopRightRadius: scale(24),
     minHeight: verticalScale(600),

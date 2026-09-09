@@ -1228,7 +1228,7 @@ export default function TransactionsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: 24,
+            paddingBottom: 50,
           }}
         >
           {selectedTransaction && (
