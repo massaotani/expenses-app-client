@@ -4,6 +4,7 @@ import api from "@/services/api";
 import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { parseFlexibleNumber } from "@/utils/storage";
+import { Ionicons } from "@expo/vector-icons";
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -69,7 +70,6 @@ interface Transaction {
   category: string;
   rawDate: Date;
   type: "INCOME" | "EXPENSE";
-  icon: string;
   paymentMethod?: string;
 }
 
@@ -340,38 +340,33 @@ const formatWithCapitalMonth = (
   }
 };
 
-const getCategoryIcon = (
-  category: string,
-  type: "INCOME" | "EXPENSE",
-): string => {
-  if (type === "INCOME") return "💰";
-
-  const cat = (category || "").toLowerCase().trim();
-
-  switch (cat) {
+function getCategoryIcon(cat: string, color: string, size = 20) {
+  switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
     case "food":
-      return "🛒";
+      return <Ionicons name="cart" size={size} color={color} />;
     case "housing":
-      return "🏠";
+      return <Ionicons name="home" size={size} color={color} />;
     case "transportation":
-      return "🚗";
+      return <Ionicons name="car" size={size} color={color} />;
     case "entertainment":
-      return "🎬";
-    case "fixed_expenses":
+      return <Ionicons name="film" size={size} color={color} />;
     case "fixed expenses":
-      return "📌";
+      return <Ionicons name="receipt" size={size} color={color} />;
     case "healthcare":
-      return "🩺";
+      return <Ionicons name="medkit" size={size} color={color} />;
     case "clothing":
-      return "👕";
+      return <Ionicons name="shirt" size={size} color={color} />;
     case "pet":
-      return "🐾";
+      return <Ionicons name="paw" size={size} color={color} />;
     case "travel":
-      return "✈️";
+      return <Ionicons name="airplane" size={size} color={color} />;
+    case "deposit":
+    case "income":
+      return <Ionicons name="wallet" size={size} color={color} />;
     default:
-      return "💳";
+      return <Ionicons name="card" size={size} color={color} />;
   }
-};
+}
 
 const parseRawDate = (dateString: string): Date => {
   if (!dateString) return new Date();
@@ -516,7 +511,6 @@ export default function TransactionsScreen() {
         category: item.category || "General",
         rawDate: parseRawDate(item.dueDate || item.paidAt || item.date || ""),
         type: "EXPENSE",
-        icon: getCategoryIcon(item.category || "General", "EXPENSE"),
         paymentMethod: resolvePaymentMethod(
           item,
           cardsRes.status === "fulfilled" ? cardsRes.value.data : [],
@@ -534,7 +528,6 @@ export default function TransactionsScreen() {
           category: item.category || "Income",
           rawDate: parseRawDate(item.createdAt || item.date || ""),
           type: "INCOME" as const,
-          icon: getCategoryIcon(item.category || "Income", "INCOME"),
         }))
         .filter(
           (item) =>
@@ -871,10 +864,6 @@ export default function TransactionsScreen() {
                 title: editDescription,
                 amount: parsedAmount,
                 category: isIncome ? item.category : editCategory,
-                icon: getCategoryIcon(
-                  isIncome ? item.category : editCategory,
-                  item.type,
-                ),
                 paymentMethod: isIncome ? undefined : finalPaymentMethod,
               }
             : item,
@@ -1143,7 +1132,7 @@ export default function TransactionsScreen() {
                       { backgroundColor: appColors.iconBoxBg },
                     ]}
                   >
-                    <Text style={styles.iconEmoji}>{item.icon}</Text>
+                    {getCategoryIcon(item.category, appColors.textPrimary, 20)}
                   </View>
 
                   <View style={styles.cardDetails}>

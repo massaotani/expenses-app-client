@@ -232,6 +232,9 @@ export const resources = {
       methodBreakdown: "Payment Overview",
       categoryDistribution: "Category Analysis",
       noCategoryData: "No category expense records found.",
+      creditVsDebit: "Credit vs. Debit Breakdown",
+      creditExpenses: "Credit Cards",
+      debitExpenses: "Debit Cards",
     },
   },
   pt: {
@@ -470,6 +473,9 @@ export const resources = {
       methodBreakdown: "Visão Geral de Pagamentos",
       categoryDistribution: "Análise de Categorias",
       noCategoryData: "Nenhum registro de despesa por categoria encontrado.",
+      creditVsDebit: "Detalhamento Crédito vs. Débito",
+      creditExpenses: "Cartões de Crédito",
+      debitExpenses: "Cartões de Débito",
     },
   },
   es: {
@@ -709,6 +715,9 @@ export const resources = {
       methodBreakdown: "Resumen de Pagos",
       categoryDistribution: "Análisis por Categoría",
       noCategoryData: "No se encontraron registros de gastos por categoría.",
+      creditVsDebit: "Desglose Crédito vs. Débito",
+      creditExpenses: "Tarjetas de Crédito",
+      debitExpenses: "Tarjetas de Débito",
     },
   },
   ja: {
@@ -944,6 +953,9 @@ export const resources = {
       methodBreakdown: "支払い概要",
       categoryDistribution: "カテゴリ分析",
       noCategoryData: "カテゴリ別の支出記録が見つかりません。",
+      creditVsDebit: "クレジット vs デビットの内訳",
+      creditExpenses: "クレジットカード",
+      debitExpenses: "デビットカード",
     },
   },
   ko: {
@@ -1178,6 +1190,9 @@ export const resources = {
       methodBreakdown: "결제 개요",
       categoryDistribution: "카테고리 분석",
       noCategoryData: "카테고리별 지출 내역이 없습니다.",
+      creditVsDebit: "신용 vs 체크 내역",
+      creditExpenses: "신용카드",
+      debitExpenses: "체크카드",
     },
   },
   zh: {
@@ -1406,6 +1421,9 @@ export const resources = {
       methodBreakdown: "支付概览",
       categoryDistribution: "分类分析",
       noCategoryData: "未找到分类支出记录。",
+      creditVsDebit: "信用卡 vs 借记卡明细",
+      creditExpenses: "信用卡",
+      debitExpenses: "借记卡",
     },
   },
   fr: {
@@ -1645,6 +1663,9 @@ export const resources = {
       methodBreakdown: "Aperçu des paiements",
       categoryDistribution: "Analyse par catégorie",
       noCategoryData: "Aucun enregistrement de dépense par catégorie trouvé.",
+      creditVsDebit: "Répartition Crédit vs. Débit",
+      creditExpenses: "Cartes de crédit",
+      debitExpenses: "Cartes de débit",
     },
   },
 };

@@ -8,14 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   PanResponder,
-  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "../constants/theme";
@@ -247,7 +246,6 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(22),
     fontWeight: "bold",
     color: "#FFFFFF",
-    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
   },
   bodyContainer: {
     flex: 1,

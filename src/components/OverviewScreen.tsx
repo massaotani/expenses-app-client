@@ -106,29 +106,30 @@ const toLocalISOString = (date: Date): string => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
-function getCategoryEmoji(cat: string) {
-  switch (cat?.toLowerCase()) {
+function getCategoryIcon(cat: string, color: string, size = 20) {
+  switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
     case "food":
-      return "🛒";
+      return <Ionicons name="cart" size={size} color={color} />;
     case "housing":
-      return "🏠";
+      return <Ionicons name="home" size={size} color={color} />;
     case "transportation":
-      return "🚗";
+      return <Ionicons name="car" size={size} color={color} />;
     case "entertainment":
-      return "🎬";
-    case "fixed_expenses":
+      return <Ionicons name="film" size={size} color={color} />;
     case "fixed expenses":
-      return "📌";
+      return <Ionicons name="receipt" size={size} color={color} />;
     case "healthcare":
-      return "🩺";
+      return <Ionicons name="medkit" size={size} color={color} />;
     case "clothing":
-      return "👕";
+      return <Ionicons name="shirt" size={size} color={color} />;
     case "pet":
-      return "🐾";
+      return <Ionicons name="paw" size={size} color={color} />;
     case "travel":
-      return "✈️";
+      return <Ionicons name="airplane" size={size} color={color} />;
+    case "deposit":
+      return <Ionicons name="wallet" size={size} color={color} />;
     default:
-      return "💳";
+      return <Ionicons name="card" size={size} color={color} />;
   }
 }
 
@@ -410,7 +411,6 @@ export default function OverviewScreen() {
             })
           : t("today", "Today"),
         amount: parseAmount(item.value ?? (item as any).amount),
-        emoji: getCategoryEmoji(item.category),
       };
     });
 
@@ -704,7 +704,6 @@ export default function OverviewScreen() {
             })
           : t("today", "Today"),
         amount: parseAmount(item.value ?? (item as any).amount),
-        emoji: getCategoryEmoji(item.category),
       };
     });
 
@@ -1381,7 +1380,7 @@ export default function OverviewScreen() {
                     { backgroundColor: colors.iconBoxBg },
                   ]}
                 >
-                  <Text style={styles.emojiText}>{tx.emoji}</Text>
+                  {getCategoryIcon(tx.category, colors.textPrimary, 20)}
                 </View>
 
                 <View style={styles.transactionMeta}>

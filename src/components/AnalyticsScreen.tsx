@@ -273,7 +273,6 @@ export default function AnalyticsScreen() {
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(2);
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["77%"], []);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
 
   const handleOpenModal = useCallback((type: ModalType) => {
@@ -403,6 +402,8 @@ export default function AnalyticsScreen() {
   const expenseColor = isDark ? COLORS.expenseRed : COLORS.expenseOrange;
   const cardColor = isDark ? CARD_COLOR_DARK : CARD_COLOR_LIGHT;
   const cashColor = isDark ? CASH_COLOR_DARK : CASH_COLOR_LIGHT;
+
+  const snapPoints = useMemo(() => ["77%"], []);
 
   const calculated6Months = useMemo(() => {
     const months = [];
@@ -727,6 +728,54 @@ export default function AnalyticsScreen() {
 
     return { cardsList, unassignedCardSpending, totalCardSpent };
   }, [expenses, userCards, paymentTypeBreakdown.card, selectedMonth]);
+
+  const creditVsDebitBreakdown = useMemo(() => {
+    const targetMonth = selectedMonth.monthIndex;
+    const targetYear = selectedMonth.year;
+
+    let creditTotal = 0;
+    let debitTotal = 0;
+
+    expenses.forEach((exp) => {
+      const rawDate =
+        exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
+      const d = new Date(rawDate);
+
+      const isTargetMonth =
+        !isNaN(d.getTime()) &&
+        d.getMonth() === targetMonth &&
+        d.getFullYear() === targetYear;
+
+      if (!isTargetMonth || exp.paymentType?.toUpperCase() === "CASH") return;
+
+      const val = parseAmount(exp.value ?? exp.amount);
+      const targetCardId =
+        exp.cardId ||
+        (typeof exp.card === "object" ? exp.card?.id : null) ||
+        userCards.find(
+          (c) =>
+            c.id === exp.paymentMethod ||
+            c.name.toLowerCase() === exp.paymentMethod?.toLowerCase(),
+        )?.id;
+
+      const matchedCard = userCards.find((c) => c.id === targetCardId);
+      if (matchedCard) {
+        if (matchedCard.cardType?.toUpperCase() === "CREDIT") {
+          creditTotal += val;
+        } else if (matchedCard.cardType?.toUpperCase() === "DEBIT") {
+          debitTotal += val;
+        }
+      }
+    });
+
+    const cardTotal = paymentTypeBreakdown.card || 1;
+    return {
+      creditTotal,
+      debitTotal,
+      creditPct: Math.round((creditTotal / cardTotal) * 100),
+      debitPct: Math.round((debitTotal / cardTotal) * 100),
+    };
+  }, [expenses, userCards, selectedMonth, paymentTypeBreakdown.card]);
 
   if (loading && !refreshing) {
     return (
@@ -1611,7 +1660,7 @@ export default function AnalyticsScreen() {
                   {t("monthlySavingsHistory", "6-Month Savings History") ||
                     "6-Month Savings History"}
                 </Text>
-                {monthlyData.map((m) => (
+                {[...last6MonthsData].reverse().map((m) => (
                   <View key={`${m.month}-${m.year}`} style={styles.detailRow}>
                     <Text
                       style={[
@@ -1816,6 +1865,67 @@ export default function AnalyticsScreen() {
                   </Text>
                 </View>
 
+                <View style={{ marginTop: verticalScale(16) }}>
+                  <Text
+                    style={[
+                      styles.sectionHeading,
+                      {
+                        color: colors.textPrimary,
+                        marginBottom: verticalScale(8),
+                      },
+                    ]}
+                  >
+                    {t("creditVsDebit", "Credit vs. Debit Breakdown") ||
+                      "Credit vs. Debit Breakdown"}
+                  </Text>
+
+                  <View style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailRowLabel,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      💳 {t("creditExpenses", "Credit Cards") || "Credit Cards"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.detailRowValue,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {formatCurrency(
+                        creditVsDebitBreakdown.creditTotal,
+                        currency,
+                      )}{" "}
+                      ({creditVsDebitBreakdown.creditPct}%)
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailRowLabel,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      💳 {t("debitExpenses", "Debit Cards") || "Debit Cards"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.detailRowValue,
+                        { color: colors.textPrimary },
+                      ]}
+                    >
+                      {formatCurrency(
+                        creditVsDebitBreakdown.debitTotal,
+                        currency,
+                      )}{" "}
+                      ({creditVsDebitBreakdown.debitPct}%)
+                    </Text>
+                  </View>
+                </View>
+
                 {cardUsageBreakdown.cardsList.length > 0 && (
                   <View style={{ marginTop: verticalScale(16) }}>
                     <Text
@@ -1980,7 +2090,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.tealDark,
     paddingHorizontal: scale(20),
     paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(20),
+    paddingBottom: verticalScale(15),
     borderBottomLeftRadius: scale(32),
     borderBottomRightRadius: scale(32),
     zIndex: 10,
