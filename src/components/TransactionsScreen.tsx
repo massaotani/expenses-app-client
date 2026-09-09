@@ -1876,11 +1876,13 @@ const styles = StyleSheet.create({
   },
   cardDetails: {
     flex: 1,
+    flexShrink: 1,
   },
   itemTitle: {
     fontSize: moderateScale(15),
     fontWeight: "600",
     marginBottom: verticalScale(2),
+    flexShrink: 1,
   },
   lineRow: {
     flexDirection: "row",

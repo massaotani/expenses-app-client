@@ -14,9 +14,9 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#204B4C",
-        "foregroundImage": "./assets/images/ledger-icon.png"
+        "foregroundImage": "./assets/images/ledger-icon.png",
+        "usesCleartextTraffic": true,
       },
-      "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "package": "com.massaotani.ledgerapp"
