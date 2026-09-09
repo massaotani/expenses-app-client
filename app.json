@@ -14,8 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#204B4C",
-        "foregroundImage": "./assets/images/ledger-icon.png",
-        "usesCleartextTraffic": true,
+        "foregroundImage": "./assets/images/ledger-icon.png"
       },
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
@@ -43,6 +42,14 @@
         "@react-native-google-signin/google-signin",
         {
           "iosUrlScheme": "com.googleusercontent.apps.1081635959519-e3g6vbna6eb51mc6idutgtuaj3hfalln"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],
