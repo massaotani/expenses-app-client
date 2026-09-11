@@ -148,6 +148,9 @@ const FilterListHeader = memo(
                       isDark && { color: appColors.textSecondary },
                       isActive && styles.filterChipTextActive,
                     ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    maxFontSizeMultiplier={1.3}
                   >
                     {icon} {translatePaymentMethod(cardStr)}
                   </Text>
@@ -1124,6 +1127,9 @@ export default function TransactionsScreen() {
                             styles.paymentBadgeText,
                             isDark && { color: appColors.textPrimary },
                           ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          maxFontSizeMultiplier={1.3}
                         >
                           {isIncome
                             ? `💰 ${t("income_transaction", "Deposit") || "Deposit"}`
@@ -1224,6 +1230,9 @@ export default function TransactionsScreen() {
                           styles.modalDetailValue,
                           { color: appColors.textPrimary },
                         ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        maxFontSizeMultiplier={1.3}
                       >
                         {getPaymentIcon(
                           selectedTransaction.paymentMethod || "Cash",

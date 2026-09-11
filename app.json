@@ -4,17 +4,17 @@
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/ledger-icon.png",
+    "icon": "./assets/images/logos/LedgerApp_Logo_Dark.png",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/ledger-icon.png",
+      "icon": "./assets/images/logos/LedgerApp_Logo_Dark.png",
       "bundleIdentifier": "com.massaotani.ledgerapp"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#204B4C",
-        "foregroundImage": "./assets/images/ledger-icon.png"
+        "foregroundImage": "./assets/images/logos/LedgerApp_Logo_Dark.png"
       },
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
@@ -22,7 +22,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/ledger-icon.png"
+      "favicon": "./assets/images/logos/LedgerApp_Logo_Light.png"
     },
     "plugins": [
       "expo-router",
@@ -49,6 +49,17 @@
         {
           "android": {
             "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-dynamic-app-icon",
+        {
+          "light": {
+            "image": "./assets/images/logos/LedgerApp_Logo_Light.png"
+          },
+          "dark": {
+            "image": "./assets/images/logos/LedgerApp_Logo_Dark.png"
           }
         }
       ]

@@ -8,9 +8,15 @@ import api, { setOnTokenRefreshed, setOnUnauthenticated } from "@/services/api";
 import { initLanguage } from "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { getAppIcon, setAppIcon } from "expo-dynamic-app-icon";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { createContext, useContext, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  useColorScheme,
+  View,
+} from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 type AuthContextType = {
@@ -74,6 +80,22 @@ function InitialLayout() {
 export default function RootLayout() {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    try {
+      const targetIcon = colorScheme === "dark" ? "dark" : "light";
+      if (getAppIcon && getAppIcon() !== targetIcon) {
+        setAppIcon(targetIcon);
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.warn(
+          "Dynamic app icons are not supported in Expo Go or this build.",
+        );
+      }
+    }
+  }, [colorScheme]);
 
   const signOut = async () => {
     delete api.defaults.headers.common["Authorization"];
