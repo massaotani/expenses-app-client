@@ -8,7 +8,7 @@ import api, { setOnTokenRefreshed, setOnUnauthenticated } from "@/services/api";
 import { initLanguage } from "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { getAppIcon, setAppIcon } from "expo-dynamic-app-icon";
+// import { getAppIcon, setAppIcon } from "expo-dynamic-app-icon";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { createContext, useContext, useEffect, useState } from "react";
 import {
@@ -82,20 +82,20 @@ export default function RootLayout() {
   const [token, setToken] = useState<string | null>(null);
   const colorScheme = useColorScheme();
 
-  useEffect(() => {
-    try {
-      const targetIcon = colorScheme === "dark" ? "dark" : "light";
-      if (getAppIcon && getAppIcon() !== targetIcon) {
-        setAppIcon(targetIcon);
-      }
-    } catch (error) {
-      if (__DEV__) {
-        console.warn(
-          "Dynamic app icons are not supported in Expo Go or this build.",
-        );
-      }
-    }
-  }, [colorScheme]);
+  // useEffect(() => {
+  //   try {
+  //     const targetIcon = colorScheme === "dark" ? "dark" : "light";
+  //     if (getAppIcon && getAppIcon() !== targetIcon) {
+  //       setAppIcon(targetIcon);
+  //     }
+  //   } catch (error) {
+  //     if (__DEV__) {
+  //       console.warn(
+  //         "Dynamic app icons are not supported in Expo Go or this build.",
+  //       );
+  //     }
+  //   }
+  // }, [colorScheme]);
 
   const signOut = async () => {
     delete api.defaults.headers.common["Authorization"];
