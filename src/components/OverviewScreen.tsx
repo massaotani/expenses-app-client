@@ -1,6 +1,18 @@
 import {
+  MonthlyBalance,
+  SpringBootExpense,
+  SpringBootIncome,
+  UserCard,
+  UserProfile,
+} from "@/types/overview";
+import {
   formatCurrency,
+  formatSystemDate,
+  formatWithCapitalMonth,
   getCurrencyDecimalSeparator,
+  parseAmount,
+  parseLocalDateTime,
+  toLocalISOString,
 } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { parseFlexibleNumber } from "@/utils/storage";
@@ -30,57 +42,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { LineChart } from "react-native-gifted-charts";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../app/_layout";
-import { useAppTheme } from "../constants/theme";
+import { getCategoryColor, useAppTheme } from "../constants/theme";
 import { useCurrency } from "../context/CurrencyContext";
 import api from "../services/api";
-
-export interface SpringBootExpense {
-  id?: string;
-  description: string;
-  value: number;
-  category: string;
-  dueDate: string;
-  isPaid: boolean;
-  paidAt?: string | null;
-  paymentType: "CASH" | "CARD";
-  recurrencePeriod: "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
-  cardId?: string | null;
-}
-
-export interface UserProfile {
-  id: string;
-  name: string;
-  monthlyIncome: number;
-  investmentPot: number;
-  monthlyExpenses: number;
-  currency?: string;
-}
-
-export interface SpringBootIncome {
-  id: string;
-  description: string;
-  value?: number;
-  amount?: number;
-  createdAt: string;
-}
-
-export interface UserCard {
-  id: string;
-  name: string;
-  cardType: "CREDIT" | "DEBIT";
-}
-
-export interface MonthlyBalance {
-  id?: string;
-  year: number;
-  month: number;
-  income: number;
-  totalExpenses: number;
-  savings: number;
-}
 
 const CATEGORIES = [
   "Food",
@@ -94,17 +62,6 @@ const CATEGORIES = [
   "Travel",
   "Others",
 ];
-
-const toLocalISOString = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-};
 
 function getCategoryIcon(cat: string, color: string, size = 20) {
   switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
@@ -131,78 +88,6 @@ function getCategoryIcon(cat: string, color: string, size = 20) {
     default:
       return <Ionicons name="card" size={size} color={color} />;
   }
-}
-
-function getCategoryColor(cat: string, isDark: boolean = false): string {
-  switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
-    case "housing":
-      return isDark ? "#ff595e" : "#ff6600";
-    case "food":
-      return isDark ? "#ff924c" : "#ff9900";
-    case "fixed expenses":
-      return isDark ? "#A78BFA" : "#6D28D9";
-    case "transportation":
-    case "transport":
-      return isDark ? "#8ac926" : "#669900";
-    case "entertainment":
-      return isDark ? "#c5ca30" : "#99cc33";
-    case "healthcare":
-    case "health":
-      return isDark ? "#ffca3a" : "#ffcc00";
-    case "clothing":
-      return isDark ? "#36949d" : "#006699";
-    case "pet":
-      return isDark ? "#1982c4" : "#3399cc";
-    case "travel":
-      return isDark ? "#6a4c93" : "#990066";
-    default:
-      return isDark ? "#565aa0" : "#cc3399";
-  }
-}
-
-function parseAmount(value: string | number | undefined | null): number {
-  if (typeof value === "number") return value;
-  if (!value) return 0;
-
-  const cleaned = String(value).replace(/[^0-9.-]+/g, "");
-  const parsed = parseFloat(cleaned);
-
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-function parseLocalDateTime(dateInput: string | Date | undefined | null): Date {
-  if (!dateInput) return new Date();
-  if (dateInput instanceof Date) return dateInput;
-
-  const str = String(dateInput);
-  const [datePart, timePart] = str.split("T");
-  const dateParts = datePart.split("-").map(Number);
-
-  if (dateParts.length === 3 && !dateParts.some(isNaN)) {
-    let hours = 0,
-      minutes = 0,
-      seconds = 0;
-
-    if (timePart) {
-      const cleanTime = timePart.split(".")[0].replace("Z", "");
-      const timeParts = cleanTime.split(":").map(Number);
-      hours = timeParts[0] || 0;
-      minutes = timeParts[1] || 0;
-      seconds = timeParts[2] || 0;
-    }
-
-    return new Date(
-      dateParts[0],
-      dateParts[1] - 1,
-      dateParts[2],
-      hours,
-      minutes,
-      seconds,
-    );
-  }
-
-  const parsed = new Date(dateInput);
-  return !isNaN(parsed.getTime()) ? parsed : new Date();
 }
 
 export default function OverviewScreen() {
@@ -268,42 +153,20 @@ export default function OverviewScreen() {
     { value: number; label: string }[]
   >([]);
 
-  const formatWithCapitalMonth = (
-    date: Date,
-    locale: string,
-    options: Intl.DateTimeFormatOptions,
-  ): string => {
-    const safeLocale = (locale || "en").replace("_", "-");
+  useFocusEffect(
+    useCallback(() => {
+      setCurrentLang(i18n.language);
+      let isMounted = true;
 
-    try {
-      const formatted = new Intl.DateTimeFormat(safeLocale, options).format(
-        date,
-      );
-      const lowercasePrepositions = new Set([
-        "de",
-        "del",
-        "e",
-        "y",
-        "do",
-        "da",
-        "dos",
-        "das",
-      ]);
+      if (token) {
+        fetchAllData(isMounted);
+      }
 
-      return formatted
-        .split(" ")
-        .map((word) => {
-          const cleanLower = word.toLowerCase();
-          if (lowercasePrepositions.has(cleanLower)) {
-            return cleanLower;
-          }
-          return word.charAt(0).toUpperCase() + word.slice(1);
-        })
-        .join(" ");
-    } catch {
-      return date.toLocaleDateString();
-    }
-  };
+      return () => {
+        isMounted = false;
+      };
+    }, [token, i18n.language]),
+  );
 
   const processMonthlyTrend = useCallback(
     (expenses: SpringBootExpense[]) => {
@@ -474,21 +337,6 @@ export default function OverviewScreen() {
     processMonthlyTrend,
   ]);
 
-  useFocusEffect(
-    useCallback(() => {
-      setCurrentLang(i18n.language);
-      let isMounted = true;
-
-      if (token) {
-        fetchAllData(isMounted);
-      }
-
-      return () => {
-        isMounted = false;
-      };
-    }, [token, i18n.language]),
-  );
-
   const expensesSheetRef = useRef<BottomSheetModal>(null);
   const incomeSheetRef = useRef<BottomSheetModal>(null);
   const cardSheetRef = useRef<BottomSheetModal>(null);
@@ -525,22 +373,6 @@ export default function OverviewScreen() {
     if (!cat) return "";
     const key = cat.toLowerCase().trim().replace(/\s+/g, "_");
     return t(key, { defaultValue: cat.replace(/_/g, " ") });
-  };
-
-  const formatSystemDate = (date: Date) => {
-    try {
-      return new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(date);
-    } catch {
-      // Fallback if Intl is unsupported on an older environment
-      const day = String(date.getDate()).padStart(2, "0");
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    }
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -2207,8 +2039,9 @@ export default function OverviewScreen() {
                 >
                   {t("selectCard", "Select Card")}
                 </Text>
-                <ScrollView
+                <GestureHandlerScrollView
                   horizontal
+                  nestedScrollEnabled
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{
                     gap: scale(8),
@@ -2222,6 +2055,7 @@ export default function OverviewScreen() {
                         key={card.id}
                         style={[
                           styles.categoryChip,
+                          styles.equalCardChip,
                           { backgroundColor: colors.iconBoxBg },
                           isCardSelected && {
                             backgroundColor: colors.primaryTeal,
@@ -2235,13 +2069,15 @@ export default function OverviewScreen() {
                             { color: colors.textPrimary },
                             isCardSelected && styles.categoryChipTextSelected,
                           ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
                         >
                           💳 {card.name}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
-                </ScrollView>
+                </GestureHandlerScrollView>
               </View>
             )}
 
@@ -2654,6 +2490,11 @@ const styles = StyleSheet.create({
   categoryColumn: {
     flex: 1,
     gap: verticalScale(8),
+  },
+  equalCardChip: {
+    width: scale(110),
+    alignItems: "center",
+    justifyContent: "center",
   },
   categoryChip: {
     paddingHorizontal: scale(12),

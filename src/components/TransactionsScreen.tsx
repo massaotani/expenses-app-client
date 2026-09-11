@@ -1,6 +1,14 @@
 import { colors, useAppTheme } from "@/constants/theme";
 import { useCurrency } from "@/context/CurrencyContext";
 import api from "@/services/api";
+import {
+  ExpenseItem,
+  FilterListHeaderProps,
+  IncomeItem,
+  Transaction,
+  UserCard,
+  UserProfile,
+} from "@/types/overview";
 import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { parseFlexibleNumber } from "@/utils/storage";
@@ -30,68 +38,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { ScrollView as GestureHandlerScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-interface ExpenseItem {
-  id: string;
-  description?: string;
-  title?: string;
-  value?: number | string;
-  amount?: number | string;
-  category: string;
-  dueDate?: string;
-  paidAt?: string;
-  date?: string;
-  paymentType?: any;
-  paymentMethod?: any;
-  card?: any;
-}
-
-interface IncomeItem {
-  id: string;
-  description?: string;
-  title?: string;
-  source?: string;
-  value?: number | string;
-  amount?: number | string;
-  category?: string;
-  createdAt?: string;
-  date?: string;
-}
-
-interface UserProfile {
-  monthlyIncome?: number | string;
-}
-
-interface Transaction {
-  id: string;
-  title: string;
-  amount: number;
-  category: string;
-  rawDate: Date;
-  type: "INCOME" | "EXPENSE";
-  paymentMethod?: string;
-}
-
-interface UserCard {
-  id: string;
-  name: string;
-  cardType: "CREDIT" | "DEBIT" | string;
-}
-
-interface FilterListHeaderProps {
-  filterCategories: string[];
-  filterCards: string[];
-  selectedFilter: string;
-  selectedCardFilter: string;
-  setSelectedFilter: (value: string) => void;
-  setSelectedCardFilter: (value: string) => void;
-  isDark: boolean;
-  appColors: any;
-  getFilterLabel: (filter: string) => string;
-  translatePaymentMethod: (method: string) => string;
-  getPaymentIcon: (method?: string) => string;
-}
 
 const FilterListHeader = memo(
   ({
@@ -425,7 +373,6 @@ export default function TransactionsScreen() {
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const editSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["75%"], []);
 
   useFocusEffect(
     useCallback(() => {
@@ -714,7 +661,7 @@ export default function TransactionsScreen() {
         return t("card", { defaultValue: "Card" }) || "Card";
       }
 
-      return t(normalized, { defaultValue: method }) || method;
+      return method;
     },
     [t],
   );
@@ -1209,7 +1156,6 @@ export default function TransactionsScreen() {
 
       <BottomSheetModal
         ref={editSheetRef}
-        snapPoints={snapPoints}
         enableDynamicSizing
         enablePanDownToClose
         keyboardBehavior="interactive"
@@ -1666,8 +1612,9 @@ export default function TransactionsScreen() {
                           >
                             {t("selectCard", "Select Card") || "Select Card"}
                           </Text>
-                          <ScrollView
+                          <GestureHandlerScrollView
                             horizontal
+                            nestedScrollEnabled
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={{
                               gap: scale(8),
@@ -1681,6 +1628,7 @@ export default function TransactionsScreen() {
                                   key={card.id}
                                   style={[
                                     styles.categoryChip,
+                                    styles.equalCardChip,
                                     isDark && {
                                       backgroundColor: appColors.iconBoxBg,
                                     },
@@ -1702,13 +1650,16 @@ export default function TransactionsScreen() {
                                       isCardSelected &&
                                         styles.categoryChipTextSelected,
                                     ]}
+                                    numberOfLines={1}
+                                    ellipsizeMode="tail"
+                                    maxFontSizeMultiplier={1.3}
                                   >
                                     💳 {card.name}
                                   </Text>
                                 </TouchableOpacity>
                               );
                             })}
-                          </ScrollView>
+                          </GestureHandlerScrollView>
                         </View>
                       )}
                     </>
@@ -2007,6 +1958,11 @@ const styles = StyleSheet.create({
   categoryColumn: {
     flex: 1,
     gap: verticalScale(6),
+  },
+  equalCardChip: {
+    minWidth: scale(110),
+    alignItems: "center",
+    justifyContent: "center",
   },
   categoryChip: {
     paddingHorizontal: scale(10),

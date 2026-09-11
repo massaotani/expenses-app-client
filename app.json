@@ -62,6 +62,12 @@
         "projectId": "93516eb6-43b9-455b-b9a8-eccc0b429a77"
       }
     },
-    "owner": "ledgerapp"
+    "owner": "ledgerapp",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/93516eb6-43b9-455b-b9a8-eccc0b429a77"
+    }
   }
 }

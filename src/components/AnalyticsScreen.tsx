@@ -1,6 +1,12 @@
 import { useAppTheme } from "@/constants/theme";
 import { useCurrency } from "@/context/CurrencyContext";
 import api from "@/services/api";
+import {
+  ExpenseItem,
+  IncomeItem,
+  UserCard,
+  UserProfile,
+} from "@/types/overview";
 import { formatCurrency } from "@/utils/formatters";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import {
@@ -64,41 +70,6 @@ type ModalType =
   | "CATEGORY_SPENDING"
   | "NET_SAVINGS"
   | null;
-
-interface UserCard {
-  id: string;
-  name: string;
-  cardType: "CREDIT" | "DEBIT" | string;
-}
-
-interface ExpenseItem {
-  id: string;
-  description?: string;
-  value?: number | string;
-  amount?: number | string;
-  category: string;
-  paymentType?: "CASH" | "CARD" | string;
-  paymentMethod?: string;
-  cardId?: string | null;
-  card?: { id: string; name: string } | string;
-  dueDate?: string;
-  paidAt?: string;
-  date?: string;
-  createdAt?: string;
-}
-
-interface IncomeItem {
-  id: string;
-  description?: string;
-  value?: number | string;
-  amount?: number | string;
-  createdAt?: string;
-  date?: string;
-}
-
-interface UserProfile {
-  monthlyIncome?: number | string;
-}
 
 const parseAmount = (val: any): number => {
   if (typeof val === "number") return isNaN(val) ? 0 : val;
@@ -460,8 +431,7 @@ export default function AnalyticsScreen() {
       const monthIncome = baseMonthlyIncome + registeredIncome;
 
       expenses.forEach((exp) => {
-        const rawDate =
-          exp.dueDate || exp.paidAt || exp.date || exp.createdAt || "";
+        const rawDate = exp.dueDate || exp.paidAt || exp.date || "";
         const d = new Date(rawDate);
 
         if (
@@ -535,8 +505,7 @@ export default function AnalyticsScreen() {
       const monthIncome = baseMonthlyIncome + registeredIncome;
 
       expenses.forEach((exp) => {
-        const rawDate =
-          exp.dueDate || exp.paidAt || exp.date || exp.createdAt || "";
+        const rawDate = exp.dueDate || exp.paidAt || exp.date || "";
         const expDate = new Date(rawDate);
         if (
           !isNaN(expDate.getTime()) &&
@@ -602,8 +571,7 @@ export default function AnalyticsScreen() {
     const totals: Record<string, number> = {};
 
     expenses.forEach((exp) => {
-      const rawDate =
-        exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
+      const rawDate = exp.paidAt || exp.dueDate || exp.date || "";
       const d = new Date(rawDate);
 
       const isTargetMonth =
@@ -642,8 +610,7 @@ export default function AnalyticsScreen() {
     let cardSum = 0;
 
     expenses.forEach((exp) => {
-      const rawDate =
-        exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
+      const rawDate = exp.paidAt || exp.dueDate || exp.date || "";
       const d = new Date(rawDate);
 
       const isTargetMonth =
@@ -685,8 +652,7 @@ export default function AnalyticsScreen() {
     let unassignedCardSpending = 0;
 
     expenses.forEach((exp) => {
-      const rawDate =
-        exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
+      const rawDate = exp.paidAt || exp.dueDate || exp.date || "";
       const d = new Date(rawDate);
 
       const isTargetMonth =
@@ -698,7 +664,7 @@ export default function AnalyticsScreen() {
 
       const val = parseAmount(exp.value ?? exp.amount);
       const targetCardId =
-        exp.cardId ||
+        (exp as any).cardId ||
         (typeof exp.card === "object" ? exp.card?.id : null) ||
         userCards.find(
           (c) =>
@@ -737,8 +703,7 @@ export default function AnalyticsScreen() {
     let debitTotal = 0;
 
     expenses.forEach((exp) => {
-      const rawDate =
-        exp.paidAt || exp.dueDate || exp.date || exp.createdAt || "";
+      const rawDate = exp.paidAt || exp.dueDate || exp.date || "";
       const d = new Date(rawDate);
 
       const isTargetMonth =
@@ -750,7 +715,7 @@ export default function AnalyticsScreen() {
 
       const val = parseAmount(exp.value ?? exp.amount);
       const targetCardId =
-        exp.cardId ||
+        (exp as any).cardId ||
         (typeof exp.card === "object" ? exp.card?.id : null) ||
         userCards.find(
           (c) =>

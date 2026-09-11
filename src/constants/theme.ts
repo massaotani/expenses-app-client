@@ -74,6 +74,36 @@ export const useAppTheme = () => {
   return context;
 };
 
+export const getCategoryColor = (
+  cat: string,
+  isDark: boolean = false,
+): string => {
+  switch (cat?.toLowerCase().replace(/_/g, " ").trim()) {
+    case "housing":
+      return isDark ? "#ff595e" : "#ff6600";
+    case "food":
+      return isDark ? "#ff924c" : "#ff9900";
+    case "fixed expenses":
+      return isDark ? "#A78BFA" : "#6D28D9";
+    case "transportation":
+    case "transport":
+      return isDark ? "#8ac926" : "#669900";
+    case "entertainment":
+      return isDark ? "#c5ca30" : "#99cc33";
+    case "healthcare":
+    case "health":
+      return isDark ? "#ffca3a" : "#ffcc00";
+    case "clothing":
+      return isDark ? "#36949d" : "#006699";
+    case "pet":
+      return isDark ? "#1982c4" : "#3399cc";
+    case "travel":
+      return isDark ? "#6a4c93" : "#990066";
+    default:
+      return isDark ? "#565aa0" : "#cc3399";
+  }
+};
+
 export const lightColors = {
   headerBackground: "#1E4D4F",
   screenBackground: "#F3EFEA",
