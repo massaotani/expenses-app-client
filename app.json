@@ -45,14 +45,6 @@
         }
       ],
       [
-        "expo-build-properties",
-        {
-          "android": {
-            "usesCleartextTraffic": true
-          }
-        }
-      ],
-      [
         "expo-dynamic-app-icon",
         {
           "light": {
@@ -60,6 +52,15 @@
           },
           "dark": {
             "image": "./assets/images/logos/LedgerApp_Logo_Dark.png"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "kotlinVersion": "1.9.24"
           }
         }
       ]

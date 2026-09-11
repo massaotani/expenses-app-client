@@ -204,17 +204,18 @@ const resolvePaymentMethod = (item: ExpenseItem, cards: UserCard[]): string => {
 
   if (rawCardId !== null && rawCardId !== undefined) {
     const match = cards.find((c) => String(c.id) === String(rawCardId));
-    if (match && match.name) return match.name;
-
+    const trimmedName = match?.name?.trim();
+    if (trimmedName) return trimmedName;
     return "Deleted Card";
   }
 
   if (item.card && typeof item.card === "object" && item.card.name) {
     const match = cards.find(
-      (c) => c.name.toLowerCase() === item.card.name.toLowerCase(),
+      (c) =>
+        c.name.trim().toLowerCase() === item.card.name.trim().toLowerCase(),
     );
-    if (match) return match.name;
-
+    const trimmedMatchName = match?.name?.trim();
+    if (trimmedMatchName) return trimmedMatchName;
     return "Deleted Card";
   }
 
