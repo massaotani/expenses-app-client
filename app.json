@@ -25,6 +25,7 @@
       "favicon": "./assets/images/logos/LedgerApp_Logo_Light.png"
     },
     "plugins": [
+      "./plugins/withKotlinJvmTarget",
       "expo-router",
       [
         "expo-splash-screen",
