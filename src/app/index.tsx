@@ -1,12 +1,12 @@
 import api from "@/services/api";
 import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 import { Ionicons } from "@expo/vector-icons";
-// import {
-//   GoogleSignin,
-//   isCancelledResponse,
-//   isErrorWithCode,
-//   statusCodes,
-// } from "@react-native-google-signin/google-signin";
+import {
+  GoogleSignin,
+  isCancelledResponse,
+  isErrorWithCode,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,13 +14,14 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View
+  View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -117,71 +118,71 @@ export default function LoginScreen() {
   };
 
   // 1. Configure Google Sign-In with your credentials
-  // useEffect(() => {
-  //   GoogleSignin.configure({
-  //     webClientId:
-  //       "1081635959519-p7eelusfog4vvt28cu0dd7d9jgescsdo.apps.googleusercontent.com",
-  //     iosClientId:
-  //       "1081635959519-e3g6vbna6eb51mc6idutgtuaj3hfalln.apps.googleusercontent.com",
-  //   });
-  // }, []);
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId:
+        "1081635959519-p7eelusfog4vvt28cu0dd7d9jgescsdo.apps.googleusercontent.com",
+      iosClientId:
+        "1081635959519-e3g6vbna6eb51mc6idutgtuaj3hfalln.apps.googleusercontent.com",
+    });
+  }, []);
 
-  // // 2. Google Sign-In Handler
-  // const handleGoogleSignIn = async () => {
-  //   setLoading(true);
-  //   setErrorMessage("");
+  // 2. Google Sign-In Handler
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setErrorMessage("");
 
-  //   try {
-  //     await GoogleSignin.hasPlayServices({
-  //       showPlayServicesUpdateDialog: true,
-  //     });
+    try {
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
 
-  //     const response = await GoogleSignin.signIn();
-  //     const idToken = response.data?.idToken;
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
 
-  //     if (!idToken) {
-  //       throw new Error("No Google ID token retrieved.");
-  //     }
+      if (!idToken) {
+        throw new Error("No Google ID token retrieved.");
+      }
 
-  //     const apiRes = await api.post("/api/v1/auth/google", { idToken });
-  //     const { token, accessToken, refreshToken } = apiRes.data;
-  //     const jwtToken = token || accessToken;
+      const apiRes = await api.post("/api/v1/auth/google", { idToken });
+      const { token, accessToken, refreshToken } = apiRes.data;
+      const jwtToken = token || accessToken;
 
-  //     if (jwtToken && refreshToken) {
-  //       await signIn(jwtToken, refreshToken);
-  //     } else {
-  //       setErrorMessage("Invalid server response. Missing security tokens.");
-  //     }
-  //   } catch (error: any) {
-  //     if (isCancelledResponse(error)) {
-  //       setLoading(false);
-  //       return;
-  //     }
+      if (jwtToken && refreshToken) {
+        await signIn(jwtToken, refreshToken);
+      } else {
+        setErrorMessage("Invalid server response. Missing security tokens.");
+      }
+    } catch (error: any) {
+      if (isCancelledResponse(error)) {
+        setLoading(false);
+        return;
+      }
 
-  //     if (__DEV__) {
-  //       console.error("Google Sign-In Error:", error);
-  //     }
+      if (__DEV__) {
+        console.error("Google Sign-In Error:", error);
+      }
 
-  //     if (isErrorWithCode(error)) {
-  //       switch (error.code) {
-  //         case statusCodes.IN_PROGRESS:
-  //           setErrorMessage("Sign in is in progress.");
-  //           break;
-  //         case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-  //           setErrorMessage("Google Play Services are not available.");
-  //           break;
-  //         default:
-  //           setErrorMessage("Google Sign-In failed. Please try again.");
-  //       }
-  //     } else {
-  //       setErrorMessage(
-  //         error.response?.data?.message || "Google Sign-In failed.",
-  //       );
-  //     }
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            setErrorMessage("Sign in is in progress.");
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            setErrorMessage("Google Play Services are not available.");
+            break;
+          default:
+            setErrorMessage("Google Sign-In failed. Please try again.");
+        }
+      } else {
+        setErrorMessage(
+          error.response?.data?.message || "Google Sign-In failed.",
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -386,7 +387,7 @@ export default function LoginScreen() {
               />
             </View>
 
-            {/* <View style={styles.socialRow}>
+            <View style={styles.socialRow}>
               <TouchableOpacity
                 style={[
                   styles.socialButton,
@@ -444,7 +445,7 @@ export default function LoginScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-            </View> */}
+            </View>
 
             <View style={styles.footerRow}>
               <Text
