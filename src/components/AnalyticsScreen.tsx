@@ -265,9 +265,13 @@ export default function AnalyticsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData();
+      setSelectedDate(new Date());
     }, []),
   );
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedDate]);
 
   const currentSystemDateRef = useRef(new Date());
 
@@ -367,6 +371,7 @@ export default function AnalyticsScreen() {
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1),
     );
+    setSelectedMonthIndex(2);
   };
 
   const incomeColor = isDark ? COLORS.incomeGreen : colors.primaryTeal;
@@ -805,13 +810,15 @@ export default function AnalyticsScreen() {
             {t("spendingInsights", "Spending insights") || "Spending insights"}{" "}
             •{" "}
             {(() => {
-              const rawDate = selectedDate.toLocaleDateString(
-                i18n.language || "en",
-                {
-                  month: "long",
-                  year: "numeric",
-                },
+              const d = new Date(
+                selectedMonth.year,
+                selectedMonth.monthIndex,
+                1,
               );
+              const rawDate = d.toLocaleDateString(i18n.language || "en", {
+                month: "long",
+                year: "numeric",
+              });
               return rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
             })()}
           </Text>

@@ -78,6 +78,9 @@
     "owner": "ledgerapp",
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f2d515ec-b1ed-4035-a618-5972ebe7c33e"
     }
   }
 }

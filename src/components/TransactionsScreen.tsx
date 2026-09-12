@@ -397,9 +397,13 @@ export default function TransactionsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData();
-    }, [selectedDate]),
+      setSelectedDate(new Date());
+    }, []),
   );
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedDate]);
 
   const lastCheckedMonthRef = useRef<number>(new Date().getMonth());
 
