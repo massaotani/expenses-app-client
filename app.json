@@ -71,7 +71,9 @@
     },
     "extra": {
       "router": {},
-      "eas": {}
+      "eas": {
+        "projectId": "f2d515ec-b1ed-4035-a618-5972ebe7c33e"
+      }
     },
     "owner": "ledgerapp",
     "runtimeVersion": {
