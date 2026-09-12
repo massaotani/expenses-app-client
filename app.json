@@ -76,6 +76,6 @@
     "owner": "ledgerapp",
     "runtimeVersion": {
       "policy": "appVersion"
-    },
+    }
   }
 }
