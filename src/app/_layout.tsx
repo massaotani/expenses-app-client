@@ -8,11 +8,12 @@ import api, { setOnTokenRefreshed, setOnUnauthenticated } from "@/services/api";
 import { initLanguage } from "@/services/i18n";
 import { deleteItem, getItem, setItem } from "@/utils/storage";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-// import { getAppIcon, setAppIcon } from "expo-dynamic-app-icon";
+import { getAppIcon, setAppIcon } from "expo-dynamic-app-icon";
 import { Slot, useRouter, useSegments } from "expo-router";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   StyleSheet,
   useColorScheme,
   View,
@@ -80,22 +81,40 @@ function InitialLayout() {
 export default function RootLayout() {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
-  const colorScheme = useColorScheme();
 
-  // useEffect(() => {
-  //   try {
-  //     const targetIcon = colorScheme === "dark" ? "dark" : "light";
-  //     if (getAppIcon && getAppIcon() !== targetIcon) {
-  //       setAppIcon(targetIcon);
-  //     }
-  //   } catch (error) {
-  //     if (__DEV__) {
-  //       console.warn(
-  //         "Dynamic app icons are not supported in Expo Go or this build.",
-  //       );
-  //     }
-  //   }
-  // }, [colorScheme]);
+  const colorScheme = useColorScheme();
+  const colorSchemeRef = useRef(colorScheme);
+  const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    colorSchemeRef.current = colorScheme;
+  }, [colorScheme]);
+
+  const syncIcon = () => {
+    const currentScheme = colorSchemeRef.current;
+    if (!currentScheme) return;
+
+    const currentIcon = getAppIcon();
+    if (currentIcon !== currentScheme) {
+      setAppIcon(currentScheme);
+    }
+  };
+
+  useEffect(() => {
+    syncIcon();
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextState === "active"
+      ) {
+        syncIcon();
+      }
+      appState.current = nextState;
+    });
+
+    return () => subscription.remove();
+  }, [colorScheme]);
 
   const signOut = async () => {
     delete api.defaults.headers.common["Authorization"];

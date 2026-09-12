@@ -55,6 +55,21 @@ const FilterListHeader = memo(
     translatePaymentMethod,
     getPaymentIcon,
   }: FilterListHeaderProps) => {
+    const categoryScrollRef = useRef<ScrollView>(null);
+    const cardScrollRef = useRef<ScrollView>(null);
+
+    useEffect(() => {
+      if (selectedFilter === "All") {
+        categoryScrollRef.current?.scrollTo({ x: 0, animated: true });
+      }
+    }, [selectedFilter]);
+
+    useEffect(() => {
+      if (selectedCardFilter === "All Payment Methods") {
+        cardScrollRef.current?.scrollTo({ x: 0, animated: true });
+      }
+    }, [selectedCardFilter]);
+
     return (
       <View
         style={[
@@ -63,6 +78,7 @@ const FilterListHeader = memo(
         ]}
       >
         <ScrollView
+          ref={categoryScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[
@@ -111,6 +127,7 @@ const FilterListHeader = memo(
 
         {filterCards.length > 1 && (
           <ScrollView
+            ref={cardScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={[
@@ -428,6 +445,7 @@ export default function TransactionsScreen() {
   );
 
   const fetchData = async () => {
+    if (!refreshing) setLoading(true);
     try {
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth() + 1;
@@ -514,6 +532,9 @@ export default function TransactionsScreen() {
   }, [selectedDate]);
 
   const changeMonth = (offset: number) => {
+    setLoading(true);
+    setSelectedFilter("All");
+    setSelectedCardFilter("All Payment Methods");
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1),
     );
@@ -561,6 +582,10 @@ export default function TransactionsScreen() {
   }, [allTransactions, monthlyIncome]);
 
   const filterCategories = useMemo(() => {
+    if (loading && allTransactions.length === 0) {
+      return ["All", "Income", ...CATEGORIES];
+    }
+
     const categoriesSet = new Set<string>();
     let hasIncome = false;
 
@@ -571,22 +596,29 @@ export default function TransactionsScreen() {
         categoriesSet.add(String(t.category));
       }
     });
+
     return [
       "All",
       ...(hasIncome ? ["Income"] : []),
       ...Array.from(categoriesSet),
     ];
-  }, [allTransactions]);
+  }, [allTransactions, loading]);
 
   const filterCards = useMemo(() => {
+    if (loading && allTransactions.length === 0) {
+      const cardNames = userCards.map((c) => c.name);
+      return ["All Payment Methods", "Cash", ...cardNames];
+    }
+
     const cardsSet = new Set<string>();
     allTransactions.forEach((t) => {
       if (t.type === "EXPENSE") {
         cardsSet.add(String(t.paymentMethod || "Cash"));
       }
     });
+
     return ["All Payment Methods", ...Array.from(cardsSet)];
-  }, [allTransactions]);
+  }, [allTransactions, userCards, loading]);
 
   const filteredTransactions = useMemo(() => {
     return allTransactions.filter((t) => {
@@ -981,18 +1013,18 @@ export default function TransactionsScreen() {
     </View>
   );
 
-  if (loading && !refreshing) {
-    return (
-      <SafeAreaView
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: appColors.screenBackground },
-        ]}
-      >
-        <ActivityIndicator size="large" color={appColors.primaryTeal} />
-      </SafeAreaView>
-    );
-  }
+  // if (loading && !refreshing) {
+  //   return (
+  //     <SafeAreaView
+  //       style={[
+  //         styles.loadingContainer,
+  //         { backgroundColor: appColors.screenBackground },
+  //       ]}
+  //     >
+  //       <ActivityIndicator size="large" color={appColors.primaryTeal} />
+  //     </SafeAreaView>
+  //   );
+  // }
 
   return (
     <SafeAreaView
@@ -1016,149 +1048,165 @@ export default function TransactionsScreen() {
           paddingBottom: 45,
         }}
       >
-        <FilterListHeader
-          filterCategories={filterCategories}
-          filterCards={filterCards}
-          selectedFilter={selectedFilter}
-          selectedCardFilter={selectedCardFilter}
-          setSelectedFilter={setSelectedFilter}
-          setSelectedCardFilter={setSelectedCardFilter}
-          isDark={isDark}
-          appColors={appColors}
-          getFilterLabel={getFilterLabel}
-          translatePaymentMethod={translatePaymentMethod}
-          getPaymentIcon={getPaymentIcon}
-        />
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={appColors.primaryTeal} />
+          </View>
+        ) : (
+          <>
+            <FilterListHeader
+              filterCategories={filterCategories}
+              filterCards={filterCards}
+              selectedFilter={selectedFilter}
+              selectedCardFilter={selectedCardFilter}
+              setSelectedFilter={setSelectedFilter}
+              setSelectedCardFilter={setSelectedCardFilter}
+              isDark={isDark}
+              appColors={appColors}
+              getFilterLabel={getFilterLabel}
+              translatePaymentMethod={translatePaymentMethod}
+              getPaymentIcon={getPaymentIcon}
+            />
 
-        <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-          <FlatList
-            data={filteredTransactions}
-            keyExtractor={(item) => item.id}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  {t(
-                    "noTransactionsRegistered",
-                    "No transactions registered.",
-                  ) || "No transactions registered."}
-                </Text>
-              </View>
-            }
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={appColors.primaryTeal}
-              />
-            }
-            contentContainerStyle={[
-              styles.listContent,
-              { backgroundColor: appColors.screenBackground },
-            ]}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => {
-              const isIncome = item.type === "INCOME";
-              const paymentMethodName = item.paymentMethod || "Cash";
-              const formattedDate = formatDate(
-                item.rawDate,
-                i18n.language,
-                t("recent", "Recent") || "Recent",
-              );
-
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: appColors.cardBackground,
-                      borderColor: appColors.divider,
-                    },
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => handleCardPress(item)}
-                >
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: appColors.iconBoxBg },
-                    ]}
-                  >
-                    {getCategoryIcon(item.category, appColors.textPrimary, 20)}
-                  </View>
-
-                  <View style={styles.cardDetails}>
-                    <Text
-                      style={[
-                        styles.itemTitle,
-                        { color: appColors.textPrimary },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.title}
+            <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+              <FlatList
+                data={filteredTransactions}
+                keyExtractor={(item) => item.id}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>
+                      {t(
+                        "noTransactionsRegistered",
+                        "No transactions registered.",
+                      ) || "No transactions registered."}
                     </Text>
+                  </View>
+                }
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={appColors.primaryTeal}
+                  />
+                }
+                contentContainerStyle={[
+                  styles.listContent,
+                  { backgroundColor: appColors.screenBackground },
+                ]}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => {
+                  const isIncome = item.type === "INCOME";
+                  const paymentMethodName = item.paymentMethod || "Cash";
+                  const formattedDate = formatDate(
+                    item.rawDate,
+                    i18n.language,
+                    t("recent", "Recent") || "Recent",
+                  );
 
-                    <View style={styles.lineRow}>
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.card,
+                        {
+                          backgroundColor: appColors.cardBackground,
+                          borderColor: appColors.divider,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => handleCardPress(item)}
+                    >
                       <View
                         style={[
-                          styles.categoryBadge,
-                          isDark && { backgroundColor: appColors.primaryTeal },
+                          styles.iconContainer,
+                          { backgroundColor: appColors.iconBoxBg },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.categoryBadgeText,
-                            isDark && { color: appColors.textPrimary },
-                          ]}
-                        >
-                          {translateCategory(item.category)}
-                        </Text>
+                        {getCategoryIcon(
+                          item.category,
+                          appColors.textPrimary,
+                          20,
+                        )}
                       </View>
-                    </View>
 
-                    <View style={styles.lineRow}>
-                      <View
-                        style={[
-                          styles.paymentBadge,
-                          isDark && { backgroundColor: appColors.iconBoxBg },
-                          isIncome && styles.incomeBadge,
-                        ]}
-                      >
+                      <View style={styles.cardDetails}>
                         <Text
                           style={[
-                            styles.paymentBadgeText,
-                            isDark && { color: appColors.textPrimary },
+                            styles.itemTitle,
+                            { color: appColors.textPrimary },
                           ]}
                           numberOfLines={1}
-                          ellipsizeMode="tail"
-                          maxFontSizeMultiplier={1.3}
                         >
-                          {isIncome
-                            ? `💰 ${t("income_transaction", "Deposit") || "Deposit"}`
-                            : `${getPaymentIcon(
-                                paymentMethodName,
-                              )} ${translatePaymentMethod(paymentMethodName)}`}
+                          {item.title}
                         </Text>
+
+                        <View style={styles.lineRow}>
+                          <View
+                            style={[
+                              styles.categoryBadge,
+                              isDark && {
+                                backgroundColor: appColors.primaryTeal,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.categoryBadgeText,
+                                isDark && { color: appColors.textPrimary },
+                              ]}
+                            >
+                              {translateCategory(item.category)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.lineRow}>
+                          <View
+                            style={[
+                              styles.paymentBadge,
+                              isDark && {
+                                backgroundColor: appColors.iconBoxBg,
+                              },
+                              isIncome && styles.incomeBadge,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.paymentBadgeText,
+                                isDark && { color: appColors.textPrimary },
+                              ]}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                              maxFontSizeMultiplier={1.3}
+                            >
+                              {isIncome
+                                ? `💰 ${t("income_transaction", "Deposit") || "Deposit"}`
+                                : `${getPaymentIcon(
+                                    paymentMethodName,
+                                  )} ${translatePaymentMethod(paymentMethodName)}`}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.dateText}>{formattedDate}</Text>
                       </View>
-                    </View>
 
-                    <Text style={styles.dateText}>{formattedDate}</Text>
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.amountText,
-                      isIncome ? styles.incomeAmount : styles.expenseAmount,
-                    ]}
-                  >
-                    {isIncome
-                      ? `+${formatCurrency(item.amount, currency)}`
-                      : `-${formatCurrency(item.amount, currency)}`}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
+                      <Text
+                        style={[
+                          styles.amountText,
+                          isIncome ? styles.incomeAmount : styles.expenseAmount,
+                        ]}
+                      >
+                        {isIncome
+                          ? `+${formatCurrency(item.amount, currency)}`
+                          : `-${formatCurrency(item.amount, currency)}`}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
+          </>
+        )}
       </View>
 
       <BottomSheetModal

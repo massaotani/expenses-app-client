@@ -1,6 +1,6 @@
-const { withProjectBuildGradle } = require("@expo/config-plugins");
+import { withProjectBuildGradle } from "@expo/config-plugins";
 
-module.exports = function withKotlinJvmTarget(config) {
+export default function withKotlinJvmTarget(config: any) {
   return withProjectBuildGradle(config, (config) => {
     if (config.modResults.language === "groovy") {
       config.modResults.contents += `
@@ -16,4 +16,4 @@ allprojects {
     }
     return config;
   });
-};
+}

@@ -4,17 +4,17 @@
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logos/LedgerApp_Logo_Dark.png",
+    "icon": "./assets/images/logos/Ledger_Logo_Dark.jpg",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/logos/LedgerApp_Logo_Dark.png",
+      "icon": "./assets/images/logos/Ledger_Logo_Dark.jpg",
       "bundleIdentifier": "com.massaotani.ledgerapp"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#204B4C",
-        "foregroundImage": "./assets/images/logos/LedgerApp_Logo_Dark.png"
+        "backgroundColor": "#e8e8e8",
+        "foregroundImage": "./assets/images/logos/Ledger_Foreground.png"
       },
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
@@ -58,10 +58,10 @@
         "expo-dynamic-app-icon",
         {
           "light": {
-            "image": "./assets/images/logos/LedgerApp_Logo_Light.png"
+            "image": "./assets/images/logos/Ledger_Logo_Light.jpg"
           },
           "dark": {
-            "image": "./assets/images/logos/LedgerApp_Logo_Dark.png"
+            "image": "./assets/images/logos/Ledger_Logo_Dark.jpg"
           }
         }
       ]
