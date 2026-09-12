@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Ledger",
-    "slug": "app",
+    "name": "Ledger App",
+    "slug": "ledger",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logos/Ledger_Logo_Dark.jpg",
-    "scheme": "app",
+    "icon": "./assets/images/logos/Ledger_Logo_Light.jpg",
+    "scheme": "ledger",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/logos/Ledger_Logo_Dark.jpg",
@@ -22,7 +22,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/logos/LedgerApp_Logo_Light.png"
+      "favicon": "./assets/images/logos/Ledger_Logo_Light.jpg"
     },
     "plugins": [
       "./plugins/withKotlinJvmTarget",
@@ -71,16 +71,11 @@
     },
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "93516eb6-43b9-455b-b9a8-eccc0b429a77"
-      }
+      "eas": {}
     },
     "owner": "ledgerapp",
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/93516eb6-43b9-455b-b9a8-eccc0b429a77"
-    }
   }
 }
