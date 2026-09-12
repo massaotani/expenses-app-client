@@ -266,6 +266,7 @@ export default function AnalyticsScreen() {
   useFocusEffect(
     useCallback(() => {
       setSelectedDate(new Date());
+      setSelectedMonthIndex(2);
     }, []),
   );
 

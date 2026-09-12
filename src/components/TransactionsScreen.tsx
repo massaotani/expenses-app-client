@@ -398,6 +398,8 @@ export default function TransactionsScreen() {
   useFocusEffect(
     useCallback(() => {
       setSelectedDate(new Date());
+      setSelectedFilter("All");
+      setSelectedCardFilter("All Payment Methods");
     }, []),
   );
 
